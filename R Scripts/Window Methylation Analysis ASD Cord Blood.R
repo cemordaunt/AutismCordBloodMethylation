@@ -249,22 +249,39 @@ methStats[methStats$qValue < 0.05,]
 # chr16 65520000 65530000 64.54697 67.64191 -3.094936  -4.227428   -1.962444 2.494654e-07 0.03850349         TRUE
 write.table(methStats, "Tables/Window Methylation Stats by Diagnosis.txt", sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
-# Methylation PCs by Categorical Covariates ####
-# Stats with 1-way ANOVA
+# Methylation PCs by Covariate Stats ####
+# Categorical Covariate Stats with 1-way ANOVA
 catVars <- c("Diagnosis_Alg", "Study", "Platform", "Sex", "Site")
 samples[,c("Study", "Platform", "Sex", "Site")] <- lapply(samples[,c("Study", "Platform", "Sex", "Site")], as.factor)
 PCAcatANOVAstats <- PCAcatANOVA(variables = catVars, sampleData = samples, PCdata = pc1234)
-cont_padj <- unique(PCAcatANOVAstats[,c("PC", "Variable", "pvalue")])
-cont_padj$qvalue <- p.adjust(cont_padj$pvalue, method = "fdr")
-PCAcatANOVAstats$qvalue <- cont_padj$qvalue[match(PCAcatANOVAstats$pvalue, cont_padj$pvalue)]
-unique(PCAcatANOVAstats[PCAcatANOVAstats$qvalue < 0.05 ,c("PC", "Variable")])
-#  PC Variable
-# PC2    Study
-# PC2 Platform
-# PC2     Site
-# PC4 Platform
-write.table(PCAcatANOVAstats, "Tables/Methylation PCs and Categorical Covariate Stats by ANOVA.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
+# Continuous Covariate Stats with linear regression
+contVars <- c(colnames(samples)[9:ncol(samples)])
+PCAcontLmStats <- PCAcontLm(variables = contVars, sampleData = samples, PCdata = pc1234)
+
+# Adjust p-values
+cat_padj <- unique(PCAcatANOVAstats[,c("PC", "Variable", "pvalue")])
+cont_padj <- unique(PCAcontLmStats[,c("PC", "Variable", "pvalue")])
+
+cat_padj$qvalue <- p.adjust(cat_padj$pvalue, method = "fdr", n = nrow(cat_padj) + nrow(cont_padj))
+cont_padj$qvalue <- p.adjust(cont_padj$pvalue, method = "fdr", n = nrow(cat_padj) + nrow(cont_padj))
+
+PCAcatANOVAstats$qvalue <- cat_padj$qvalue[match(PCAcatANOVAstats$pvalue, cat_padj$pvalue)]
+PCAcontLmStats$qvalue <- cont_padj$qvalue[match(PCAcontLmStats$pvalue, cont_padj$pvalue)]
+
+write.table(PCAcatANOVAstats, "Tables/Methylation PCs and Categorical Covariate Stats by ANOVA.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+write.table(PCAcontLmStats, "Tables/Methylation PCs and Continuous Covariate Stats by lm.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+unique(PCAcatANOVAstats[PCAcatANOVAstats$qvalue < 0.05 ,c("PC", "Variable")])
+# PC2: Study, Platform, Site
+
+unique(PCAcontLmStats[PCAcontLmStats$qvalue < 0.05 ,c("PC", "Variable")])
+# PC1: MSLvrTscore36, MSLfmTscore36, MSLrlTscore36, MSLelTscore36, MSLelcStandard36, percent_cpg_meth
+# PC2: percent_trimmed, percent_aligned, percent_duplicate, C_coverage, CG_coverage, percent_cpg_meth, 
+# PC3: percent_chh_meth, 
+# PC4: percent_trimmed, dedup_reads, percent_chg_meth, percent_chh_meth, percent_cpg_meth
+
+# Methylation PCs by Covariate Plots ####
 # PCA Colored by Platform
 table(samples$Sequencing_ID == colnames(permeth)[4:ncol(permeth)]) # All TRUE
 table(is.na(permeth)) # All FALSE
@@ -295,20 +312,6 @@ ggbiplotPCA(data.pca = data.pca, groups = samples$Platform, pc = c(3,4),
             breaks = c("HiSeqX10", "HiSeq4000", "HiSeq2500"), 
             values = c("HiSeqX10"="#3366CC", "HiSeq4000"="#FF3366", "HiSeq2500"="#009933"))
 
-# Methylation PCs by Continuous Covariates ####
-# Stats with linear regression
-contVars <- c(colnames(samples)[9:ncol(samples)])
-PCAcontLmStats <- PCAcontLm(variables = contVars, sampleData = samples, PCdata = pc1234)
-cont_padj <- unique(PCAcontLmStats[,c("PC", "Variable", "pvalue")])
-cont_padj$qvalue <- p.adjust(cont_padj$pvalue, method = "fdr")
-PCAcontLmStats$qvalue <- cont_padj$qvalue[match(PCAcontLmStats$pvalue, cont_padj$pvalue)]
-unique(PCAcontLmStats[PCAcontLmStats$qvalue < 0.05 ,c("PC", "Variable")])
-# PC1 MSLvrTscore36, MSLfmTscore36, MSLrlTscore36, MSLelTscore36, MSLelcStandard36,  percent_cpg_meth
-# PC2 percent_trimmed, percent_aligned, percent_duplicate, C_coverage, CG_coverage, percent_cpg_meth
-# PC3 percent_chh_meth
-# PC4 percent_trimmed, dedup_reads, percent_chg_meth, percent_chh_meth, percent_cpg_meth
-write.table(PCAcontLmStats, "Tables/Methylation PCs and Continuous Covariate Stats by lm.txt", sep = "\t", quote = FALSE, row.names = FALSE)
-
 # PCs vs Continuous Covariates Scatterplots
 ggScatterPlot(x = samples$MSLelcStandard36, y = pc1234$PC1, diagnosis = samples$Diagnosis_Alg,
               fileName = "Figures/ASD Cord Window Methylation by Mullen Composite PC1 Plot.png",
@@ -327,6 +330,105 @@ ggScatterPlot(x = samples$percent_cpg_meth, y = pc1234$PC4, diagnosis = samples$
               xlab = "Global mCpG (%)", ylab = "Window Methylation PC4")
 
 # Next: 
-# Fix q-values to account for categorical and continuous variables
 # Look at platform differences by window, and add platform to diagnosis linear model
+
+# Methylation by Platform ####
+# Global mCpG ~ Platform
+mCpG_platform_data <- subset(samples, Platform %in% c("HiSeq4000", "HiSeqX10"), select = c(Sequencing_ID, Platform, percent_cpg_meth))
+mCpG_platform_data$Platform <- mCpG_platform_data$Platform %>% as.character %>% as.factor
+mCpG_platform <- aov(mCpG_platform_data$percent_cpg_meth ~ mCpG_platform_data$Platform)
+summary(mCpG_platform)[[1]][1,"Pr(>F)"] # 7.789803e-17
+TukeyHSD(mCpG_platform)
+#                      diff      lwr      upr p adj
+# HiSeqX10-HiSeq4000 1.6955 1.338953 2.052047     0
+aggregate(mCpG_platform_data$percent_cpg_meth, by = list(mCpG_platform_data$Platform), FUN = mean)
+# HiSeq4000 75.45824
+#  HiSeqX10 77.15374
+
+g <- ggplot(data = mCpG_platform_data)
+g + 
+        geom_boxplot(aes(x=Platform, y=percent_cpg_meth, fill = Platform), size = 1.1) +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = "none", panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = element_blank()) +
+        scale_y_continuous(breaks=pretty_breaks(n=4)) +
+        ylab("Global CpG Methylation (%)") +
+        scale_fill_manual(breaks = c("HiSeqX10", "HiSeq4000"), values = c("HiSeqX10"="#3366CC", "HiSeq4000"="#FF3366"))
+ggsave("Figures/ASD Cord Global Methylation by Platform Boxplot.png", dpi = 600, width = 7, height = 7, units = "in")
+
+# Global mCpG ~ Platform + Diagnosis
+mCpG_platformDiag_data <- subset(samples, Platform %in% c("HiSeq4000", "HiSeqX10"), select = c(Sequencing_ID, Platform, Diagnosis_Alg, percent_cpg_meth))
+mCpG_platformDiag_data$Platform <- mCpG_platformDiag_data$Platform %>% as.character %>% as.factor
+mCpG_platformDiag <- aov(percent_cpg_meth ~ Platform * Diagnosis_Alg, data = mCpG_platformDiag_data)
+summary(mCpG_platformDiag)
+#                         Df Sum Sq Mean Sq F value Pr(>F)    
+# Platform                 1  94.14   94.14  91.829 <2e-16 ***
+# Diagnosis_Alg            1   5.93    5.93   5.783 0.0174 *  
+# Platform:Diagnosis_Alg   1   2.47    2.47   2.407 0.1229  
+
+TukeyHSD(mCpG_platformDiag)
+#                                  diff          lwr        upr     p adj
+# HiSeqX10:ASD-HiSeq4000:ASD  1.9256250  1.293825963  2.5574240 0.0000000
+# HiSeq4000:TD-HiSeq4000:ASD  0.7773216  0.005578767  1.5490645 0.0476425
+# HiSeqX10:TD-HiSeq4000:ASD   2.1516317  1.527399423  2.7758640 0.0000000
+# HiSeq4000:TD-HiSeqX10:ASD  -1.1483034 -1.828399223 -0.4682076 0.0001257
+# HiSeqX10:TD-HiSeqX10:ASD    0.2260067 -0.280559455  0.7325729 0.6535297
+# HiSeqX10:TD-HiSeq4000:TD    1.3743101  0.701237838  2.0473824 0.0000024
+aggregate(percent_cpg_meth ~ Platform + Diagnosis_Alg, data = mCpG_platformDiag_data, FUN = mean)
+#  Platform Diagnosis_Alg percent_cpg_meth
+# HiSeq4000           ASD         75.11093
+#  HiSeqX10           ASD         77.03656
+# HiSeq4000            TD         75.88825
+#  HiSeqX10            TD         77.26256
+
+fisher.test(mCpG_platformDiag_data$Platform, mCpG_platformDiag_data$Diagnosis_Alg, workspace=2e7)
+# odds ratio    1.330844 
+# 95% CI        0.6340182 2.8184452
+# p-value       0.4854
+
+g <- ggplot(data = mCpG_platformDiag_data)
+g + 
+        geom_boxplot(aes(x=Platform, y=percent_cpg_meth, fill = Diagnosis_Alg), size = 1.1) +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.88, y=1.03), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = element_blank()) +
+        scale_y_continuous(breaks=pretty_breaks(n=4)) +
+        ylab("Global CpG Methylation (%)") +
+        scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366"))
+ggsave("Figures/ASD Cord Global Methylation by Platform and Diagnosis Boxplot.png", dpi = 600, width = 7, height = 7, units = "in")
+
+# Global mCG by Diagnosis
+mCpG_Diag <- aov(percent_cpg_meth ~ Diagnosis_Alg, data = mCpG_platformDiag_data)
+summary(mCpG_Diag)
+#                Df Sum Sq Mean Sq F value Pr(>F)  
+# Diagnosis_Alg   1   9.42    9.42   5.814 0.0171 *
+TukeyHSD(mCpG_Diag)
+#             diff        lwr       upr     p adj
+# TD-ASD 0.4930699 0.08906898 0.8970708 0.0170879
+aggregate(percent_cpg_meth ~ Diagnosis_Alg, data = mCpG_platformDiag_data, FUN = mean)
+# Diagnosis_Alg percent_cpg_meth
+#           ASD         76.39468
+#            TD         76.88775
+
+g <- ggplot(data = mCpG_platformDiag_data)
+g + 
+        geom_boxplot(aes(x=Diagnosis_Alg, y=percent_cpg_meth, fill = Diagnosis_Alg), size = 1.1) +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.88, y=1.03), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = element_blank()) +
+        scale_y_continuous(breaks=pretty_breaks(n=4)) +
+        ylab("Global CpG Methylation (%)") +
+        scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366"))
+ggsave("Figures/ASD Cord Global Methylation by Diagnosis Boxplot.png", dpi = 600, width = 7, height = 7, units = "in")
+
+# Next: Effect of Platform on window methylation
 
