@@ -455,7 +455,7 @@ colnames(mergedDemoSub)
 # [1] "mom_edu"             "mom_birthplace"      "dad_edu"             "dad_age"             "parity"             
 # [6] "bw_g"                "subject_gender"      "marital_status"      "home_ownership"      "cotinine_urine_ngml"
 # [11] "study"               "COI_ID"  
-mergedDemoSub <- mergedDemoSub[,!colnames(mergedDemoSub) %in% c("study", "subject_gender")]
+mergedDemoSub <- mergedDemoSub[,!colnames(mergedDemoSub) %in% c("study", "subject_gender", "mom_edu", "dad_edu", "mom_birthplace")]
 
 # Merge with Database
 mergedDatabaseDemo <- merge(x = mergedDatabase, y = mergedDemoSub, by = "COI_ID", all.x = TRUE, all.y = FALSE)
@@ -529,17 +529,16 @@ colnames(mergedDatabaseDemo) # 67
 mergedDatabaseDemoCols <- c("COI_ID", "Sequencing_ID", "Cord_Blood_IBC", "Study", "Platform", "Sex", "Site", "Diagnosis_Alg", "ADOScs",
                             "MSLelcStandard36", "MSLelTscore36", "MSLfmTscore36", "MSLrlTscore36", "MSLvrTscore36", "percent_trimmed",
                             "percent_aligned", "percent_duplicate", "dedup_reads", "C_coverage", "CG_coverage","percent_cpg_meth",
-                            "percent_chg_meth", "percent_chh_meth",  "ga_w", "bw_g", "MomAgeYr", "MomEdu_detail", "mom_edu", 
-                            "mom_birthplace", "Mat_Height_cm", "Mat_Weight_kg_PrePreg", "Mat_BMI_PrePreg", "DM1or2", "GDM", "PE", "parity",
-                            "dad_age", "dad_edu", "home_ownership", "marital_status", "SmokeYN_Pregnancy", "cotinine_urine_ngml", 
-                            "final_creatinine_mgdl", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", 
-                            "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", 
-                            "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9", "AllEQ_tot_All_FA_mcg_Mo_3", 
-                            "AllEQ_tot_All_FA_mcg_Mo_2", "AllEQ_tot_All_FA_mcg_Mo_1", "AllEQ_tot_All_FA_mcg_Mo1", 
-                            "AllEQ_tot_All_FA_mcg_Mo2", "AllEQ_tot_All_FA_mcg_Mo3", "AllEQ_tot_All_FA_mcg_Mo4", "AllEQ_tot_All_FA_mcg_Mo5",
-                            "AllEQ_tot_All_FA_mcg_Mo6", "AllEQ_tot_All_FA_mcg_Mo7", "AllEQ_tot_All_FA_mcg_Mo8", "AllEQ_tot_All_FA_mcg_Mo9")
+                            "percent_chg_meth", "percent_chh_meth",  "ga_w", "bw_g", "MomAgeYr", "MomEdu_detail", "Mat_Height_cm", 
+                            "Mat_Weight_kg_PrePreg", "Mat_BMI_PrePreg", "DM1or2", "GDM", "PE", "parity", "dad_age", "home_ownership",
+                            "marital_status", "SmokeYN_Pregnancy", "cotinine_urine_ngml", "final_creatinine_mgdl", "AllEQ_PV_YN_Mo_3", 
+                            "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", 
+                            "AllEQ_PV_YN_Mo4", "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", 
+                            "AllEQ_PV_YN_Mo9", "AllEQ_tot_All_FA_mcg_Mo_3", "AllEQ_tot_All_FA_mcg_Mo_2", "AllEQ_tot_All_FA_mcg_Mo_1", 
+                            "AllEQ_tot_All_FA_mcg_Mo1", "AllEQ_tot_All_FA_mcg_Mo2", "AllEQ_tot_All_FA_mcg_Mo3", "AllEQ_tot_All_FA_mcg_Mo4", 
+                            "AllEQ_tot_All_FA_mcg_Mo5", "AllEQ_tot_All_FA_mcg_Mo6", "AllEQ_tot_All_FA_mcg_Mo7", "AllEQ_tot_All_FA_mcg_Mo8",
+                            "AllEQ_tot_All_FA_mcg_Mo9")
 mergedDatabaseDemo <- mergedDatabaseDemo[,mergedDatabaseDemoCols]
-mergedDatabaseDemo <- mergedDatabaseDemo[,!colnames(mergedDatabaseDemo) == "MomEdu_detail"]
 mergedDatabaseDemo$bw_g <- round(mergedDatabaseDemo$bw_g, 0)
 
 mergedDatabaseDemo2 <- mergedDatabaseDemo
@@ -558,6 +557,10 @@ for(i in 1:ncol(mergedDatabaseDemo2)){
         mergedDatabaseDemo2[,i][mergedDatabaseDemo2[,i] == "NaN"] <- NA
 }
 table(sapply(mergedDatabaseDemo2, function(x) table(x == "NaN")["FALSE"]))
+
+mergedDatabaseDemo2$dedup_reads <- mergedDatabaseDemo2$dedup_reads / 1000000
+colnames(mergedDatabaseDemo2)[colnames(mergedDatabaseDemo2) == "dedup_reads"] <- "dedup_reads_M"
+
 write.table(mergedDatabaseDemo2, file = "Merged Database/MARBLES EARLI WGBS Sample Merged Covariate Database with Demo.txt", sep = "\t",
             quote = FALSE, row.names = FALSE)
 
