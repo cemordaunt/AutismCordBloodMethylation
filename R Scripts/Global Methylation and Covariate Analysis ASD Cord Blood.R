@@ -1,7 +1,7 @@
 # Global Methylation and Covariate Analysis ####
 # Autism Cord Blood Methylation Project
 # Charles Mordaunt
-# 10/3/18
+# 11/18/18
 
 # Packages ####
 library(reshape2)
@@ -11,7 +11,7 @@ library(ggplot2)
 library(ggbiplot)
 
 # Functions ####
-catFisher <- function(variables, sampleData, diagnosis){
+catFisher <- function(variables, sampleData, diagnosis, numHypotheses = length(variables)){
         # Analyzes table of categorical covariates for differences by ASD vs TD diagnosis using Fisher's exact test
         stats <- NULL
         for(i in 1:length(variables)){
@@ -29,10 +29,16 @@ catFisher <- function(variables, sampleData, diagnosis){
         varSums <- aggregate(as.matrix(stats[,c("TD", "ASD")]) ~ Variable, data=stats, FUN=sum)
         stats$per_TD <- stats$TD / varSums$TD[match(stats$Variable, varSums$Variable)]
         stats$per_ASD <- stats$ASD / varSums$ASD[match(stats$Variable, varSums$Variable)]
+        stats$nper_TD <- paste(stats$TD, " (", round(stats$per_TD*100,0), ")", sep = "")
+        stats$nper_ASD <- paste(stats$ASD, " (", round(stats$per_ASD*100,0), ")", sep = "")
+        stats_padj <- unique(stats[,c("Variable", "pvalue")])
+        stats_padj$qvalue <- p.adjust(stats_padj$pvalue, method = "fdr", n = numHypotheses)
+        stats$qvalue <- stats_padj$qvalue[match(stats$pvalue, stats_padj$pvalue)]
+        stats <- stats[,c("Variable", "Value", "TD", "ASD", "per_TD", "per_ASD", "nper_TD", "nper_ASD", "pvalue", "qvalue")]
         return(stats)
 }
 
-contANOVA <- function(variables, sampleData, diagnosis){
+contANOVA <- function(variables, sampleData, diagnosis, numHypotheses = length(variables)){
         # Compares continuous variables for differences by diagnosis using one-way ANOVA
         stats <- NULL
         for(i in 1:length(variables)){
@@ -46,7 +52,31 @@ contANOVA <- function(variables, sampleData, diagnosis){
         stats <- as.data.frame(stats, stringsAsFactors = FALSE)
         stats[,c("Variable", "Diagnosis")] <- lapply(stats[,c("Variable", "Diagnosis")], as.factor)
         stats[,c("Mean", "SD", "pvalue")] <- lapply(stats[,c("Mean", "SD", "pvalue")], as.numeric)
+        stats$MeanSD <- paste(round(stats$Mean, 2), " (", round(stats$SD, 2), ")", sep = "")
+        stats_padj <- unique(stats[,c("Variable", "pvalue")])
+        stats_padj$qvalue <- p.adjust(stats_padj$pvalue, method = "fdr", n = numHypotheses)
+        stats$qvalue <- stats_padj$qvalue[match(stats$pvalue, stats_padj$pvalue)]
+        stats <- stats[,c("Variable", "Diagnosis", "Mean", "SD", "MeanSD", "pvalue", "qvalue")]
         return(stats)
+}
+
+ggBoxPlot <- function(data, x, y, fill, xlab, ylab, breaks = c("TD", "ASD"), 
+                      values = c("TD"="#3366CC", "ASD"="#FF3366"), file, axis.title.x = element_blank()) {
+        # Plots a boxplot comparing a continous variable by diagnosis
+        g <- ggplot(data = data)
+        g + 
+                geom_boxplot(aes(x=x, y=y, fill = fill), size = 1.1) +
+                theme_bw(base_size = 25) +
+                theme(legend.direction = 'horizontal', legend.position = c(0.87,1.03), panel.grid.major = element_blank(), 
+                      panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25),
+                      legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+                      axis.text = element_text(color = "black"), legend.background = element_blank(), 
+                      plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = axis.title.x) +
+                scale_y_continuous(breaks=pretty_breaks(n=4)) +
+                xlab(xlab) +
+                ylab(ylab) +
+                scale_fill_manual(breaks = breaks, values = values)
+        ggsave(file = file, dpi = 600, width = 7, height = 7, units = "in")
 }
 
 methLm <- function(catVars, contVars, sampleData, globalMeth){
@@ -105,74 +135,46 @@ methLmPlatform <- function(catVars, contVars, sampleData, globalMeth, platform){
         return(stats)
 }
 
-PCAcatANOVA <- function(variables, sampleData, PCdata){
-        # Analyzes table of principal components for differences by categorical covariates using one-way ANOVA
+methLmAdj <- function(catVars, contVars, sampleData, globalMeth, adjVar1, adjVar2 = NULL){
+        # Analyzes categorical and continuous variables for association with global methylation, adjusting for 1 or more covariates using linear regression
         stats <- NULL
-        PCtemp <- NULL
-        PCs <- colnames(PCdata)[grep("PC", colnames(PCdata))]
-        for(i in 1:length(PCs)){
-                varTemp <- NULL
-                for(j in 1:length(variables)){
-                        means <- aggregate(PCdata[,PCs[i]] ~ sampleData[,variables[j]], FUN=mean)[,2]
-                        sds <- aggregate(PCdata[,PCs[i]] ~ sampleData[,variables[j]], FUN=sd)[,2]
-                        p <- summary(aov(PCdata[,PCs[i]] ~ sampleData[,variables[j]]))[[1]][1, "Pr(>F)"]
-                        temp <- cbind(rep(PCs[i], length(means)), rep(variables[j], length(means)), levels(sampleData[,variables[j]]), means, sds, rep(p, length(means)))
-                        varTemp <- rbind(varTemp, temp)
+        methDataCol <- as.numeric(sampleData[,globalMeth])
+        if(is.null(adjVar2)){
+                for(i in 1:length(catVars)){
+                        sampleDataCol <- sampleData[,catVars[i]]
+                        temp <- summary(lm(methDataCol ~ sampleDataCol + sampleData[,adjVar1]))$coefficients[-1,]
+                        temp <- cbind(rep(catVars[i], nrow(temp)), rownames(temp), temp)
+                        stats <- rbind(stats, temp)
                 }
-                PCtemp <- rbind(PCtemp, varTemp)
-        }
-        stats <- rbind(stats, PCtemp)
-        colnames(stats) <- c("PC", "Variable", "Value", "Mean", "SD", "pvalue")
-        stats <- as.data.frame(stats, stringsAsFactors = FALSE)
-        stats[,c("PC", "Variable", "Value")] <- lapply(stats[,c("PC", "Variable", "Value")], as.factor)
-        stats[,c("Mean", "SD", "pvalue")] <- lapply(stats[,c("Mean", "SD", "pvalue")], as.numeric)
-        return(stats)
-}
-
-PCAcontLm <- function(variables, sampleData, PCdata){
-        # Analyzes table of principal components for differences by continuous covariates using linear regression
-        stats <- NULL
-        PCtemp <- NULL
-        PCs <- colnames(PCdata)[grep("PC", colnames(PCdata))]
-        for(i in 1:length(PCs)){
-                PCdataCol <- as.numeric(PCdata[,PCs[i]])
-                varTemp <- NULL
-                for(j in 1:length(variables)){
-                        sampleDataCol <- as.numeric(sampleData[,variables[j]])
-                        temp <- c(PCs[i], variables[j], summary(lm(PCdataCol ~ sampleDataCol))$coefficients["sampleDataCol",], use.names = FALSE)
-                        varTemp <- rbind(varTemp, temp)
+                for(i in 1:length(contVars)){
+                        sampleDataCol <- as.numeric(sampleData[,contVars[i]])
+                        sampleDataCol <- sampleDataCol/sd(sampleDataCol, na.rm = TRUE)
+                        temp <- summary(lm(methDataCol ~ sampleDataCol + sampleData[,adjVar1]))$coefficients[-1,]
+                        temp <- cbind(rep(contVars[i], nrow(temp)), rownames(temp), temp)
+                        stats <- rbind(stats, temp)
                 }
-                PCtemp <- rbind(PCtemp, varTemp)
+        } else {
+                for(i in 1:length(catVars)){
+                        sampleDataCol <- sampleData[,catVars[i]]
+                        temp <- summary(lm(methDataCol ~ sampleDataCol + sampleData[,adjVar1] + sampleData[,adjVar2]))$coefficients[-1,]
+                        temp <- cbind(rep(catVars[i], nrow(temp)), rownames(temp), temp)
+                        stats <- rbind(stats, temp)
+                }
+                for(i in 1:length(contVars)){
+                        sampleDataCol <- as.numeric(sampleData[,contVars[i]])
+                        sampleDataCol <- sampleDataCol/sd(sampleDataCol, na.rm = TRUE)
+                        temp <- summary(lm(methDataCol ~ sampleDataCol + sampleData[,adjVar1] + sampleData[,adjVar2]))$coefficients[-1,]
+                        temp <- cbind(rep(contVars[i], nrow(temp)), rownames(temp), temp)
+                        stats <- rbind(stats, temp)
+                }
         }
-        stats <- rbind(stats, PCtemp)
         rownames(stats) <- 1:nrow(stats)
-        colnames(stats) <- c("PC", "Variable", "Effect", "SD", "tstat", "pvalue")
+        colnames(stats) <- c("Variable", "Term", "Estimate", "StdError", "tvalue", "pvalue")
         stats <- as.data.frame(stats, stringsAsFactors = FALSE)
-        stats[,c("PC", "Variable")] <- lapply(stats[,c("PC", "Variable")], as.factor)
-        stats[,c("Effect", "SD", "tstat", "pvalue")] <- lapply(stats[,c("Effect", "SD", "tstat", "pvalue")], as.numeric)
+        stats[,c("Variable")] <- as.factor(stats[,"Variable"])
+        stats[,c("Estimate", "StdError", "tvalue", "pvalue")] <- lapply(stats[,c("Estimate", "StdError", "tvalue", "pvalue")], as.numeric)
+        stats$qvalue <- p.adjust(stats$pvalue, method = "fdr")
         return(stats)
-}
-
-PCAggbiplot <- function(data.pca, groups, pc = 1:2, fileName, xlim = NULL, ylim = NULL, breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366")){
-        # Plots principal components colored by grouping variable and writes file
-        pc1 <- summary(data.pca)$importance["Proportion of Variance", paste("PC", pc[1], sep = "")]*100
-        pc2 <- summary(data.pca)$importance["Proportion of Variance", paste("PC", pc[2], sep = "")]*100
-        g <- ggbiplot(data.pca, obs.scale = 1, var.scale = 1, groups = groups, ellipse = TRUE, circle = FALSE, 
-                      var.axes = FALSE, varname.abbrev = FALSE, choices = pc, ellipse.prob = 0.95)
-        g + 
-                theme_bw(base_size = 25) +
-                theme(legend.direction = 'vertical', legend.position = c(0.85, 0.92), panel.grid.major = element_blank(), 
-                      panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
-                      legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title = element_blank(),
-                      axis.text = element_text(color = "black"), legend.background = element_blank(), legend.spacing.x = unit(0.5,"lines")) +
-                coord_cartesian(xlim = xlim, ylim = ylim) +
-                xlab(paste("PC", pc[1], " (", round(pc1,1), "% of Variance)", sep = "")) +
-                ylab(paste("PC", pc[2], " (", round(pc2,1), "% of Variance)", sep = "")) +
-                scale_color_manual(breaks = breaks , values = values) +
-                scale_x_continuous(breaks=pretty_breaks(6)) +
-                scale_y_continuous(breaks=pretty_breaks(6)) +
-                geom_point(aes(color = groups), size=3)
-        ggsave(fileName, dpi = 600, width = 8, height = 8, units = "in")
 }
 
 ggScatterPlot <- function(x, y, groupVar, fileName, xlab, ylab, xlim = NULL, ylim = NULL, legendPos = c(0.87,1.03)){
@@ -196,22 +198,9 @@ ggScatterPlot <- function(x, y, groupVar, fileName, xlab, ylab, xlim = NULL, yli
         ggsave(fileName, dpi = 600, width = 8, height = 7, units = "in")
 }
 
-windowANOVA <- function(methData, sampleData, formula, diagnosis){
-        # Analyzes windowed methylation data for differences by diagnosis with covariates
-        sampleData$meth <- methData
-        means <- aggregate(sampleData$meth ~ sampleData[,diagnosis], FUN=mean)[,2]
-        sds <- aggregate(sampleData$meth ~ sampleData[,diagnosis], FUN=sd)[,2]
-        test <- summary(lm(formula, data = sampleData))$coefficients
-        temp <- c(means, sds, test["Diagnosis_AlgASD",], test["PlatformHiSeqX10",], test["SexF",], 
-                  use.names = FALSE)
-        return(temp)
-}
-
 # Data ####
-samples <- read.delim(file = "Samples/Merged Cord Blood WGBS Database.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-permeth <- read.delim(file = "Tables/windows_10kb_methylation_ASD_CordBlood2.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-# 156 samples x 263618 windows
-
+samples <- read.delim(file = "Merged Database/MARBLES EARLI WGBS Sample Merged Covariate Database with Demo.txt", sep = "\t", header = TRUE, 
+                      stringsAsFactors = FALSE)
 samples <- subset(samples, !(Cord_Blood_IBC == 101470 & Platform %in% c("HiSeq2500", "HiSeq4000"))) # Remove 101470 Duplicates
 
 # Questions ####
@@ -236,74 +225,165 @@ samples <- subset(samples, !(Cord_Blood_IBC == 101470 & Platform %in% c("HiSeq25
 #       Global mCpG ~ Diagnosis, Global mCpG ~ Platform, Global mCpG ~ Sex
 # 	Global mCpG ~ Diagnosis + Platform, Global mCpG ~ Diagnosis + Sex, Global mCpG ~ Diagnosis + Platform + Sex
 # 	Linear regression, set contrasts
-# 
-# 10kb Window Methylation (PCA)
-# PC1-3 stats with all categorical and continuous variables
-# 	What variables are associated with methylation overall?
-# 	What variables are associated with specific methylation PCs?
-# 	PC ~ variable
-# 	Linear regression, set contrasts for categorical variables
-# Significant variable PC scatterplots
-# 	How do samples cluster by PCs and variables?
-# 	Categorical: Diagnosis, Platform, Sex
-# 	Continuous: Mullen Composite, Global mCpG, gestational age?
-# 	Other significant variables?
 
 # Covariates by Diagnosis ####
 samples$Diagnosis_Alg <- factor(samples$Diagnosis_Alg, levels = c("TD", "ASD"))
-catVars <- c("Study", "Platform", "Sex", "Site", "GDM_EQ", "PE_EQ", "SmokeYN_Pregnancy", "Supp_mv_mo_1", "Supp_mv_mo1")
-contVars <- c(colnames(samples)[14:ncol(samples)])
-# [1] "MSLvrTscore36"         "MSLfmTscore36"         "MSLrlTscore36"         "MSLelTscore36"         "MSLelcStandard36"     
-# [6] "ADOScs"                "percent_trimmed"       "percent_aligned"       "percent_duplicate"     "dedup_reads"          
-# [11] "C_coverage"            "CG_coverage"           "percent_chg_meth"      "percent_chh_meth"      "percent_cpg_meth"     
-# [16] "MomAgeYr"              "Mat_Height_cm"         "Mat_Weight_kg_PrePreg" "Mat_BMI_PrePreg"   
+catVars <- c("Study", "Platform", "Sex", "Site", "MomEdu_detail", "DM1or2", "GDM", "PE", "home_ownership", "marital_status", 
+             "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2",
+             "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", 
+             "AllEQ_PV_YN_Mo9")
+contVars <- colnames(samples)[!colnames(samples) %in% catVars]
+(contVars <- contVars[!contVars %in% c("COI_ID", "Sequencing_ID", "Cord_Blood_IBC", "Diagnosis_Alg")])
+# [1] "ADOScs"                    "MSLelcStandard36"          "MSLelTscore36"             "MSLfmTscore36"            
+# [5] "MSLrlTscore36"             "MSLvrTscore36"             "percent_trimmed"           "percent_aligned"          
+# [9] "percent_duplicate"         "dedup_reads_M"             "C_coverage"                "CG_coverage"              
+# [13] "percent_cpg_meth"          "percent_chg_meth"          "percent_chh_meth"          "ga_w"                     
+# [17] "bw_g"                      "MomAgeYr"                  "Mat_Height_cm"             "Mat_Weight_kg_PrePreg"    
+# [21] "Mat_BMI_PrePreg"           "parity"                    "dad_age"                   "cotinine_urine_ngml"      
+# [25] "final_creatinine_mgdl"     "AllEQ_tot_All_FA_mcg_Mo_3" "AllEQ_tot_All_FA_mcg_Mo_2" "AllEQ_tot_All_FA_mcg_Mo_1"
+# [29] "AllEQ_tot_All_FA_mcg_Mo1"  "AllEQ_tot_All_FA_mcg_Mo2"  "AllEQ_tot_All_FA_mcg_Mo3"  "AllEQ_tot_All_FA_mcg_Mo4" 
+# [33] "AllEQ_tot_All_FA_mcg_Mo5"  "AllEQ_tot_All_FA_mcg_Mo6"  "AllEQ_tot_All_FA_mcg_Mo7"  "AllEQ_tot_All_FA_mcg_Mo8" 
+# [37] "AllEQ_tot_All_FA_mcg_Mo9" 
 allVars <- c(catVars, contVars)
 
-# Pooled
-catStats <- catFisher(variables = catVars, sampleData = samples, diagnosis = "Diagnosis_Alg")
-contStats <- contANOVA(variables = contVars, sampleData = samples, diagnosis = "Diagnosis_Alg")
-catStats$qvalue <- p.adjust(catStats$pvalue, method = "fdr", n = length(allVars))
-cont_padj <- unique(contStats[,c("Variable", "pvalue")])
-cont_padj$qvalue <- p.adjust(cont_padj$pvalue, method = "fdr", n = length(allVars))
-contStats$qvalue <- cont_padj$qvalue[match(contStats$pvalue, cont_padj$pvalue)]
-catStats$Variable[catStats$pvalue < 0.05] %>% as.character %>% unique #  "SmokeYN_Pregnancy"
-contStats$Variable[contStats$pvalue < 0.05] %>% as.character %>% unique
-# "MSLvrTscore36"    "MSLfmTscore36"    "MSLrlTscore36"    "MSLelTscore36"    "MSLelcStandard36" 
-# "ADOScs"           "percent_cpg_meth"
-write.table(catStats, "Tables/Categorical Covariate Stats by Diagnosis Pooled.txt", sep="\t", quote = FALSE, row.names = FALSE)
-write.table(contStats, "Tables/Continuous Covariate Stats by Diagnosis Pooled.txt", sep="\t", quote = FALSE, row.names = FALSE)
-
-# HiSeqX10 Only 
+# HiSeqX10 Only (Discovery)
 catVarsX10 <- catVars[!catVars %in% c("Platform")]
+contVarsX10 <- contVars
+allVarsX10 <- c(catVarsX10, contVarsX10)
 x10 <- subset(samples, Platform == "HiSeqX10")
-catStats <- catFisher(variables = catVarsX10, sampleData = x10, diagnosis = "Diagnosis_Alg")
-contStats <- contANOVA(variables = contVars, sampleData = x10, diagnosis = "Diagnosis_Alg")
-catStats$qvalue <- p.adjust(catStats$pvalue, method = "fdr", n = length(allVars))
-cont_padj <- unique(contStats[,c("Variable", "pvalue")])
-cont_padj$qvalue <- p.adjust(cont_padj$pvalue, method = "fdr", n = length(allVars))
-contStats$qvalue <- cont_padj$qvalue[match(contStats$pvalue, cont_padj$pvalue)]
-catStats$Variable[catStats$pvalue < 0.05] %>% as.character %>% unique # None
-contStats$Variable[contStats$pvalue < 0.05] %>% as.character %>% unique
-# "MSLvrTscore36"    "MSLfmTscore36"    "MSLrlTscore36"    "MSLelTscore36"    "MSLelcStandard36" "ADOScs"
+
+catStats <- catFisher(variables = catVarsX10, sampleData = x10, diagnosis = "Diagnosis_Alg", numHypotheses = length(allVarsX10))
+catStats$Variable[catStats$pvalue < 0.05] %>% as.character %>% unique # "home_ownership"
 write.table(catStats, "Tables/Categorical Covariate Stats by Diagnosis HiSeqX10 only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+contStats <- contANOVA(variables = contVarsX10, sampleData = x10, diagnosis = "Diagnosis_Alg", numHypotheses = length(allVarsX10))
+contStats$Variable[contStats$pvalue < 0.05] %>% as.character %>% unique
+# [1] "ADOScs"                "MSLelcStandard36"      "MSLelTscore36"         "MSLfmTscore36"         "MSLrlTscore36"         "MSLvrTscore36"        
+# [7] "cotinine_urine_ngml"   "final_creatinine_mgdl"
 write.table(contStats, "Tables/Continuous Covariate Stats by Diagnosis HiSeqX10 only.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
-# HiSeq4000 Only 
-catVars4000 <- catVars[!catVars %in% c("Platform", "Study", "Site")]
+# HiSeq4000 Only (Replication)
+catVars4000 <- catVars[!catVars %in% c("Platform", "Site", "Study")]
+contVars4000 <- contVars
+allVars4000 <- c(catVars4000, contVars4000)
 hs4000 <- subset(samples, Platform == "HiSeq4000")
-catStats <- catFisher(variables = catVars4000, sampleData = hs4000, diagnosis = "Diagnosis_Alg")
-contStats <- contANOVA(variables = contVars, sampleData = hs4000, diagnosis = "Diagnosis_Alg")
-catStats$qvalue <- p.adjust(catStats$pvalue, method = "fdr", n = length(allVars))
-cont_padj <- unique(contStats[,c("Variable", "pvalue")])
-cont_padj$qvalue <- p.adjust(cont_padj$pvalue, method = "fdr", n = length(allVars))
-contStats$qvalue <- cont_padj$qvalue[match(contStats$pvalue, cont_padj$pvalue)]
-catStats$Variable[catStats$pvalue < 0.05] %>% as.character %>% unique # None
-contStats$Variable[contStats$pvalue < 0.05] %>% as.character %>% unique
-# "MSLvrTscore36"    "MSLfmTscore36"    "MSLrlTscore36"    "MSLelTscore36"    "MSLelcStandard36" 
-# "ADOScs"      "percent_cpg_meth"        
+
+catStats <- catFisher(variables = catVars4000, sampleData = hs4000, diagnosis = "Diagnosis_Alg", numHypotheses = length(allVars4000))
+catStats$Variable[catStats$pvalue < 0.05] %>% as.character %>% unique # "GDM"
 write.table(catStats, "Tables/Categorical Covariate Stats by Diagnosis HiSeq4000 only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+contStats <- contANOVA(variables = contVars4000, sampleData = hs4000, diagnosis = "Diagnosis_Alg", numHypotheses = length(allVars4000))
+contStats$Variable[contStats$pvalue < 0.05] %>% as.character %>% unique
+# [1] "ADOScs"           "MSLelcStandard36" "MSLelTscore36"    "MSLfmTscore36"    "MSLrlTscore36"    "MSLvrTscore36"    "percent_cpg_meth"
+# [8] "ga_w" 
 write.table(contStats, "Tables/Continuous Covariate Stats by Diagnosis HiSeq4000 only.txt", sep="\t", quote = FALSE, row.names = FALSE)
-rm(catStats, cont_padj, contStats)
+
+# Pooled
+catStats <- catFisher(variables = catVars, sampleData = samples, diagnosis = "Diagnosis_Alg", numHypotheses = length(allVars))
+catStats$Variable[catStats$pvalue < 0.05] %>% as.character %>% unique # "MomEdu_detail" "home_ownership"    "SmokeYN_Pregnancy"
+write.table(catStats, "Tables/Categorical Covariate Stats by Diagnosis Pooled.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+contStats <- contANOVA(variables = contVars, sampleData = samples, diagnosis = "Diagnosis_Alg", numHypotheses = length(allVars))
+contStats$Variable[contStats$pvalue < 0.05] %>% as.character %>% unique
+# [1] "ADOScs"                "MSLelcStandard36"      "MSLelTscore36"         "MSLfmTscore36"         "MSLrlTscore36"         "MSLvrTscore36"        
+# [7] "percent_cpg_meth"      "Mat_BMI_PrePreg"       "cotinine_urine_ngml"   "final_creatinine_mgdl"
+write.table(contStats, "Tables/Continuous Covariate Stats by Diagnosis Pooled.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+rm(catStats, contStats, hs4000, x10, allVars4000, allVarsX10, catVars4000, catVarsX10, contVars4000, contVarsX10)
+
+# Significant Covariate by Diagnosis Plots ####
+# Maternal pre-pregnancy BMI ~ Diagnosis, pooled
+
+ggBoxPlot(data = samples, x = samples$Diagnosis_Alg, y = samples$Mat_BMI_PrePreg, fill = samples$Diagnosis_Alg, 
+          ylab = "Maternal Pre-pregnancy BMI", file = "Figures/Maternal Prepreg BMI by Diagnosis Pooled Boxplot.png")
+
+# Maternal Cotinine ~ Diagnosis, pooled
+ggBoxPlot(data = samples, x = samples$Diagnosis_Alg, y = log10(samples$cotinine_urine_ngml), fill = samples$Diagnosis_Alg, 
+          ylab = "log(Maternal Cotinine)", file = "Figures/Maternal Cotinine by Diagnosis Pooled Boxplot.png")
+
+# Maternal Cotinine ~ Diagnosis + Prenatal Smoking, pooled
+cot_smoke <- samples[,c("COI_ID", "Diagnosis_Alg", "SmokeYN_Pregnancy", "cotinine_urine_ngml")]
+cot_smoke <- subset(cot_smoke, !is.na(cot_smoke$SmokeYN_Pregnancy) & !is.na(cot_smoke$cotinine_urine_ngml))
+cot_smoke$SmokeYN_Pregnancy2 <- NA
+cot_smoke$SmokeYN_Pregnancy2[cot_smoke$SmokeYN_Pregnancy == 0] <- "No"
+cot_smoke$SmokeYN_Pregnancy2[cot_smoke$SmokeYN_Pregnancy == 1] <- "Yes"
+cot_smoke$SmokeYN_Pregnancy2 <- factor(cot_smoke$SmokeYN_Pregnancy2, levels = c("No", "Yes"))
+
+ggBoxPlot(data = cot_smoke, x = cot_smoke$SmokeYN_Pregnancy2, y = log10(cot_smoke$cotinine_urine_ngml), fill = cot_smoke$Diagnosis_Alg, 
+          xlab = "Maternal Prenatal Smoking", ylab = "log(Maternal Cotinine)", 
+          file = "Figures/Maternal Cotinine by Diagnosis and Prenatal Smoking Pooled Boxplot.png", axis.title.x = element_text())
+rm(cot_smoke)
+
+# Maternal Prenatal Smoking ~ Diagnosis, pooled
+mat_smoke <- data.frame("Diagnosis_Alg" = factor(rep(c("TD", "ASD"), each = 2), levels = c("TD", "ASD")),
+                        "SmokeYN_Pregnancy" = factor(rep(c("No", "Yes"), 2), levels = c("No", "Yes")),
+                        "Count" = c(table(samples$SmokeYN_Pregnancy[samples$Diagnosis_Alg == "TD"]),
+                                    table(samples$SmokeYN_Pregnancy[samples$Diagnosis_Alg == "ASD"])))
+mat_smoke$percent <- mat_smoke$Count * 100 / c(rep(sum(mat_smoke$Count[mat_smoke$Diagnosis_Alg == "TD"]), 2),
+                                               rep(sum(mat_smoke$Count[mat_smoke$Diagnosis_Alg == "ASD"]), 2))
+g <- ggplot(data = mat_smoke)
+g + 
+        geom_col(aes(x = SmokeYN_Pregnancy, y = percent, fill = Diagnosis_Alg), size = 1.1, position = "dodge") +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.87,1.03), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines")) +
+        scale_y_continuous(breaks=pretty_breaks(n=4), limits = c(0,100), expand = c(0,0.3)) +
+        xlab("Maternal Prenatal Smoking") +
+        ylab("Subjects (%)") +
+        scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366"))
+ggsave(file = "Figures/Maternal Prenatal Smoking by Diagnosis Pooled Barplot.png", dpi = 600, width = 7, height = 7, units = "in")
+rm(mat_smoke)
+
+# Home Ownership ~ Diagnosis, pooled
+home <- data.frame("Diagnosis_Alg" = factor(rep(c("TD", "ASD"), each = 2), levels = c("TD", "ASD")),
+                        "home_ownership" = factor(rep(c("No", "Yes"), 2), levels = c("No", "Yes")),
+                        "Count" = c(table(samples$home_ownership[samples$Diagnosis_Alg == "TD"])[1:2],
+                                    table(samples$home_ownership[samples$Diagnosis_Alg == "ASD"])[1:2]))
+home$percent <- home$Count * 100 / c(rep(sum(home$Count[home$Diagnosis_Alg == "TD"]), 2),
+                                     rep(sum(home$Count[home$Diagnosis_Alg == "ASD"]), 2))
+g <- ggplot(data = home)
+g + 
+        geom_col(aes(x = home_ownership, y = percent, fill = Diagnosis_Alg), size = 1.1, position = "dodge") +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.87,1.03), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines")) +
+        scale_y_continuous(breaks=pretty_breaks(n=4), limits = c(0,100), expand = c(0,0.3)) +
+        xlab("Home Ownership") +
+        ylab("Subjects (%)") +
+        scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366"))
+ggsave(file = "Figures/Home Ownership by Diagnosis Pooled Barplot.png", dpi = 600, width = 7, height = 7, units = "in")
+rm(home)
+
+# Maternal Education ~ Diagnosis, pooled
+mat_edu <- data.frame("Diagnosis_Alg" = factor(rep(c("TD", "ASD"), each = 8), levels = c("TD", "ASD")),
+                   "MomEdu_detail" = factor(rep(1:8, 2), levels = 1:8),
+                   "Count" = c(table(samples$MomEdu_detail[samples$Diagnosis_Alg == "TD"])[1],0,
+                               table(samples$MomEdu_detail[samples$Diagnosis_Alg == "TD"])[2:7],
+                               table(samples$MomEdu_detail[samples$Diagnosis_Alg == "ASD"])))
+mat_edu$percent <- mat_edu$Count * 100 / c(rep(sum(mat_edu$Count[mat_edu$Diagnosis_Alg == "TD"]), 8),
+                                     rep(sum(mat_edu$Count[mat_edu$Diagnosis_Alg == "ASD"]), 8))
+g <- ggplot(data = mat_edu)
+g + 
+        geom_col(aes(x = MomEdu_detail, y = percent, fill = Diagnosis_Alg), size = 1.1, position = "dodge") +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.87,1.03), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines")) +
+        scale_y_continuous(breaks=pretty_breaks(n=4), limits = c(0,50), expand = c(0,0.15)) +
+        xlab("Maternal Education") +
+        ylab("Subjects (%)") +
+        scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366"))
+ggsave(file = "Figures/Maternal Education by Diagnosis Pooled Barplot.png", dpi = 600, width = 7, height = 7, units = "in")
+rm(mat_edu)
+
 
 # Global Methylation by Covariates ####
 samples$Diagnosis_Alg <- factor(samples$Diagnosis_Alg, levels = c("TD", "ASD"))
@@ -323,14 +403,14 @@ contVarsPooled <- contVars[!contVars == "percent_cpg_meth"]
 pooledStats <- methLm(catVars = catVarsPooled, contVars = contVarsPooled, sampleData = samples, globalMeth = "percent_cpg_meth")
 write.table(pooledStats, "Tables/Covariate Stats by Global Meth Pooled.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
-# X10 Only
+# X10 Only, Discovery
 catVarsX10 <- catVarsPooled[!catVarsPooled == "Platform"]
 contVarsX10 <- contVarsPooled
 samplesX10 <- subset(samples, Platform == "HiSeqX10")
 x10stats <- methLm(catVars = catVarsX10, contVars = contVarsX10, sampleData = samplesX10, globalMeth = "percent_cpg_meth")
 write.table(x10stats, "Tables/Covariate Stats by Global Meth X10.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
-# 4000 Only
+# 4000 Only, Replication
 catVars4000 <- catVarsPooled[!catVarsPooled %in% c("Study", "Platform", "Site")]
 contVars4000 <- contVarsPooled
 samples4000 <- subset(samples, Platform == "HiSeq4000")
@@ -502,47 +582,6 @@ platformStatsM <- methLmPlatform(catVars = catVarsPlatformM, contVars = contVars
 write.table(platformStatsM, "Tables/Covariate Stats by Global Meth Pooled Platform Adjusted Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
 # Global Methylation by Covariates and PCR Duplicates ####
-methLmAdj <- function(catVars, contVars, sampleData, globalMeth, adjVar1, adjVar2 = NULL){
-        # Analyzes categorical and continuous variables for association with global methylation, adjusting for platform using linear regression
-        stats <- NULL
-        methDataCol <- as.numeric(sampleData[,globalMeth])
-        if(is.null(adjVar2)){
-                for(i in 1:length(catVars)){
-                        sampleDataCol <- sampleData[,catVars[i]]
-                        temp <- summary(lm(methDataCol ~ sampleDataCol + sampleData[,adjVar1]))$coefficients[-1,]
-                        temp <- cbind(rep(catVars[i], nrow(temp)), rownames(temp), temp)
-                        stats <- rbind(stats, temp)
-                }
-                for(i in 1:length(contVars)){
-                        sampleDataCol <- as.numeric(sampleData[,contVars[i]])
-                        sampleDataCol <- sampleDataCol/sd(sampleDataCol, na.rm = TRUE)
-                        temp <- summary(lm(methDataCol ~ sampleDataCol + sampleData[,adjVar1]))$coefficients[-1,]
-                        temp <- cbind(rep(contVars[i], nrow(temp)), rownames(temp), temp)
-                        stats <- rbind(stats, temp)
-                }
-        } else {
-                for(i in 1:length(catVars)){
-                        sampleDataCol <- sampleData[,catVars[i]]
-                        temp <- summary(lm(methDataCol ~ sampleDataCol + sampleData[,adjVar1] + sampleData[,adjVar2]))$coefficients[-1,]
-                        temp <- cbind(rep(catVars[i], nrow(temp)), rownames(temp), temp)
-                        stats <- rbind(stats, temp)
-                }
-                for(i in 1:length(contVars)){
-                        sampleDataCol <- as.numeric(sampleData[,contVars[i]])
-                        sampleDataCol <- sampleDataCol/sd(sampleDataCol, na.rm = TRUE)
-                        temp <- summary(lm(methDataCol ~ sampleDataCol + sampleData[,adjVar1] + sampleData[,adjVar2]))$coefficients[-1,]
-                        temp <- cbind(rep(contVars[i], nrow(temp)), rownames(temp), temp)
-                        stats <- rbind(stats, temp)
-                }
-        }
-        rownames(stats) <- 1:nrow(stats)
-        colnames(stats) <- c("Variable", "Term", "Estimate", "StdError", "tvalue", "pvalue")
-        stats <- as.data.frame(stats, stringsAsFactors = FALSE)
-        stats[,c("Variable")] <- as.factor(stats[,"Variable"])
-        stats[,c("Estimate", "StdError", "tvalue", "pvalue")] <- lapply(stats[,c("Estimate", "StdError", "tvalue", "pvalue")], as.numeric)
-        stats$qvalue <- p.adjust(stats$pvalue, method = "fdr")
-        return(stats)
-}
 
 # Discovery
 contVarsX10Dups <- contVarsX10[!contVarsX10 == "percent_duplicate"]
@@ -576,123 +615,4 @@ write.table(platformStatsDups, "Tables/Covariate Stats by Global Meth Pooled, Pl
 platformStatsDupsM <- methLmAdj(catVars = catVarsPlatformM, contVars = contVarsPlatformDups, sampleData = samplesM, 
                             globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate", adjVar2 = "Platform")
 write.table(platformStatsDupsM, "Tables/Covariate Stats by Global Meth Platform PCR Duplicate Adjusted, Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
-
-# Start here
-
-# Window Methylation by Diagnosis ####
-# PCA
-table(samples$Sequencing_ID == colnames(permeth)[4:ncol(permeth)]) # All TRUE
-table(is.na(permeth)) # All FALSE
-data <- t(as.matrix(permeth[,4:ncol(permeth)]))
-data.pca <- prcomp(data, center = TRUE, scale. = TRUE) 
-ggbiplotPCA(data.pca = data.pca, groups = samples$Diagnosis_Alg, pc = c(1,2),
-            fileName = "Figures/ASD Cord Window Methylation by Diagnosis PC1 PC2 Plot.png", xlim = c(-750,550), ylim = c(-650,650))
-ggbiplotPCA(data.pca = data.pca, groups = samples$Diagnosis_Alg, pc = c(1,3),
-            fileName = "Figures/ASD Cord Window Methylation by Diagnosis PC1 PC3 Plot.png", xlim = c(-750,550), ylim = c(-650,650))
-ggbiplotPCA(data.pca = data.pca, groups = samples$Diagnosis_Alg, pc = c(2,3),
-            fileName = "Figures/ASD Cord Window Methylation by Diagnosis PC2 PC3 Plot.png", xlim = c(-650,650), ylim = c(-650,650))
-
-# Get PCs 1-3
-PCs <- data.pca$x[,c("PC1", "PC2", "PC3")] %>% as.data.frame
-PCs$Sequencing_ID <- rownames(PCs)
-rownames(PCs) <- 1:nrow(PCs)
-PCs <- PCs[,c("Sequencing_ID", "PC1", "PC2", "PC3")]
-
-# Methylation PCs by Covariate Stats ####
-# Categorical Covariate Stats with 1-way ANOVA
-catVars <- c("Diagnosis_Alg", "Study", "Platform", "Sex", "Site")
-samples[,c("Study", "Platform", "Sex", "Site")] <- lapply(samples[,c("Study", "Platform", "Sex", "Site")], as.factor)
-PCAcatANOVAstats <- PCAcatANOVA(variables = catVars, sampleData = samples, PCdata = PCs)
-
-# Continuous Covariate Stats with linear regression
-contVars <- c(colnames(samples)[9:ncol(samples)])
-PCAcontLmStats <- PCAcontLm(variables = contVars, sampleData = samples, PCdata = PCs)
-
-# Adjust p-values
-cat_padj <- unique(PCAcatANOVAstats[,c("PC", "Variable", "pvalue")])
-cont_padj <- unique(PCAcontLmStats[,c("PC", "Variable", "pvalue")])
-
-cat_padj$qvalue <- p.adjust(cat_padj$pvalue, method = "fdr", n = nrow(cat_padj) + nrow(cont_padj))
-cont_padj$qvalue <- p.adjust(cont_padj$pvalue, method = "fdr", n = nrow(cat_padj) + nrow(cont_padj))
-
-PCAcatANOVAstats$qvalue <- cat_padj$qvalue[match(PCAcatANOVAstats$pvalue, cat_padj$pvalue)]
-PCAcontLmStats$qvalue <- cont_padj$qvalue[match(PCAcontLmStats$pvalue, cont_padj$pvalue)]
-
-write.table(PCAcatANOVAstats, "Tables/Methylation PCs and Categorical Covariate Stats by ANOVA.txt", sep = "\t", quote = FALSE, row.names = FALSE)
-write.table(PCAcontLmStats, "Tables/Methylation PCs and Continuous Covariate Stats by lm.txt", sep = "\t", quote = FALSE, row.names = FALSE)
-
-unique(PCAcatANOVAstats[PCAcatANOVAstats$qvalue < 0.05 ,c("PC", "Variable")])
-# PC2: Study, Platform, Sex, Site
-# PC3: Study, Sex
-
-unique(PCAcontLmStats[PCAcontLmStats$qvalue < 0.05 ,c("PC", "Variable")])
-# PC1: MSLvrTscore36, MSLfmTscore36, MSLrlTscore36, MSLelTscore36, MSLelcStandard36, percent_cpg_meth, 
-# PC2: percent_trimmed, percent_aligned, percent_duplicate, C_coverage, CG_coverage, percent_cpg_meth
-# PC3: percent_trimmed, percent_aligned, percent_duplicate, dedup_reads, C_coverage, CG_coverage, percent_chg_meth, percent_cpg_meth
-
-# Methylation PCs by Covariate Plots ####
-# PCA Colored by Platform
-pc1 <- summary(data.pca)$importance["Proportion of Variance", "PC1"]*100
-pc2 <- summary(data.pca)$importance["Proportion of Variance","PC2"]*100
-ggbiplotPCA(data.pca = data.pca, groups = samples$Platform, pc = c(1,2), 
-            fileName = "Figures/ASD Cord Window Methylation by Platform PC1 PC2 Plot.png", xlim = c(-750,550), ylim = c(-650,650), 
-            breaks = c("HiSeqX10", "HiSeq4000", "HiSeq2500"), 
-            values = c("HiSeqX10"="#3366CC", "HiSeq4000"="#FF3366", "HiSeq2500"="#009933"))
-ggbiplotPCA(data.pca = data.pca, groups = samples$Platform, pc = c(1,3), 
-            fileName = "Figures/ASD Cord Window Methylation by Platform PC1 PC3 Plot.png", xlim = c(-750,550), ylim = c(-650,650), 
-            breaks = c("HiSeqX10", "HiSeq4000", "HiSeq2500"), 
-            values = c("HiSeqX10"="#3366CC", "HiSeq4000"="#FF3366", "HiSeq2500"="#009933"))
-ggbiplotPCA(data.pca = data.pca, groups = samples$Platform, pc = c(2,3), 
-            fileName = "Figures/ASD Cord Window Methylation by Platform PC2 PC3 Plot.png", xlim = c(-650,650), ylim = c(-650,650), 
-            breaks = c("HiSeqX10", "HiSeq4000", "HiSeq2500"), 
-            values = c("HiSeqX10"="#3366CC", "HiSeq4000"="#FF3366", "HiSeq2500"="#009933"))
-
-# PCA Colored by Sex
-ggbiplotPCA(data.pca = data.pca, groups = samples$Sex, pc = c(1,2), 
-            fileName = "Figures/ASD Cord Window Methylation by Sex PC1 PC2 Plot.png", xlim = c(-750,550), ylim = c(-650,650), 
-            breaks = c("M", "F"), values = c("M"="#3366CC", "F"="#FF3366"))
-ggbiplotPCA(data.pca = data.pca, groups = samples$Sex, pc = c(1,3), 
-            fileName = "Figures/ASD Cord Window Methylation by Sex PC1 PC3 Plot.png", xlim = c(-750,550), ylim = c(-650,650), 
-            breaks = c("M", "F"), values = c("M"="#3366CC", "F"="#FF3366"))
-ggbiplotPCA(data.pca = data.pca, groups = samples$Sex, pc = c(2,3), 
-            fileName = "Figures/ASD Cord Window Methylation by Sex PC2 PC3 Plot.png", xlim = c(-650,650), ylim = c(-650,650), 
-            breaks = c("M", "F"), values = c("M"="#3366CC", "F"="#FF3366"))
-
-# PCA Colored by Study
-ggbiplotPCA(data.pca = data.pca, groups = samples$Study, pc = c(1,2), 
-            fileName = "Figures/ASD Cord Window Methylation by Study PC1 PC2 Plot.png", xlim = c(-750,550), ylim = c(-650,650), 
-            breaks = c("MARBLES", "EARLI"), values = c("MARBLES"="#3366CC", "EARLI"="#FF3366"))
-ggbiplotPCA(data.pca = data.pca, groups = samples$Study, pc = c(1,3), 
-            fileName = "Figures/ASD Cord Window Methylation by Study PC1 PC3 Plot.png", xlim = c(-750,550), ylim = c(-650,650), 
-            breaks = c("MARBLES", "EARLI"), values = c("MARBLES"="#3366CC", "EARLI"="#FF3366"))
-ggbiplotPCA(data.pca = data.pca, groups = samples$Study, pc = c(2,3), 
-            fileName = "Figures/ASD Cord Window Methylation by Study PC2 PC3 Plot.png", xlim = c(-650,650), ylim = c(-650,650), 
-            breaks = c("MARBLES", "EARLI"), values = c("MARBLES"="#3366CC", "EARLI"="#FF3366"))
-
-# PC1 vs Mullen Composite
-ggScatterPlot(x = samples$MSLelcStandard36, y = PCs$PC1, diagnosis = samples$Diagnosis_Alg, ylim = c(-750,550),
-              fileName = "Figures/ASD Cord Window Methylation by Mullen Composite PC1 Plot.png",
-              xlab = "Mullen Composite Score", ylab = "Window Methylation PC1")
-ggScatterPlot(x = samples$MSLelcStandard36[samples$Diagnosis_Alg == "ASD"], y = PCs$PC1[samples$Diagnosis_Alg == "ASD"], 
-              diagnosis = samples$Diagnosis_Alg[samples$Diagnosis_Alg == "ASD"], ylim = c(-750,550),
-              fileName = "Figures/ASD Cord Window Methylation by Mullen Composite PC1 Plot ASD only.png",
-              xlab = "Mullen Composite Score", ylab = "Window Methylation PC1")
-ggScatterPlot(x = samples$MSLelcStandard36[samples$Diagnosis_Alg == "TD"], y = PCs$PC1[samples$Diagnosis_Alg == "TD"], 
-              diagnosis = samples$Diagnosis_Alg[samples$Diagnosis_Alg == "TD"], ylim = c(-750,550),
-              fileName = "Figures/ASD Cord Window Methylation by Mullen Composite PC1 Plot TD only.png",
-              xlab = "Mullen Composite Score", ylab = "Window Methylation PC1")
-
-# PCs vs Global mCpG
-ggScatterPlot(x = samples$percent_cpg_meth, y = PCs$PC1, diagnosis = samples$Diagnosis_Alg,
-              fileName = "Figures/ASD Cord Window Methylation by mCpG PC1 Plot.png",
-              xlab = "Global mCpG (%)", ylab = "Window Methylation PC1")
-ggScatterPlot(x = samples$percent_cpg_meth, y = PCs$PC2, diagnosis = samples$Diagnosis_Alg,
-              fileName = "Figures/ASD Cord Window Methylation by mCpG PC2 Plot.png",
-              xlab = "Global mCpG (%)", ylab = "Window Methylation PC2")
-ggScatterPlot(x = samples$percent_cpg_meth, y = PCs$PC3, diagnosis = samples$Diagnosis_Alg,
-              fileName = "Figures/ASD Cord Window Methylation by mCpG PC3 Plot.png",
-              xlab = "Global mCpG (%)", ylab = "Window Methylation PC3")
-
-
-
 
