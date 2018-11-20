@@ -295,11 +295,11 @@ rm(catStats, contStats, hs4000, x10, allVars4000, allVarsX10, catVars4000, catVa
 # Maternal pre-pregnancy BMI ~ Diagnosis, pooled
 
 ggBoxPlot(data = samples, x = samples$Diagnosis_Alg, y = samples$Mat_BMI_PrePreg, fill = samples$Diagnosis_Alg, 
-          ylab = "Maternal Pre-pregnancy BMI", file = "Figures/Maternal Prepreg BMI by Diagnosis Pooled Boxplot.png")
+          xlab = NULL, ylab = "Maternal Pre-pregnancy BMI", file = "Figures/Maternal Prepreg BMI by Diagnosis Pooled Boxplot.png")
 
 # Maternal Cotinine ~ Diagnosis, pooled
 ggBoxPlot(data = samples, x = samples$Diagnosis_Alg, y = log10(samples$cotinine_urine_ngml), fill = samples$Diagnosis_Alg, 
-          ylab = "log(Maternal Cotinine)", file = "Figures/Maternal Cotinine by Diagnosis Pooled Boxplot.png")
+          xlab = NULL, ylab = "log(Maternal Cotinine)", file = "Figures/Maternal Cotinine by Diagnosis Pooled Boxplot.png")
 
 # Maternal Cotinine ~ Diagnosis + Prenatal Smoking, pooled
 cot_smoke <- samples[,c("COI_ID", "Diagnosis_Alg", "SmokeYN_Pregnancy", "cotinine_urine_ngml")]
@@ -382,33 +382,34 @@ g +
         ylab("Subjects (%)") +
         scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366"))
 ggsave(file = "Figures/Maternal Education by Diagnosis Pooled Barplot.png", dpi = 600, width = 7, height = 7, units = "in")
-rm(mat_edu)
-
+rm(mat_edu, g)
 
 # Global Methylation by Covariates ####
-samples$Diagnosis_Alg <- factor(samples$Diagnosis_Alg, levels = c("TD", "ASD"))
-samples$Platform <- factor(samples$Platform, levels = c("HiSeqX10", "HiSeq4000"))
 samples$Study <- factor(samples$Study, levels = c("MARBLES", "EARLI"))
+samples$Platform <- factor(samples$Platform, levels = c("HiSeqX10", "HiSeq4000"))
 samples$Sex <- factor(samples$Sex, levels = c("M", "F"))
 samples$Site <- factor(samples$Site, levels = c("UC Davis", "Kaiser Permanente", "Drexel", "Johns Hopkins University"))
-samples$GDM_EQ <- factor(samples$GDM_EQ, levels = c(0, 1))
-samples$PE_EQ <- factor(samples$PE_EQ, levels = c(0, 1))
-samples$SmokeYN_Pregnancy <- factor(samples$SmokeYN_Pregnancy, levels = c(0, 1))
-samples$Supp_mv_mo_1 <- factor(samples$Supp_mv_mo_1, levels = c(0, 1))
-samples$Supp_mv_mo1 <- factor(samples$Supp_mv_mo1, levels = c(0, 1))
+samples$Diagnosis_Alg <- factor(samples$Diagnosis_Alg, levels = c("TD", "ASD"))
+samples$MomEdu_detail <- factor(samples$MomEdu_detail, levels = c(6, 1:5, 7,8))
+samples$home_ownership[samples$home_ownership == 99] <- NA
+samples$marital_status[samples$marital_status == 99] <- NA
+factorCols <- c("DM1or2", "GDM", "PE", "marital_status", "home_ownership", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1",
+                "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6",
+                "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9")
+samples[,factorCols] <- lapply(samples[,factorCols], as.factor)
 
 # Pooled
 catVarsPooled <- c("Diagnosis_Alg", catVars)
 contVarsPooled <- contVars[!contVars == "percent_cpg_meth"]
-pooledStats <- methLm(catVars = catVarsPooled, contVars = contVarsPooled, sampleData = samples, globalMeth = "percent_cpg_meth")
-write.table(pooledStats, "Tables/Covariate Stats by Global Meth Pooled.txt", sep="\t", quote = FALSE, row.names = FALSE)
+statsPooled <- methLm(catVars = catVarsPooled, contVars = contVarsPooled, sampleData = samples, globalMeth = "percent_cpg_meth")
+write.table(statsPooled, "Tables/Covariate Stats by Global Meth Pooled.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
 # X10 Only, Discovery
 catVarsX10 <- catVarsPooled[!catVarsPooled == "Platform"]
 contVarsX10 <- contVarsPooled
 samplesX10 <- subset(samples, Platform == "HiSeqX10")
-x10stats <- methLm(catVars = catVarsX10, contVars = contVarsX10, sampleData = samplesX10, globalMeth = "percent_cpg_meth")
-write.table(x10stats, "Tables/Covariate Stats by Global Meth X10.txt", sep="\t", quote = FALSE, row.names = FALSE)
+statsX10 <- methLm(catVars = catVarsX10, contVars = contVarsX10, sampleData = samplesX10, globalMeth = "percent_cpg_meth")
+write.table(statsX10, "Tables/Covariate Stats by Global Meth X10.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
 # 4000 Only, Replication
 catVars4000 <- catVarsPooled[!catVarsPooled %in% c("Study", "Platform", "Site")]
@@ -421,55 +422,69 @@ write.table(stats4000, "Tables/Covariate Stats by Global Meth 4000.txt", sep="\t
 catVarsPlatform <- catVarsPooled[!catVarsPooled == "Platform"]
 contVarsPlatform <- contVarsPooled
 samplesPlatform <- samples
-platformStats <- methLmPlatform(catVars = catVarsPlatform, contVars = contVarsPlatform, sampleData = samplesPlatform, 
+statsPlatform <- methLmPlatform(catVars = catVarsPlatform, contVars = contVarsPlatform, sampleData = samplesPlatform, 
                                 globalMeth = "percent_cpg_meth", platform = "Platform")
-write.table(platformStats, "Tables/Covariate Stats by Global Meth Pooled Platform Adjusted.txt", sep="\t", quote = FALSE, row.names = FALSE)
+write.table(statsPlatform, "Tables/Covariate Stats by Global Meth Pooled Platform Adjusted.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+# Global Methylation by Covariates and PCR Duplicates ####
+
+# Discovery
+contVarsX10Dups <- contVarsX10[!contVarsX10 == "percent_duplicate"]
+statsX10Dups <- methLmAdj(catVars = catVarsX10, contVars = contVarsX10Dups, sampleData = samplesX10, 
+                          globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate")
+write.table(statsX10Dups, "Tables/Covariate Stats by Global Meth X10 PCR Duplicate Adjusted.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+# Replication
+contVars4000Dups <- contVars4000[!contVars4000 == "percent_duplicate"]
+stats4000Dups <- methLmAdj(catVars = catVars4000, contVars = contVars4000Dups, sampleData = samples4000, 
+                           globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate")
+write.table(stats4000Dups, "Tables/Covariate Stats by Global Meth 4000 PCR Duplicate Adjusted.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+# Pooled + Platform
+contVarsPlatformDups <- contVarsPlatform[!contVarsPlatform == "percent_duplicate"]
+platformStatsDups <- methLmAdj(catVars = catVarsPlatform, contVars = contVarsPlatformDups, sampleData = samplesPlatform, 
+                               globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate", adjVar2 = "Platform")
+write.table(platformStatsDups, "Tables/Covariate Stats by Global Meth Pooled, Platform and PCR Duplicate Adjusted.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+# Global Methylation by Covariates, Males Only ####
+# Discovery
+samplesX10M <- subset(samplesX10, Sex == "M")
+catVarsX10M <- catVarsX10[!catVarsX10 %in% c("Sex", "PE")]
+statsX10M <- methLm(catVars = catVarsX10M, contVars = contVarsX10, sampleData = samplesX10M, globalMeth = "percent_cpg_meth")
+write.table(statsX10M, "Tables/Covariate Stats by Global Meth X10 Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+# Replication
+samples4000M <- subset(samples4000, Sex == "M")
+catVars4000M <- catVars4000[!catVars4000 %in% c("Sex", "DM1or2")]
+stats4000M <- methLm(catVars = catVars4000M, contVars = contVars4000, sampleData = samples4000M, globalMeth = "percent_cpg_meth")
+write.table(stats4000M, "Tables/Covariate Stats by Global Meth 4000 Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+# Pooled + Platform
+samplesM <- subset(samples, Sex == "M")
+catVarsPlatformM <- catVarsPlatform[!catVarsPlatform == "Sex"]
+platformStatsM <- methLmPlatform(catVars = catVarsPlatformM, contVars = contVarsPlatform, sampleData = samplesM, 
+                                 globalMeth = "percent_cpg_meth", platform = "Platform")
+write.table(platformStatsM, "Tables/Covariate Stats by Global Meth Pooled Platform Adjusted Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+# Global Methylation by Covariates and PCR Duplicates, Males Only ####
+
+# Discovery, Males only
+statsX10DupsM <- methLmAdj(catVars = catVarsX10M, contVars = contVarsX10Dups, sampleData = samplesX10M, 
+                           globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate")
+write.table(statsX10DupsM, "Tables/Covariate Stats by Global Meth X10 PCR Duplicate Adjusted, Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+# Replication, Males only
+stats4000DupsM <- methLmAdj(catVars = catVars4000M, contVars = contVars4000Dups, sampleData = samples4000M, 
+                            globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate")
+write.table(stats4000DupsM, "Tables/Covariate Stats by Global Meth 4000 PCR Duplicate Adjusted, Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
+# Pooled + Platform, Males only
+platformStatsDupsM <- methLmAdj(catVars = catVarsPlatformM, contVars = contVarsPlatformDups, sampleData = samplesM, 
+                                globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate", adjVar2 = "Platform")
+write.table(platformStatsDupsM, "Tables/Covariate Stats by Global Meth Platform PCR Duplicate Adjusted, Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
 # Global Methylation Box Plots ####
-# Global Methylation ~ Diagnosis, Discovery Samples
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg, data = samplesX10))$coefficients
-#                    Estimate Std. Error    t value      Pr(>|t|)
-# Diagnosis_AlgASD -0.2166847  0.1831888  -1.182849  2.394663e-01
-
-g <- ggplot(data = samplesX10)
-g + 
-        geom_boxplot(aes(x=Diagnosis_Alg, y=percent_cpg_meth, fill = Diagnosis_Alg), size = 1.1) +
-        theme_bw(base_size = 25) +
-        theme(legend.direction = 'horizontal', legend.position = c(0.87,1.03), panel.grid.major = element_blank(), 
-              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
-              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
-              axis.text = element_text(color = "black"), legend.background = element_blank(), 
-              plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = element_blank()) +
-        scale_y_continuous(breaks=pretty_breaks(n=4)) +
-        ylab("Global CpG Methylation (%)") +
-        scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366"))
-ggsave("Figures/Global Methylation by Diagnosis, Discovery Boxplot.png", dpi = 600, width = 7, height = 7, units = "in")
-
-# Global Methylation ~ Diagnosis, Replication Samples
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg, data = samples4000))$coefficients
-#                    Estimate Std. Error    t value      Pr(>|t|)
-# Diagnosis_AlgASD -0.7387492  0.3316281  -2.227644 3.106585e-02
-
-g <- ggplot(data = samples4000)
-g + 
-        geom_boxplot(aes(x=Diagnosis_Alg, y=percent_cpg_meth, fill = Diagnosis_Alg), size = 1.1) +
-        theme_bw(base_size = 25) +
-        theme(legend.direction = 'horizontal', legend.position = c(0.87,1.03), panel.grid.major = element_blank(), 
-              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
-              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
-              axis.text = element_text(color = "black"), legend.background = element_blank(), 
-              plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = element_blank()) +
-        scale_y_continuous(breaks=pretty_breaks(n=4)) +
-        ylab("Global CpG Methylation (%)") +
-        scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366"))
-ggsave("Figures/Global Methylation by Diagnosis, Replication Boxplot.png", dpi = 600, width = 7, height = 7, units = "in")
-
-# Global Methylation ~ Diagnosis + Platform, All Samples
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + Platform, data = samples))$coefficients
-#                     Estimate Std. Error    t value      Pr(>|t|)
-# Diagnosis_AlgASD  -0.3688064  0.1623863  -2.271167  2.453165e-02
-# PlatformHiSeq4000 -1.6966585  0.1780024  -9.531659  3.406750e-17
-
+# mCpG ~ Diagnosis + Platform
 g <- ggplot(data = samples)
 g + 
         geom_boxplot(aes(x=Platform, y=percent_cpg_meth, fill = Diagnosis_Alg), size = 1.1) +
@@ -484,35 +499,103 @@ g +
         scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366"))
 ggsave("Figures/Global Methylation by Diagnosis and Platform Boxplot.png", dpi = 600, width = 7, height = 7, units = "in")
 
-# Global Methylation Scatterplots ####
+# mCpG ~ Sex + Platform
+g <- ggplot(data = samples)
+g + 
+        geom_boxplot(aes(x=Platform, y=percent_cpg_meth, fill = Sex), size = 1.1) +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.92,1.03), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = element_blank()) +
+        scale_y_continuous(breaks=pretty_breaks(n=4)) +
+        ylab("Global CpG Methylation (%)") +
+        scale_fill_manual(breaks = c("M", "F"), values = c("M"="#3366CC", "F"="#FF3366"))
+ggsave("Figures/Global Methylation by Sex and Platform Boxplot.png", dpi = 600, width = 7, height = 7, units = "in")
+
+# mCpG ~ Diagnosis + Sex + Platform
+g <- ggplot(data = samples)
+g + 
+        geom_boxplot(aes(x=Sex, y=percent_cpg_meth, fill = Diagnosis_Alg), size = 1.1) +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.89,1.12), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = element_blank(), strip.background = element_blank()) +
+        scale_y_continuous(breaks=pretty_breaks(n=4)) +
+        ylab("Global CpG Methylation (%)") +
+        facet_wrap(vars(Platform)) +
+        scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD"="#3366CC", "ASD"="#FF3366"))
+ggsave("Figures/Global Methylation by Diagnosis, Sex, and Platform Boxplot.png", dpi = 600, width = 8, height = 7, units = "in")
+
+# mCpG ~ PV -3 + Platform
+g <- ggplot(data = remove_missing(samples, na.rm = TRUE, vars = "AllEQ_PV_YN_Mo_3"))
+g + 
+        geom_boxplot(aes(x=Platform, y=percent_cpg_meth, fill = AllEQ_PV_YN_Mo_3), size = 1.1) +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.92,1.03), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = element_blank()) +
+        scale_y_continuous(breaks=pretty_breaks(n=4)) +
+        ylab("Global CpG Methylation (%)") +
+        scale_fill_manual(breaks = c("0", "1"), values = c("0"="#3366CC", "1"="#FF3366"))
+ggsave("Figures/Global Methylation by PV Month -3 and Platform Boxplot.png", dpi = 600, width = 7, height = 7, units = "in")
+
+# mCpG ~ PV -3 + Diagnosis + Platform
+g <- ggplot(data = remove_missing(samples, na.rm = TRUE, vars = "AllEQ_PV_YN_Mo_3"))
+g + 
+        geom_boxplot(aes(x=Diagnosis_Alg, y=percent_cpg_meth, fill = AllEQ_PV_YN_Mo_3), size = 1.1) +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.94,1.12), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = element_blank(), strip.background = element_blank()) +
+        scale_y_continuous(breaks=pretty_breaks(n=4)) +
+        ylab("Global CpG Methylation (%)") +
+        facet_wrap(vars(Platform)) +
+        scale_fill_manual(breaks = c("0", "1"), values = c("0"="#3366CC", "1"="#FF3366"))
+ggsave("Figures/Global Methylation by PV Month -3, Diagnosis, and Platform Boxplot.png", dpi = 600, width = 8, height = 7, units = "in")
+
+# mCpG ~ PV -3 + Sex + Platform
+g <- ggplot(data = remove_missing(samples, na.rm = TRUE, vars = "AllEQ_PV_YN_Mo_3"))
+g + 
+        geom_boxplot(aes(x=Sex, y=percent_cpg_meth, fill = AllEQ_PV_YN_Mo_3), size = 1.1) +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.94,1.12), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              plot.margin = unit(c(2,1,1,1), "lines"), axis.title.x = element_blank(), strip.background = element_blank()) +
+        scale_y_continuous(breaks=pretty_breaks(n=4)) +
+        ylab("Global CpG Methylation (%)") +
+        facet_wrap(vars(Platform)) +
+        scale_fill_manual(breaks = c("0", "1"), values = c("0"="#3366CC", "1"="#FF3366"))
+ggsave("Figures/Global Methylation by PV Month -3, Sex, and Platform Boxplot.png", dpi = 600, width = 8, height = 7, units = "in")
+
+
+# Global Methylation Scatter Plots ####
+
+# mCpG ~ FA + Platform + Sex + PCR Duplicates
+# mCpG ~ Gestational Age + Platform + Sex + PCR Duplicates
+
+# Global Methylation ~ PCR Duplicates Scatterplots ####
 
 # Global Methylation ~ Diagnosis + PCR Duplicates, Discovery Samples
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate, data = samplesX10))$coefficients
-#                     Estimate  Std. Error    t value      Pr(>|t|)
-# Diagnosis_AlgASD  -0.2332074 0.181109791  -1.287657  2.006433e-01
-# percent_duplicate -0.0131507 0.006799923  -1.933948  5.576102e-02
-
 ggScatterPlot(x = samplesX10$percent_duplicate, y = samplesX10$percent_cpg_meth, groupVar = samplesX10$Diagnosis_Alg, 
               fileName = "Figures/Global Methylation by Diagnosis and PCR Duplicates Discovery Scatterplot.png",
               xlab = "PCR Duplicates (%)", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
 # Global Methylation ~ Diagnosis + PCR Duplicates, Replication Samples
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate, data = samples4000))$coefficients
-#                     Estimate  Std. Error    t value      Pr(>|t|)
-# Diagnosis_AlgASD  -0.70403673 0.29785097  -2.363721 2.268113e-02
-# percent_duplicate -0.06634262 0.01947115  -3.407226 1.434686e-03
-
 ggScatterPlot(x = samples4000$percent_duplicate, y = samples4000$percent_cpg_meth, groupVar = samples4000$Diagnosis_Alg, 
               fileName = "Figures/Global Methylation by Diagnosis and PCR Duplicates Replication Scatterplot.png",
               xlab = "PCR Duplicates (%)", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
 # Global Methylation ~ Diagnosis + Platform + PCR Duplicates, All Samples
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + Platform + percent_duplicate, data = samples))$coefficients
-#                     Estimate  Std. Error    t value      Pr(>|t|)
-# Diagnosis_AlgASD  -0.38343343 0.158405214  -2.420586  1.667457e-02
-# PlatformHiSeq4000 -1.55984607 0.179485718  -8.690642  5.368313e-15
-# percent_duplicate -0.01982391 0.006629877  -2.990087  3.254209e-03
-
 ggScatterPlot(x = samples$percent_duplicate, y = samples$percent_cpg_meth, groupVar = samples$Platform, 
               fileName = "Figures/Global Methylation by Platform and PCR Duplicates Scatterplot.png",
               xlab = "PCR Duplicates (%)", ylab = "Global CpG Methylation (%)", legendPos = c(0.78, 1.035))
@@ -521,33 +604,28 @@ ggScatterPlot(x = samples$percent_duplicate, y = samples$percent_cpg_meth, group
               fileName = "Figures/Global Methylation by Diagnosis and PCR Duplicates All Samples Scatterplot.png",
               xlab = "PCR Duplicates (%)", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Global Methylation ~ MullenELC + PCR Duplicates, Discovery Samples
-summary(lm(percent_cpg_meth ~ MSLelcStandard36 + percent_duplicate, data = samplesX10))$coefficients
-#                     Estimate  Std. Error    t value      Pr(>|t|)
-# MSLelcStandard36   0.004681534 0.003849800   1.216046  2.267741e-01
-# percent_duplicate -0.013071049 0.006476512  -2.018224  4.619326e-02
+# Global Methylation ~ Diagnosis + PCR Duplicates, Discovery Samples, Males
+ggScatterPlot(x = samplesX10M$percent_duplicate, y = samplesX10M$percent_cpg_meth, groupVar = samplesX10M$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Diagnosis and PCR Duplicates Discovery Males Scatterplot.png",
+              xlab = "PCR Duplicates (%)", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
+# Global Methylation ~ Diagnosis + PCR Duplicates, Replication Samples, Males
+ggScatterPlot(x = samples4000M$percent_duplicate, y = samples4000M$percent_cpg_meth, groupVar = samples4000M$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Diagnosis and PCR Duplicates Replication Males Scatterplot.png",
+              xlab = "PCR Duplicates (%)", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
+
+# Global Methylation ~ MullenELC Scatterplots ####
+# Global Methylation ~ MullenELC + PCR Duplicates, Discovery Samples
 ggScatterPlot(x = samplesX10$MSLelcStandard36, y = samplesX10$percent_cpg_meth, groupVar = samplesX10$Diagnosis_Alg, 
               fileName = "Figures/Global Methylation by Mullen ELC Discovery Scatterplot.png",
               xlab = "Mullen Early Learning Composite", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
 # Global Methylation ~ MullenELC + PCR Duplicates, Replication Samples
-summary(lm(percent_cpg_meth ~ MSLelcStandard36 + percent_duplicate, data = samples4000))$coefficients
-#                     Estimate  Std. Error    t value      Pr(>|t|)
-# MSLelcStandard36   0.02302187 0.006090009  3.780268 4.887965e-04
-# percent_duplicate -0.07267041 0.022457760 -3.235871 2.367658e-03
-
 ggScatterPlot(x = samples4000$MSLelcStandard36, y = samples4000$percent_cpg_meth, groupVar = samples4000$Diagnosis_Alg, 
               fileName = "Figures/Global Methylation by Mullen ELC Replication Scatterplot.png",
               xlab = "Mullen Early Learning Composite", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
 # Global Methylation ~ MullenELC + Platform + PCR Duplicates, All Samples
-summary(lm(percent_cpg_meth ~ MSLelcStandard36 + Platform + percent_duplicate, data = samples))$coefficients
-#                     Estimate  Std. Error    t value      Pr(>|t|)
-# MSLelcStandard36   0.009995785 0.003375352   2.961405  3.575668e-03
-# PlatformHiSeq4000 -1.565851597 0.172691790  -9.067319  7.483491e-16
-# percent_duplicate -0.017718184 0.006500379  -2.725716  7.201553e-03
-
 ggScatterPlot(x = samples$MSLelcStandard36, y = samples$percent_cpg_meth, groupVar = samples$Diagnosis_Alg, 
               fileName = "Figures/Global Methylation by Mullen ELC and Diagnosis All Samples Scatterplot.png",
               xlab = "Mullen Early Learning Composite", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
@@ -556,63 +634,75 @@ ggScatterPlot(x = samples$MSLelcStandard36, y = samples$percent_cpg_meth, groupV
               fileName = "Figures/Global Methylation by Mullen ELC and Platform All Samples Scatterplot.png",
               xlab = "Mullen Early Learning Composite", ylab = "Global CpG Methylation (%)", legendPos = c(0.78, 1.035))
 
-# Global Methylation by Covariates, Males Only ####
-# Discovery
-samplesX10M <- subset(samplesX10, Sex == "M")
-catVarsX10M <- catVarsX10[!catVarsX10 %in% c("Sex", "PE_EQ")]
-x10statsM <- methLm(catVars = catVarsX10M, contVars = contVarsX10, sampleData = samplesX10M, globalMeth = "percent_cpg_meth")
-write.table(x10statsM, "Tables/Covariate Stats by Global Meth X10 Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+# Global Methylation ~ MullenELC + PCR Duplicates, Discovery Samples, Males
+ggScatterPlot(x = samplesX10M$MSLelcStandard36, y = samplesX10M$percent_cpg_meth, groupVar = samplesX10M$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Mullen ELC Discovery Males Scatterplot.png",
+              xlab = "Mullen Early Learning Composite", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Replication
-samples4000M <- subset(samples4000, Sex == "M")
-catVars4000M <- catVars4000[!catVars4000 %in% c("Sex")]
-stats4000M <- methLm(catVars = catVars4000M, contVars = contVars4000, sampleData = samples4000M, globalMeth = "percent_cpg_meth")
-write.table(stats4000M, "Tables/Covariate Stats by Global Meth 4000 Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+# Global Methylation ~ MullenELC + PCR Duplicates, Replication Samples, Males
+ggScatterPlot(x = samples4000M$MSLelcStandard36, y = samples4000M$percent_cpg_meth, groupVar = samples4000M$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Mullen ELC Replication Males Scatterplot.png",
+              xlab = "Mullen Early Learning Composite", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Pooled
-samplesM <- subset(samples, Sex == "M")
-catVarsPooledM <- catVarsPooled[!catVarsPooled %in% c("Sex")]
-pooledStatsM <- methLm(catVars = catVarsPooledM, contVars = contVarsPooled, sampleData = samplesM, globalMeth = "percent_cpg_meth")
-write.table(pooledStatsM, "Tables/Covariate Stats by Global Meth Pooled Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+# Global Methylation ~ ADOS Scatterplots ####
+# Global Methylation ~ ADOS + PCR Duplicates, Discovery Samples
+ggScatterPlot(x = samplesX10$ADOScs, y = samplesX10$percent_cpg_meth, groupVar = samplesX10$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by ADOS Discovery Scatterplot.png",
+              xlab = "ADOS Comparison Score", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Pooled + Platform
-catVarsPlatformM <- catVarsPlatform[!catVarsPlatform == "Sex"]
-platformStatsM <- methLmPlatform(catVars = catVarsPlatformM, contVars = contVarsPlatform, sampleData = samplesM, 
-                                globalMeth = "percent_cpg_meth", platform = "Platform")
-write.table(platformStatsM, "Tables/Covariate Stats by Global Meth Pooled Platform Adjusted Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+# Global Methylation ~ ADOS + PCR Duplicates, Replication Samples
+ggScatterPlot(x = samples4000$ADOScs, y = samples4000$percent_cpg_meth, groupVar = samples4000$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by ADOS Replication Scatterplot.png",
+              xlab = "ADOS Comparison Score", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Global Methylation by Covariates and PCR Duplicates ####
+# Global Methylation ~ ADOS + PCR Duplicates, Discovery Samples, Males
+ggScatterPlot(x = samplesX10M$ADOScs, y = samplesX10M$percent_cpg_meth, groupVar = samplesX10M$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by ADOS Discovery Males Scatterplot.png",
+              xlab = "ADOS Comparison Score", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Discovery
-contVarsX10Dups <- contVarsX10[!contVarsX10 == "percent_duplicate"]
-x10statsDups <- methLmAdj(catVars = catVarsX10, contVars = contVarsX10Dups, sampleData = samplesX10, 
-                          globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate")
-write.table(x10statsDups, "Tables/Covariate Stats by Global Meth X10 PCR Duplicate Adjusted.txt", sep="\t", quote = FALSE, row.names = FALSE)
+# Global Methylation ~ ADOS + PCR Duplicates, Replication Samples, Males
+ggScatterPlot(x = samples4000M$ADOScs, y = samples4000M$percent_cpg_meth, groupVar = samples4000M$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by ADOS Replication Males Scatterplot.png",
+              xlab = "ADOS Comparison Score", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Discovery, Males only
-x10statsDupsM <- methLmAdj(catVars = catVarsX10M, contVars = contVarsX10Dups, sampleData = samplesX10M, 
-                          globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate")
-write.table(x10statsDupsM, "Tables/Covariate Stats by Global Meth X10 PCR Duplicate Adjusted, Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+# Global Methylation ~ Folic Acid Month -3 Scatterplots ####
+# Global Methylation ~ FA-3 + PCR Duplicates, Discovery Samples
+ggScatterPlot(x = samplesX10$AllEQ_tot_All_FA_mcg_Mo_3, y = samplesX10$percent_cpg_meth, groupVar = samplesX10$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Folic Acid Month -3 Discovery Scatterplot.png",
+              xlab = "Folic Acid Pre-Pregnancy Month 3", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Replication
-contVars4000Dups <- contVars4000[!contVars4000 == "percent_duplicate"]
-stats4000Dups <- methLmAdj(catVars = catVars4000, contVars = contVars4000Dups, sampleData = samples4000, 
-                          globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate")
-write.table(stats4000Dups, "Tables/Covariate Stats by Global Meth 4000 PCR Duplicate Adjusted.txt", sep="\t", quote = FALSE, row.names = FALSE)
+# Global Methylation ~ FA-3 + PCR Duplicates, Replication Samples
+ggScatterPlot(x = samples4000$AllEQ_tot_All_FA_mcg_Mo_3, y = samples4000$percent_cpg_meth, groupVar = samples4000$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Folic Acid Month -3 Replication Scatterplot.png",
+              xlab = "Folic Acid Pre-Pregnancy Month 3", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Replication, Males only
-stats4000DupsM <- methLmAdj(catVars = catVars4000M, contVars = contVars4000Dups, sampleData = samples4000M, 
-                           globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate")
-write.table(stats4000DupsM, "Tables/Covariate Stats by Global Meth 4000 PCR Duplicate Adjusted, Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+# Global Methylation ~ FA-3 + PCR Duplicates, Discovery Samples, Males
+ggScatterPlot(x = samplesX10M$AllEQ_tot_All_FA_mcg_Mo_3, y = samplesX10M$percent_cpg_meth, groupVar = samplesX10M$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Folic Acid Month -3 Discovery Males Scatterplot.png",
+              xlab = "Folic Acid Pre-Pregnancy Month 3", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Pooled + Platform
-contVarsPlatformDups <- contVarsPlatform[!contVarsPlatform == "percent_duplicate"]
-platformStatsDups <- methLmAdj(catVars = catVarsPlatform, contVars = contVarsPlatformDups, sampleData = samplesPlatform, 
-                           globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate", adjVar2 = "Platform")
-write.table(platformStatsDups, "Tables/Covariate Stats by Global Meth Pooled, Platform and PCR Duplicate Adjusted.txt", sep="\t", quote = FALSE, row.names = FALSE)
+# Global Methylation ~ FA-3 + PCR Duplicates, Replication Samples, Males
+ggScatterPlot(x = samples4000M$AllEQ_tot_All_FA_mcg_Mo_3, y = samples4000M$percent_cpg_meth, groupVar = samples4000M$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Folic Acid Month -3 Replication Males Scatterplot.png",
+              xlab = "Folic Acid Pre-Pregnancy Month 3", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
-# Pooled + Platform, Males only
-platformStatsDupsM <- methLmAdj(catVars = catVarsPlatformM, contVars = contVarsPlatformDups, sampleData = samplesM, 
-                            globalMeth = "percent_cpg_meth", adjVar1 = "percent_duplicate", adjVar2 = "Platform")
-write.table(platformStatsDupsM, "Tables/Covariate Stats by Global Meth Platform PCR Duplicate Adjusted, Males Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
+# Global Methylation ~ Gestational Age Scatterplots ####
+# Global Methylation ~ GA + PCR Duplicates, Discovery Samples
+ggScatterPlot(x = samplesX10$ga_w, y = samplesX10$percent_cpg_meth, groupVar = samplesX10$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Gestational Age Discovery Scatterplot.png",
+              xlab = "Gestational Age (weeks)", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
+# Global Methylation ~ GA + PCR Duplicates, Replication Samples
+ggScatterPlot(x = samples4000$ga_w, y = samples4000$percent_cpg_meth, groupVar = samples4000$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Gestational Age Replication Scatterplot.png",
+              xlab = "Gestational Age (weeks)", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
+
+# Global Methylation ~ GA + PCR Duplicates, Discovery Samples, Males
+ggScatterPlot(x = samplesX10M$ga_w, y = samplesX10M$percent_cpg_meth, groupVar = samplesX10M$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Gestational Age Discovery Males Scatterplot.png",
+              xlab = "Gestational Age (weeks)", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
+
+# Global Methylation ~ GA + PCR Duplicates, Replication Samples, Males
+ggScatterPlot(x = samples4000M$ga_w, y = samples4000M$percent_cpg_meth, groupVar = samples4000M$Diagnosis_Alg, 
+              fileName = "Figures/Global Methylation by Gestational Age Replication Males Scatterplot.png",
+              xlab = "Gestational Age (weeks)", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
