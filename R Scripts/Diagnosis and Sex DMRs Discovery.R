@@ -20,10 +20,9 @@ perGroup <- (as.numeric(50)/100)
 minCpGs <- as.numeric(3)
 maxPerms <- as.numeric(10)
 testCovariate <- as.character("Diagnosis")
-adjustCovariate <- NULL
-matchCovariate <- NULL
-cores <- 40
-# cores <- 20 barbera
+#adjustCovariate <- NULL
+#matchCovariate <- NULL
+cores <- 10
 set.seed(5)
 register(MulticoreParam(1))
 
@@ -48,7 +47,7 @@ saveRDS(bs.filtered, "Filtered_BSseq_Discovery50.rds")
 background <- getBackground(bs.filtered, minNumRegion = minCpGs, maxGap = 1000)
 write.table(background, file = "bsseq_background_Discovery50.csv", sep = ",", quote = FALSE, row.names = FALSE)
 
-# Smoothed Methylation (Running on Epigenerate, 1/29)
+# Smoothed Methylation (Done)
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
 cores <- 5
 register(MulticoreParam(1))
@@ -66,7 +65,7 @@ pData(bs.filtered.bsseq) <- pData
 
 saveRDS(bs.filtered.bsseq, "Filtered_Smoothed_BSseq_Discovery50.rds")
 
-# Meth ~ Diagnosis DMRs and Plots (DMRs Done, Smoothed meth and Plots Not Done, Waiting for interactive session)
+# Meth ~ Diagnosis DMRs and Plots (Done)
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
 regionsDx <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms,
                     testCovariate = testCovariate, adjustCovariate = NULL, matchCovariate = NULL)
@@ -76,17 +75,27 @@ gr2csv(regionsDx, "CandidateRegions_Dx_Discovery50.csv")
 gr2csv(sigRegionsDx, "DMRs_Dx_Discovery50.csv")
 
 bs.filtered.bsseq <- readRDS("Filtered_Smoothed_BSseq_Discovery50.rds")
+annoTrack <- readRDS("hg38_annoTrack.rds")
+# Pasted in plotFunctions.R
 smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegionsDx, 
                       out = "DMR_smoothed_methylation_Dx_Discovery50.txt")
-
-annoTrack <- readRDS("hg38_annoTrack.rds")
+sigRegionsDx <- read.csv("DMRs_Dx_Discovery50.csv", header = TRUE, stringsAsFactors = FALSE)
+sigRegionsDx <- data.frame2GRanges(sigRegionsDx)
 pdf("DMRs_Dx_Discovery50.pdf", height = 4, width = 8)
-plotDMRs2(bs.filtered.bsseq, regions = sigRegionsDx, testCovariate = testCovariate, extend = 5000,
+plotDMRs2(bs.filtered.bsseq, regions = sigRegionsDx, testCovariate = testCovariate, 
+          extend = 5000 - (end(sigRegionsDx) - start(sigRegionsDx) + 1)/2,
           addRegions = sigRegionsDx, annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE,
           horizLegend = TRUE)
 dev.off()
 
-# Meth ~ Diagnosis + AdjSex DMRs and Plots (Job Ran Out on Barbera 1/28, stalled on Perm 1 chrX)
+pdf("DMRs_Dx_Discovery50_noPoints.pdf", height = 4, width = 8)
+plotDMRs2(bs.filtered.bsseq, regions = sigRegionsDx, testCovariate = testCovariate, 
+          extend = 5000 - (end(sigRegionsDx) - start(sigRegionsDx) + 1)/2,
+          addRegions = sigRegionsDx, annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE,
+          horizLegend = TRUE, addPoints = FALSE)
+dev.off()
+
+# Meth ~ Diagnosis + AdjSex DMRs and Plots (Done)
 # New R session
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
 regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms,
@@ -97,14 +106,22 @@ gr2csv(regions, "CandidateRegions_DxAdjSex_Discovery50.csv")
 gr2csv(sigRegions, "DMRs_DxAdjSex_Discovery50.csv")
 
 bs.filtered.bsseq <- readRDS("Filtered_Smoothed_BSseq_Discovery50.rds")
+annoTrack <- readRDS("hg38_annoTrack.rds")
 smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegions, 
                       out = "DMR_smoothed_methylation_DxAdjSex_Discovery50.txt")
 
-annoTrack <- readRDS("hg38_annoTrack.rds")
 pdf("DMRs_DxAdjSex_Discovery50.pdf", height = 4, width = 8)
-plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, extend = 5000,
+plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, 
+          extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2,
           addRegions = sigRegions, annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE,
           horizLegend = TRUE)
+dev.off()
+
+pdf("DMRs_DxAdjSex_Discovery50_noPoints.pdf", height = 4, width = 8)
+plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, 
+          extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2,
+          addRegions = sigRegions, annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE,
+          horizLegend = TRUE, addPoints = FALSE)
 dev.off()
 
 # DMRs with Males Only ####
@@ -128,9 +145,11 @@ sigRegions <- regions[regions$pval < 0.05,]
 gr2csv(regions, "CandidateRegions_Dx_Discovery50_males.csv")
 gr2csv(sigRegions, "DMRs_Dx_Discovery50_males.csv")
 
-# Smoothed Methylation and Plots (Ran out of time on barbera, 1/29)
+# Smoothed Methylation and Plots (Done)
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50_males.rds")
 sigRegions <- read.csv("DMRs_Dx_Discovery50_males.csv", header = TRUE, stringsAsFactors = FALSE)
+sigRegions <- data.frame2GRanges(sigRegions)
+
 # Pasted in plotFunctions.R
 
 bs.filtered.bsseq <- BSmooth(bs.filtered, BPPARAM = MulticoreParam(workers = cores, progressbar = TRUE))
@@ -144,19 +163,20 @@ pData$label[pData[,testCovariate] == levels(pData[,testCovariate])[2]] <-  "ASD"
 pData(bs.filtered.bsseq) <- pData
 saveRDS(bs.filtered.bsseq, "Filtered_Smoothed_BSseq_Discovery50_males.rds")
 
+annoTrack <- readRDS("hg38_annoTrack.rds")
+
 smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegions, 
                       out = "DMR_smoothed_methylation_Dx_Discovery50_males.txt")
 
-annoTrack <- readRDS("hg38_annoTrack.rds")
 pdf("DMRs_Dx_Discovery50_males_noPoints.pdf", height = 4, width = 8)
 plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate,
-          extend = 5000 - (end(regions) - start(regions) + 1)/2, addRegions = sigRegions, 
+          extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2, addRegions = sigRegions, 
           annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE, horizLegend = TRUE, addPoints = FALSE)
 dev.off()
 
 pdf("DMRs_Dx_Discovery50_males.pdf", height = 4, width = 8)
 plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate,
-          extend = 5000 - (end(regions) - start(regions) + 1)/2, addRegions = sigRegions, 
+          extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2, addRegions = sigRegions, 
           annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE, horizLegend = TRUE)
 dev.off()
 
@@ -196,15 +216,25 @@ saveRDS(bs.filtered.bsseq, "Filtered_Smoothed_BSseq_Discovery50_females.rds")
 smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegions, 
                       out = "DMR_smoothed_methylation_Dx_Discovery50_females.txt")
 
+bs.filtered.bsseq <- readRDS("Filtered_Smoothed_BSseq_Discovery50_females.rds")
+testCovariate <- "Diagnosis"
+sigRegions <- read.csv("DMRs_Dx_Discovery50_females.csv", header = TRUE, stringsAsFactors = FALSE)
+sigRegions <- data.frame2GRanges(sigRegions)
 annoTrack <- readRDS("hg38_annoTrack.rds")
 # pasted in plotFunctions.R
 pdf("DMRs_Dx_Discovery50_females_noPoints.pdf", height = 4, width = 8)
 plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, 
-          extend = 5000 - (end(regions) - start(regions) + 1)/2, addRegions = sigRegions, 
+          extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2, addRegions = sigRegions, 
           annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE, horizLegend = TRUE, 
           addPoints = FALSE)
 dev.off()
 
+pdf("DMRs_Dx_Discovery50_females.pdf", height = 4, width = 8)
+plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, 
+          extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2, addRegions = sigRegions, 
+          annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE, horizLegend = TRUE, 
+          addPoints = TRUE)
+dev.off()
 
 
 # DMR Comparison ####
@@ -221,6 +251,12 @@ DxAllCand <- read.csv("DMRs/Discovery/Diagnosis 50/CandidateRegions_Dx_Discovery
                       stringsAsFactors = FALSE)
 DxAllBack <- read.csv("DMRs/Discovery/Diagnosis 50/bsseq_background_Discovery50.csv", header = TRUE, 
                       stringsAsFactors = FALSE)
+DxSexAllDMRs <- read.csv("DMRs/Discovery/Diagnosis and Sex 50/DMRs_DxAdjSex_Discovery50.csv", header = TRUE, 
+                      stringsAsFactors = FALSE)
+DxSexAllCand <- read.csv("DMRs/Discovery/Diagnosis and Sex 50/CandidateRegions_DxAdjSex_Discovery50.csv", header = TRUE, 
+                      stringsAsFactors = FALSE)
+DxSexAllBack <- read.csv("DMRs/Discovery/Diagnosis 50/bsseq_background_Discovery50.csv", header = TRUE, 
+                      stringsAsFactors = FALSE) # Same as DxAllBack
 DxMalesDMRs <- read.csv("DMRs/Discovery/Diagnosis Males 50/DMRs_Dx_Discovery50_males.csv", header = TRUE, 
                         stringsAsFactors = FALSE)
 DxMalesCand <- read.csv("DMRs/Discovery/Diagnosis Males 50/CandidateRegions_Dx_Discovery50_males.csv", header = TRUE, 
@@ -235,10 +271,10 @@ DxFemalesBack <- read.csv("DMRs/Discovery/Diagnosis Females 50/bsseq_background_
                           stringsAsFactors = FALSE)
 
 # Region Stats
-regions <- list(DxAllDMRs, DxAllCand, DxAllBack, DxMalesDMRs, DxMalesCand, DxMalesBack, DxFemalesDMRs, DxFemalesCand, 
-                DxFemalesBack)
-names(regions) <- c("DxAllDMRs", "DxAllCand", "DxAllBack", "DxMalesDMRs", "DxMalesCand", "DxMalesBack", "DxFemalesDMRs", 
-                    "DxFemalesCand", "DxFemalesBack")
+regions <- list(DxAllDMRs, DxAllCand, DxAllBack, DxSexAllDMRs, DxSexAllCand, DxSexAllBack, DxMalesDMRs, DxMalesCand, DxMalesBack, 
+                DxFemalesDMRs, DxFemalesCand, DxFemalesBack)
+names(regions) <- c("DxAllDMRs", "DxAllCand", "DxAllBack", "DxSexAllDMRs", "DxSexAllCand", "DxSexAllBack", 
+                    "DxMalesDMRs", "DxMalesCand", "DxMalesBack", "DxFemalesDMRs", "DxFemalesCand", "DxFemalesBack")
 regions <- sapply(regions, function(x){
         colnames(x)[1] <- "chr"
         return(x)
@@ -251,8 +287,8 @@ getRegionStats <- function(regionData){
         regionStats <- regionStats %>% t %>% as.data.frame
         regionStats$Regions <- row.names(regionStats)
         row.names(regionStats) <- 1:nrow(regionStats)
-        regionStats$TD <- rep(c(56, 39, 17), each = 3)
-        regionStats$ASD <- rep(c(52, 37, 15), each = 3)
+        regionStats$TD <- rep(c(56, 56, 39, 17), each = 3)
+        regionStats$ASD <- rep(c(52, 52, 37, 15), each = 3)
         regionStats$All <- regionStats$TD + regionStats$ASD
         regionStats$NumberPerBack <- round(regionStats$Number * 100 / rep(regionStats$Number[grepl("Back", regionStats$Regions)], each = 3), 3)
         regionStats$WidthPerBack <- round(regionStats$Width * 100 / rep(regionStats$Width[grepl("Back", regionStats$Regions)], each = 3), 3)
@@ -269,55 +305,48 @@ regionsX <- sapply(regions, function(x){subset(x, chr == "chrX")})
 regionStatsX <- getRegionStats(regionsX)
 write.table(regionStatsX, "Tables/DMR Region Stats ChrX Dx Discovery 50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
-# Region Stats chrY
-regionsY <- sapply(regions, function(x){subset(x, chr == "chrY")})
-regionStatsY <- getRegionStats(regionsY)
-write.table(regionStatsY, "Tables/DMR Region Stats ChrY Dx Discovery 50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
-
 # Region Overlap Venn Diagrams
 library(ChIPpeakAnno)
 GR_regions <- sapply(regions, function(x) {GRanges(seqnames = x$chr, ranges = IRanges(start = x$start, end = x$end))})
 
 pdf(file="Figures/DMR Overlap Dx Discovery 50.pdf", width=10, height=8, onefile = FALSE)
-venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs, GR_regions$DxMalesDMRs, GR_regions$DxFemalesDMRs), 
-                                         NameOfPeaks = c("All_DMRs", "Males_DMRs", "Females_DMRs"), maxgap = -1, 
-                                         minoverlap = 1, by = "region", connectedPeaks = "min", rotation.degree = 0, 
-                                         margin = 0.02, cat.cex = 2, cex = 2.5, fill = c("lightblue", "lightpink", "lightgreen"), 
-                                         cat.pos = c(355, 5, 180), cat.dist = c(0.03, 0.03, 0.03), fontfamily = "sans", 
-                                         cat.fontfamily = "sans", ext.dist = -0.4, ext.length = 0.85))
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs, GR_regions$DxSexAllDMRs, 
+                                                      GR_regions$DxMalesDMRs, GR_regions$DxFemalesDMRs), 
+                                         NameOfPeaks = c("All_DMRs", "All_DMRs_Sex", "Males_DMRs", "Females_DMRs"), 
+                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                         rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
+                                         fill = c("lightblue", "lavender", "lightpink", "lightgreen"), 
+                                         cat.pos = c(355, 10, 0, 0), cat.dist = c(0.2, 0.2, 0.1, 0.08), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.dist = -0.4,
+                                         ext.length = 0.85))
 dev.off()
 
 pdf(file="Figures/Hyper DMR Overlap Dx Discovery 50.pdf", width=10, height=8, onefile = FALSE)
 venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs[DxAllDMRs$percentDifference > 0], 
+                                                      GR_regions$DxSexAllDMRs[DxSexAllDMRs$percentDifference > 0], 
                                                       GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference > 0], 
                                                       GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference > 0]), 
-                                         NameOfPeaks = c("All_Hyper_DMRs", "Males_Hyper_DMRs", "Females_Hyper_DMRs"), 
+                                         NameOfPeaks = c("All_DMRs", "All_DMRs_Sex", "Males_DMRs", "Females_DMRs"), 
                                          maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
                                          rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
-                                         fill = c("lightblue", "lightpink", "lightgreen"), cat.pos = c(335, 23, 0), 
-                                         cat.dist = c(0.05, 0.07, 0.05), fontfamily = "sans", cat.fontfamily = "sans", 
-                                         ext.dist = -0.4, ext.length = 0.85))
+                                         fill = c("lightblue", "lavender", "lightpink", "lightgreen"), 
+                                         cat.pos = c(350, 10, 0, 0), cat.dist = c(0.2, 0.2, 0.1, 0.08), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.dist = -0.4, 
+                                         ext.length = 0.85))
 dev.off()
 
 pdf(file="Figures/Hypo DMR Overlap Dx Discovery 50.pdf", width=10, height=8, onefile = FALSE)
-venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs[DxAllDMRs$percentDifference < 0], 
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs[DxAllDMRs$percentDifference < 0],
+                                                      GR_regions$DxSexAllDMRs[DxSexAllDMRs$percentDifference < 0],
                                                       GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference < 0], 
                                                       GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference < 0]), 
-                                         NameOfPeaks = c("All_Hypo_DMRs", "Males_Hypo_DMRs", "Females_Hypo_DMRs"), 
+                                         NameOfPeaks = c("All_DMRs", "All_DMRs_Sex", "Males_DMRs", "Females_DMRs"), 
                                          maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
                                          rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
-                                         fill = c("lightblue", "lightpink", "lightgreen"), cat.pos = c(355, 5, 180), 
-                                         cat.dist = c(0.05, 0.05, 0.05), fontfamily = "sans", cat.fontfamily = "sans", 
-                                         ext.dist = -0.4, ext.length = 0.85))
-dev.off()
-
-pdf(file="Figures/Candidates Overlap Dx Discovery 50.pdf", width=10, height=8, onefile = FALSE)
-venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllCand, GR_regions$DxMalesCand, GR_regions$DxFemalesCand), 
-                                         NameOfPeaks = c("All_Candidates", "Males_Candidates", "Females_Candidates"), maxgap = -1, 
-                                         minoverlap = 1, by = "region", connectedPeaks = "min", rotation.degree = 0, 
-                                         margin = 0.02, cat.cex = 2, cex = 2.5, fill = c("lightblue", "lightpink", "lightgreen"), 
-                                         cat.pos = c(355, 5, 180), cat.dist = c(0.03, 0.03, 0.03), fontfamily = "sans", 
-                                         cat.fontfamily = "sans", ext.dist = -0.4, ext.length = 0.85))
+                                         fill = c("lightblue", "lavender", "lightpink", "lightgreen"), 
+                                         cat.pos = c(350, 10, 0, 0), cat.dist = c(0.2, 0.2, 0.1, 0.08), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.dist = -0.4, 
+                                         ext.length = 0.85))
 dev.off()
 
 # Male Female Overlap
