@@ -6,7 +6,7 @@
 
 # Packages ####
 sapply(c("tidyverse", "ggdendro", "scales", "ggplot2", "ggbiplot", "reshape", "grid", "RColorBrewer", "CMplot", "rlist",
-         "annotatr", "DMRichR"), require, character.only = TRUE)
+         "annotatr", "GenomicRanges", "LOLA", "rtracklayer", "R.utils", "rGREAT", "DMRichR"), require, character.only = TRUE)
 
 # Functions ####
 CMplotDMR <- function(candidates, prefix, plot.type, bin.max = 450){
@@ -27,7 +27,7 @@ CMplotDMR <- function(candidates, prefix, plot.type, bin.max = 450){
                         message("Creating QQ plot")
                         pdf(paste(prefix, "QQ Plot.pdf", sep = " "), height = 5.5, width = 5.5)
                         par(mar = c(4, 4.5, 2.5, 1.5), xaxs = "i", yaxs = "i", mgp = c(2.5, 1, 0))
-                        CMplot(manhattan, col = "black", cex.axis = 1.2, plot.type = "q", cex = 0.3, file.output = FALSE, 
+                        CMplot(candidates, col = "black", cex.axis = 1.2, plot.type = "q", cex = 0.3, file.output = FALSE, 
                                verbose = FALSE, box = TRUE)
                         dev.off()
                 }
@@ -331,6 +331,165 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
         ggsave(file, dpi = 600, width = 9, height = 6, units = "in")
 }
 
+getDMRanno <- function(DMRstats, regDomains, file){
+        start_time <- Sys.time()
+        message("[getDMRanno] Adding genes to DMRs by regulatory domains")
+        GR_regDomains <- GRanges(seqnames = regDomains$gene_chr, ranges = IRanges(start = regDomains$distal_start, end = regDomains$distal_end))
+        GR_DMRstats <- GRanges(seqnames = DMRstats$chr, ranges = IRanges(start = DMRstats$start, end = DMRstats$end))
+        overlaps <- as.data.frame(findOverlaps(GR_DMRstats, GR_regDomains))
+        rm(GR_regDomains, GR_DMRstats)
+        DMRstats_genes <- cbind("DMRid" = DMRstats$DMRid[overlaps$queryHits], regDomains[overlaps$subjectHits,], row.names=NULL)
+        rm(overlaps)
+        DMRstats_genes <- merge(DMRstats, DMRstats_genes, by = "DMRid", all = TRUE, sort = FALSE)
+        message("[getDMRanno] Getting DMR positions relative to genes")
+        message("[getDMRanno] Gene positions added:\t")
+        DMRstats_annotated <- NULL
+        for(i in 1:nrow(DMRstats_genes)){
+                if(i %% 500 == 0){message(i, "\t", appendLF = FALSE)}
+                temp <- DMRstats_genes[i,]
+                if(!temp$gene_strand %in% c("+", "-")){temp$distanceToTSS <- NA; temp$positionInGene <- NA} 
+                else {
+                        if(temp$gene_strand == "+"){ # + strand
+                                if(temp$start < temp$gene_start & temp$end < temp$gene_start){temp$distanceToTSS <- temp$end - temp$gene_start} #upstream of TSS (-)
+                                if(temp$start <= temp$gene_start & temp$end >= temp$gene_start){temp$distanceToTSS <- 0} #overlapping TSS
+                                if(temp$start > temp$gene_start & temp$end > temp$gene_start){temp$distanceToTSS <- temp$start - temp$gene_start} #downstream of TSS (+)
+                                if(temp$end < temp$gene_start){temp$positionInGene <- "upstream"}
+                                if(temp$end > temp$gene_start & temp$start < temp$gene_end){temp$positionInGene <- "gene_body"}
+                                if(temp$start > temp$gene_end){temp$positionInGene <- "downstream"}
+                                if(temp$distanceToTSS == 0){temp$positionInGene <- "TSS"}
+                        }
+                        else { # - strand
+                                if(temp$start > temp$gene_end & temp$end > temp$gene_end){temp$distanceToTSS <- temp$gene_end - temp$start} #upstream of TSS (-)
+                                if(temp$start <= temp$gene_end & temp$end >= temp$gene_end){temp$distanceToTSS <- 0} #overlapping TSS
+                                if(temp$start < temp$gene_end & temp$end < temp$gene_end){temp$distanceToTSS <- temp$gene_end - temp$end} #downstream of TSS (+)
+                                if(temp$start > temp$gene_end){temp$positionInGene <- "upstream"}
+                                if(temp$start < temp$gene_end & temp$end > temp$gene_start){temp$positionInGene <- "gene_body"}
+                                if(temp$end < temp$gene_start){temp$positionInGene <- "downstream"}
+                                if(temp$distanceToTSS == 0){temp$positionInGene <- "TSS"}
+                        }
+                }
+                DMRstats_annotated <- rbind(DMRstats_annotated, temp)
+        }
+        DMRstats_annotated$DMRid <- factor(DMRstats_annotated$DMRid, levels = unique(DMRstats_annotated$DMRid))
+        DMRstats_annotated <- aggregate(formula = cbind(gene_name, gene_entrezID, gene_strand, distanceToTSS, positionInGene) ~ DMRid, 
+                                        data = DMRstats_annotated, FUN = function(x) paste(x, collapse = ", "), simplify = TRUE)
+        DMRstats_annotated <- merge(x = DMRstats, y = DMRstats_annotated, by = "DMRid", all.x = TRUE, all.y = FALSE, sort = FALSE)
+        message("\n[getDMRanno] Getting CpG annotations")
+        annotations <- build_annotations(genome = "hg38", annotations = "hg38_cpgs")
+        annotations <- GenomeInfoDb::keepStandardChromosomes(annotations, pruning.mode = "coarse")
+        DMRs_CpGs <- annotate_regions(regions = GRanges(seqnames = DMRstats$chr, 
+                                                        ranges = IRanges(start = DMRstats$start, end = DMRstats$end), 
+                                                        DMRid = DMRstats$DMRid),
+                                      annotations = annotations, ignore.strand = TRUE, quiet = TRUE) %>% as.data.frame
+        colnames(DMRs_CpGs)[colnames(DMRs_CpGs) == "annot.type"] <- "CpG_Anno"
+        DMRs_CpGs$CpG_Anno[DMRs_CpGs$CpG_Anno == "hg38_cpg_islands"] <- "CpG_Island"
+        DMRs_CpGs$CpG_Anno[DMRs_CpGs$CpG_Anno == "hg38_cpg_shores"] <- "CpG_Shore"
+        DMRs_CpGs$CpG_Anno[DMRs_CpGs$CpG_Anno == "hg38_cpg_shelves"] <- "CpG_Shelf"
+        DMRs_CpGs$CpG_Anno[DMRs_CpGs$CpG_Anno == "hg38_cpg_inter"] <- "CpG_Open_Sea"
+        DMRs_CpGs <- aggregate(formula = CpG_Anno ~ DMRid, data = DMRs_CpGs, FUN = function(x) paste(unique(x), collapse = ", "), simplify = TRUE)
+        DMRstats_annotated <- merge(x = DMRstats_annotated, y = DMRs_CpGs, by = "DMRid", all.x = TRUE, all.y = FALSE, sort = FALSE)
+        message("[getDMRanno] Getting gene regulatory annotations")
+        annotations <- build_annotations(genome = "hg38", annotations = c("hg38_basicgenes", "hg38_genes_intergenic", 
+                                                                          "hg38_genes_intronexonboundaries", 
+                                                                          "hg38_enhancers_fantom"))
+        annotations <- GenomeInfoDb::keepStandardChromosomes(annotations, pruning.mode = "coarse")
+        DMRs_GeneReg <- annotate_regions(regions = GRanges(seqnames = DMRstats$chr, 
+                                                           ranges = IRanges(start = DMRstats$start, end = DMRstats$end), 
+                                                           DMRid = DMRstats$DMRid),
+                                          annotations = annotations, ignore.strand = TRUE, quiet = TRUE) %>% as.data.frame
+        colnames(DMRs_GeneReg)[colnames(DMRs_GeneReg) == "annot.type"] <- "GeneReg_Anno"
+        DMRs_GeneReg$GeneReg_Anno <- gsub(pattern = "hg38_", replacement = "", x = DMRs_GeneReg$GeneReg_Anno, fixed = TRUE)
+        DMRs_GeneReg <- aggregate(formula = GeneReg_Anno ~ DMRid, data = DMRs_GeneReg, FUN = function(x) paste(unique(x), collapse = ", "), simplify = TRUE)
+        DMRstats_annotated <- merge(x = DMRstats_annotated, y = DMRs_GeneReg, by = "DMRid", all.x = TRUE, all.y = FALSE, sort = FALSE)
+        write.table(DMRstats_annotated, file, sep = "\t", quote = FALSE, row.names = FALSE)
+        message("[getDMRanno] Complete!")
+        end_time <- Sys.time()
+        message("Time difference of ", round(end_time - start_time, 2), " minutes")
+        return(DMRstats_annotated)
+}
+
+getDMRgeneList <- function(DMRstats, regDomains, direction = c("all", "hyper", "hypo"), 
+                           type = c("gene_name", "gene_entrezID")){
+        if(is.null(direction)){direction <- "all"}
+        if(direction == "hyper"){DMRstats <- subset(DMRstats, percentDifference > 0)}
+        if(direction == "hypo"){DMRstats <- subset(DMRstats, percentDifference < 0)}
+        GR_regDomains <- GRanges(seqnames = regDomains$gene_chr, ranges = IRanges(start = regDomains$distal_start, end = regDomains$distal_end))
+        GR_DMRstats <- GRanges(seqnames = DMRstats$chr, ranges = IRanges(start = DMRstats$start, end = DMRstats$end))
+        overlaps <- as.data.frame(findOverlaps(GR_DMRstats, GR_regDomains))
+        geneList <- regDomains[overlaps$subjectHits, type] %>% unique %>% sort
+        message(nrow(DMRstats), " input regions correspond with ", length(geneList), " ", type, "s.")
+        return(geneList)
+}
+
+makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
+        if(direction == "hyper"){DMRs <- subset(DMRs, percentDifference > 0)}
+        if(direction == "hypo"){DMRs <- subset(DMRs, percentDifference < 0)}
+        GR <- GRanges(seqnames = DMRs$chr, ranges = IRanges(start = DMRs$start, end = DMRs$end))
+}
+
+prepGREAT <- function(DMRs, Background, writeFile = TRUE, fileName, writeBack = FALSE, backName, 
+                      chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")){
+        seqlevelsStyle(DMRs) <- "UCSC"
+        seqlevelsStyle(Background) <- "UCSC"
+        chain <- import.chain("Tables/hg38ToHg19.over.chain")
+        DMRs_hg19 <- suppressWarnings(unlist(liftOver(DMRs, chain)))
+        Background_hg19 <- suppressWarnings(unlist(liftOver(Background, chain)))
+        if(!isDisjoint(DMRs_hg19)){DMRs_hg19 <- disjoin(DMRs_hg19)} 
+        if(!isDisjoint(Background_hg19)){Background_hg19 <- disjoin(Background_hg19)} 
+        DMRs_hg19 <- redefineUserSets(GRangesList(DMRs_hg19), Background_hg19)
+        
+        # DMRs
+        DMRs_hg19 <- as.data.frame(DMRs_hg19[[1]])[,c("seqnames", "start", "end")]
+        colnames(DMRs_hg19) <- c("chr", "start", "end")
+        DMRs_hg19$chr <- as.character(DMRs_hg19$chr)
+        DMRs_hg19 <- DMRs_hg19[order(DMRs_hg19$chr, DMRs_hg19$start),]
+        DMRs_hg19 <- unique(subset(DMRs_hg19, chr %in% chroms))
+        
+        # Background
+        Background_hg19 <- as.data.frame(Background_hg19)[,c("seqnames", "start", "end")]
+        colnames(Background_hg19) <- c("chr", "start", "end")
+        Background_hg19$chr <- as.character(Background_hg19$chr)
+        Background_hg19 <- Background_hg19[order(Background_hg19$chr, Background_hg19$start),]
+        Background_hg19 <- unique(subset(Background_hg19, chr %in% chroms))
+        if(nrow(Background_hg19) > 1000000){cat(paste("\nWarning: Background is ", nrow(Background_hg19), ".\nNeed to reduce background to < 1M regions\n", sep=""))}
+        
+        cat(table(DMRs_hg19$chr %in% Background_hg19$chr & DMRs_hg19$start %in% Background_hg19$start & DMRs_hg19$end %in% Background_hg19$end), "DMRs in Background ")
+        cat("out of", nrow(DMRs_hg19), "total DMRs.\n")
+        if(writeFile){
+                write.table(DMRs_hg19, fileName, quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")
+                cat("DMRs written to", fileName, "\n")
+                gzip(fileName, overwrite=TRUE)
+                cat("DMRs zipped\n")
+        }
+        if(writeBack){
+                write.table(Background_hg19, backName, quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")
+                cat("Background written to", backName, "\n")
+                gzip(backName, overwrite=TRUE)
+                cat("Background zipped\n")
+        }
+}
+
+getGREATenrichments <- function(BEDfile_DMR, BEDfile_Back, species = "hg19", rule = "basalPlusExt"){
+        # Gets enrichments with FDR q < 0.1 from a DMR and Background bed.gz file, Fails with "MGI Expression: Detected", allOntologies[14]
+        message("Submitting Regions to GREAT.")
+        job <- submitGreatJob(gr = BEDfile_DMR, bg = BEDfile_Back, species = species, includeCuratedRegDoms = FALSE, 
+                              rule = rule, request_interval = 30, version = "3.0.0")
+        message("Getting Enrichment Tables.")
+        allOntologies <- availableOntologies(job = job) %>% as.character
+        tb <- getEnrichmentTables(job = job, ontology = allOntologies[c(1:13,15:21)]) # Excluded MGI Expression: Detected, [14]
+        message("Formatting Results.")
+        results <- NULL
+        for(i in 1:length(tb)){
+                temp <- NULL
+                temp <- tb[[i]]
+                temp$log_qvalue <- -log10(temp$Hyper_Adjp_BH)
+                temp$Ontology <- rep(names(tb)[i], nrow(temp))
+                results <- rbind(results, temp) %>% subset(Hyper_Adjp_BH < 0.1)
+        }
+        message("Complete.")
+        return(results)
+}
+
 # Data ####
 # DMRs
 DMRs <- loadRegions("DMRs/Discovery/Diagnosis Females 50/DMR_smoothed_methylation_Dx_Discovery50_females.txt",
@@ -444,25 +603,52 @@ variables<-c("Diagnosis_Alg", "Study", "Site", "ADOScs", "MSLelcStandard36", "MS
              "AllEQ_tot_All_FA_mcg_Mo1", "AllEQ_tot_All_FA_mcg_Mo2", "AllEQ_tot_All_FA_mcg_Mo3", 
              "AllEQ_tot_All_FA_mcg_Mo4", "AllEQ_tot_All_FA_mcg_Mo5", "AllEQ_tot_All_FA_mcg_Mo6", 
              "AllEQ_tot_All_FA_mcg_Mo7", "AllEQ_tot_All_FA_mcg_Mo8","AllEQ_tot_All_FA_mcg_Mo9")
-
 covHeatmap(covStats, variableOrdering = "manual", regionOrdering = "variable", variables = variables,
            sortVariable = "Diagnosis_Alg", 
            file = "Figures/Females Diagnosis DMRs Covariate Heatmap Sorted by Diagnosis.png")
-
 covHeatmap(covStats, variableOrdering = "hierarchical", regionOrdering = "hierarchical", 
            file = "Figures/Females Diagnosis DMRs Covariate Heatmap Clustered.png")
+rm(covStats, covSum, meth, meth_cov, meth_heat, phenoData, samples_cov, catVars, contVars, factorCols, variables)
 
-# Gene Annotation ####
-# GREAT style
-# Also see DM.R, annotatr
-
-
-# CpG Annotation ####
-# See DM.R, annotatr
-
+# DMR Annotation ####
+regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+DMRs_anno <- getDMRanno(DMRstats = DMRs, regDomains = regDomains, file = "Tables/Females Diagnosis DMRs Annotation.txt")
+DMRs_geneList <- list("All" = getDMRgeneList(DMRstats = DMRs, regDomains = regDomains, direction = "all", type = "gene_name"),
+                      "Hyper" = getDMRgeneList(DMRstats = DMRs, regDomains = regDomains, direction = "hyper", type = "gene_name"),
+                      "Hypo" = getDMRgeneList(DMRstats = DMRs, regDomains = regDomains, direction = "hypo", type = "gene_name"),
+                      "Background" = getDMRgeneList(DMRstats = background, regDomains = regDomains, direction = "all", type = "gene_name"))
+DMRs_entrezIDlist <- list("All" = getDMRgeneList(DMRstats = DMRs, regDomains = regDomains, direction = "all", type = "gene_entrezID"),
+                      "Hyper" = getDMRgeneList(DMRstats = DMRs, regDomains = regDomains, direction = "hyper", type = "gene_entrezID"),
+                      "Hypo" = getDMRgeneList(DMRstats = DMRs, regDomains = regDomains, direction = "hypo", type = "gene_entrezID"),
+                      "Background" = getDMRgeneList(DMRstats = background, regDomains = regDomains, direction = "all", type = "gene_entrezID"))
+rm(regDomains)
 
 # GREAT Analysis ####
+# Make Files for GREAT (hg19, DMRs redefined to match background, background < 1M regions)
+prepGREAT(DMRs = makeGRange(DMRs, direction = "all"), Background = makeGRange(background, direction = "all"), 
+          fileName = "UCSC Tracks/Females Diagnosis DMRs Discovery hg19 for GREAT.bed", writeBack = TRUE,
+          backName = "UCSC Tracks/Females Diagnosis Background Discovery hg19 for GREAT.bed", 
+          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"))
+prepGREAT(DMRs = makeGRange(DMRs, direction = "hyper"), Background = makeGRange(background, direction = "all"), 
+          fileName = "UCSC Tracks/Females Diagnosis Hyper DMRs Discovery hg19 for GREAT.bed", writeBack = FALSE,
+          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"))
+prepGREAT(DMRs = makeGRange(DMRs, direction = "hypo"), Background = makeGRange(background, direction = "all"), 
+          fileName = "UCSC Tracks/Females Diagnosis Hypo DMRs Discovery hg19 for GREAT.bed", writeBack = FALSE,
+          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"))
 
+# Get Enrichments from GREAT
+BEDfile_Back <- "UCSC Tracks/Females Diagnosis Background Discovery hg19 for GREAT.bed.gz"
+greatAll <- getGREATenrichments(BEDfile_DMR = "UCSC Tracks/Females Diagnosis DMRs Discovery hg19 for GREAT.bed.gz", 
+                                BEDfile_Back = BEDfile_Back, species = "hg19", rule = "basalPlusExt")
+write.table(greatAll, "Tables/Females Diagnosis DMRs Discovery GREAT Results.txt", sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+
+greatHyper <- getGREATenrichments(BEDfile_DMR = "UCSC Tracks/Females Diagnosis Hyper DMRs Discovery hg19 for GREAT.bed.gz", 
+                                BEDfile_Back = BEDfile_Back, species = "hg19", rule = "basalPlusExt")
+write.table(greatHyper, "Tables/Females Diagnosis Hyper DMRs Discovery GREAT Results.txt", sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+
+greatHypo <- getGREATenrichments(BEDfile_DMR = "UCSC Tracks/Females Diagnosis Hypo DMRs Discovery hg19 for GREAT.bed.gz", 
+                                BEDfile_Back = BEDfile_Back, species = "hg19", rule = "basalPlusExt")
+write.table(greatHypo, "Tables/Females Diagnosis Hypo DMRs Discovery GREAT Results.txt", sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 
 
