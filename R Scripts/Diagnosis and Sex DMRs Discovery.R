@@ -369,40 +369,40 @@ table(samples$Diagnosis, samples$Sex)
 # Exp_ASD 15 37
 
 # Load DMRs
-DxAllDMRs <- read.csv("DMRs/Discovery/Diagnosis 50/DMRs_Dx_Discovery50.csv", header = TRUE, 
-                      stringsAsFactors = FALSE)
-DxAllCand <- read.csv("DMRs/Discovery/Diagnosis 50/CandidateRegions_Dx_Discovery50.csv", header = TRUE, 
-                      stringsAsFactors = FALSE)
+DxAllDMRs <- read.csv("DMRs/Discovery/Diagnosis 50/DMRs_DxNoXY_Discovery50.csv", header = TRUE, 
+                      stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrX", "chrY"))
+DxAllCand <- read.csv("DMRs/Discovery/Diagnosis 50/CandidateRegions_DxNoXY_Discovery50.csv", header = TRUE, 
+                      stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrX", "chrY"))
 DxAllBack <- read.csv("DMRs/Discovery/Diagnosis 50/bsseq_background_Discovery50.csv", header = TRUE, 
-                      stringsAsFactors = FALSE)
+                      stringsAsFactors = FALSE) %>% subset(!chr %in% c("chrX", "chrY"))
+
 DxSexAllDMRs <- read.csv("DMRs/Discovery/Diagnosis and Sex 50/DMRs_DxAdjSex_Discovery50.csv", header = TRUE, 
-                      stringsAsFactors = FALSE)
+                      stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrY"))
 DxSexAllCand <- read.csv("DMRs/Discovery/Diagnosis and Sex 50/CandidateRegions_DxAdjSex_Discovery50.csv", header = TRUE, 
-                      stringsAsFactors = FALSE)
+                      stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrY"))
 DxSexAllBack <- read.csv("DMRs/Discovery/Diagnosis 50/bsseq_background_Discovery50.csv", header = TRUE, 
-                      stringsAsFactors = FALSE) # Same as DxAllBack
+                      stringsAsFactors = FALSE) %>% subset(!chr %in% c("chrY"))
+
 DxMalesDMRs <- read.csv("DMRs/Discovery/Diagnosis Males 50/DMRs_Dx_Discovery50_males.csv", header = TRUE, 
                         stringsAsFactors = FALSE)
 DxMalesCand <- read.csv("DMRs/Discovery/Diagnosis Males 50/CandidateRegions_Dx_Discovery50_males.csv", header = TRUE, 
                         stringsAsFactors = FALSE)
 DxMalesBack <- read.csv("DMRs/Discovery/Diagnosis Males 50/bsseq_background_Discovery50_males.csv", header = TRUE, 
                         stringsAsFactors = FALSE)
+
 DxFemalesDMRs <- read.csv("DMRs/Discovery/Diagnosis Females 50/DMRs_Dx_Discovery50_females.csv", header = TRUE, 
-                          stringsAsFactors = FALSE)
+                          stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrY"))
 DxFemalesCand <- read.csv("DMRs/Discovery/Diagnosis Females 50/CandidateRegions_Dx_Discovery50_females.csv", header = TRUE, 
-                          stringsAsFactors = FALSE)
+                          stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrY"))
 DxFemalesBack <- read.csv("DMRs/Discovery/Diagnosis Females 50/bsseq_background_Discovery50_females.csv", header = TRUE, 
-                          stringsAsFactors = FALSE)
+                          stringsAsFactors = FALSE) %>% subset(!chr %in% c("chrY"))
 
 # Region Stats
 regions <- list(DxAllDMRs, DxAllCand, DxAllBack, DxSexAllDMRs, DxSexAllCand, DxSexAllBack, DxMalesDMRs, DxMalesCand, DxMalesBack, 
                 DxFemalesDMRs, DxFemalesCand, DxFemalesBack)
 names(regions) <- c("DxAllDMRs", "DxAllCand", "DxAllBack", "DxSexAllDMRs", "DxSexAllCand", "DxSexAllBack", 
                     "DxMalesDMRs", "DxMalesCand", "DxMalesBack", "DxFemalesDMRs", "DxFemalesCand", "DxFemalesBack")
-regions <- sapply(regions, function(x){
-        colnames(x)[1] <- "chr"
-        return(x)
-        })
+regions <- sapply(regions, function(x){colnames(x)[1] <- "chr"; return(x)})
 
 getRegionStats <- function(regionData){
         regionStats <- sapply(regionData, function(x){
@@ -425,6 +425,7 @@ regionStats <- getRegionStats(regions)
 write.table(regionStats, "Tables/DMR Region Stats All Chr Dx Discovery 50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
 # Region Stats chrX
+regionsX <- regions[!names(regions) %in% c("DxAllDMRs", "DxAllCand", "DxAllBack")] # no chrX
 regionsX <- sapply(regions, function(x){subset(x, chr == "chrX")})
 regionStatsX <- getRegionStats(regionsX)
 write.table(regionStatsX, "Tables/DMR Region Stats ChrX Dx Discovery 50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
@@ -471,6 +472,29 @@ venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs[DxAll
                                          cat.pos = c(350, 10, 0, 0), cat.dist = c(0.2, 0.2, 0.1, 0.08), 
                                          fontfamily = "sans", cat.fontfamily = "sans", ext.dist = -0.4, 
                                          ext.length = 0.85))
+dev.off()
+
+# Diagnosis DMRs (noXY), Diagnosis + Sex DMRs
+pdf(file="Figures/Hyper DMR Overlap All Dx or Sex Discovery 50.pdf", width=10, height=8, onefile = FALSE)
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs[DxAllDMRs$percentDifference > 0], 
+                                                      GR_regions$DxSexAllDMRs[DxSexAllDMRs$percentDifference > 0]),
+                                         NameOfPeaks = c("All_DMRs", "All_DMRs_Sex"), 
+                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                         rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
+                                         fill = c("lightblue", "lightpink"), 
+                                         cat.pos = c(0, 0), cat.dist = c(-0.02, -0.02), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.text = FALSE))
+dev.off()
+
+pdf(file="Figures/Hypo DMR Overlap All Dx or Sex Discovery 50.pdf", width=10, height=8, onefile = FALSE)
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs[DxAllDMRs$percentDifference < 0], 
+                                                      GR_regions$DxSexAllDMRs[DxSexAllDMRs$percentDifference < 0]),
+                                         NameOfPeaks = c("All_DMRs", "All_DMRs_Sex"), 
+                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                         rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
+                                         fill = c("lightblue", "lightpink"), 
+                                         cat.pos = c(0, 355), cat.dist = c(-0.02, -0.025), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.text = FALSE))
 dev.off()
 
 # Male Female Overlap
