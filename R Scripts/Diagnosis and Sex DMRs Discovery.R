@@ -65,7 +65,8 @@ pData(bs.filtered.bsseq) <- pData
 
 saveRDS(bs.filtered.bsseq, "Filtered_Smoothed_BSseq_Discovery50.rds")
 
-# Meth ~ Diagnosis DMRs and Plots (Done)
+# Meth ~ Diagnosis DMRs and Plots ####
+# (Done)
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
 regionsDx <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms,
                     testCovariate = testCovariate, adjustCovariate = NULL, matchCovariate = NULL)
@@ -95,7 +96,15 @@ plotDMRs2(bs.filtered.bsseq, regions = sigRegionsDx, testCovariate = testCovaria
           horizLegend = TRUE, addPoints = FALSE)
 dev.off()
 
-# Meth ~ Diagnosis + AdjSex DMRs and Plots (Done)
+# Get raw DMR methylation (Done)
+bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
+sigRegionsDx <- read.csv("DMRs_Dx_Discovery50.csv", header = TRUE, stringsAsFactors = FALSE)
+raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = data.frame2GRanges(sigRegionsDx), type = "raw", what = "perRegion"))
+raw <- cbind(sigRegionsDx, raw)
+write.table(raw, "DMR_raw_methylation_Dx_Discovery50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+# Meth ~ Diagnosis + AdjSex DMRs and Plots ####
+# (Done)
 # New R session
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
 regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms,
@@ -123,6 +132,50 @@ plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate
           addRegions = sigRegions, annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE,
           horizLegend = TRUE, addPoints = FALSE)
 dev.off()
+
+# Get raw DMR methylation (Done)
+bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
+sigRegions <- read.csv("DMRs_DxAdjSex_Discovery50.csv", header = TRUE, stringsAsFactors = FALSE)
+raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = data.frame2GRanges(sigRegions), type = "raw", what = "perRegion"))
+raw <- cbind(sigRegions, raw)
+write.table(raw, "DMR_raw_methylation_DxAdjSex_Discovery50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+# Meth ~ Diagnosis, exclude chrX and Y, DMRs and Plots ####
+# (Done)
+bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
+bs.filtered <- chrSelectBSseq(bs.filtered, seqnames = c(paste("chr", 1:22, sep = ""), "chrM")) # Remove chrX, chrY
+regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms,
+                  testCovariate = testCovariate, adjustCovariate = NULL, matchCovariate = NULL)
+regions$percentDifference <- round(regions$beta/pi * 100)
+sigRegions <- regions[regions$pval < 0.05,]
+gr2csv(regions, "CandidateRegions_DxNoXY_Discovery50.csv")
+gr2csv(sigRegions, "DMRs_DxNoXY_Discovery50.csv")
+
+bs.filtered.bsseq <- readRDS("Filtered_Smoothed_BSseq_Discovery50.rds")
+annoTrack <- readRDS("hg38_annoTrack.rds")
+smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegions, 
+                      out = "DMR_smoothed_methylation_DxNoXY_Discovery50.txt")
+
+pdf("DMRs_DxNoXY_Discovery50.pdf", height = 4, width = 8)
+plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, 
+          extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2,
+          addRegions = sigRegions, annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE,
+          horizLegend = TRUE)
+dev.off()
+
+pdf("DMRs_DxNoXY_Discovery50_noPoints.pdf", height = 4, width = 8)
+plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, 
+          extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2,
+          addRegions = sigRegions, annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE,
+          horizLegend = TRUE, addPoints = FALSE)
+dev.off()
+
+# Get raw DMR methylation (Done)
+bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
+sigRegions <- read.csv("DMRs_DxNoXY_Discovery50.csv", header = TRUE, stringsAsFactors = FALSE)
+raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = data.frame2GRanges(sigRegions), type = "raw", what = "perRegion"))
+raw <- cbind(sigRegions, raw)
+write.table(raw, "DMR_raw_methylation_DxNoXY_Discovery50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
 # DMRs with Males Only ####
 # New R session
@@ -180,6 +233,13 @@ plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate
           annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE, horizLegend = TRUE)
 dev.off()
 
+# Get raw DMR methylation (Done)
+bs.filtered <- readRDS("Filtered_BSseq_Discovery50_males.rds")
+sigRegions <- read.csv("DMRs_Dx_Discovery50_males.csv", header = TRUE, stringsAsFactors = FALSE)
+raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = data.frame2GRanges(sigRegions), type = "raw", what = "perRegion"))
+raw <- cbind(sigRegions, raw)
+write.table(raw, "DMR_raw_methylation_Dx_Discovery50_males.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
 # DMRs with Females Only ####
 # New R session
 # Load and Process Samples (Done)
@@ -236,6 +296,70 @@ plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate
           addPoints = TRUE)
 dev.off()
 
+# Get raw DMR methylation (Done)
+bs.filtered <- readRDS("Filtered_BSseq_Discovery50_females.rds")
+sigRegions <- read.csv("DMRs_Dx_Discovery50_females.csv", header = TRUE, stringsAsFactors = FALSE)
+raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = data.frame2GRanges(sigRegions), type = "raw", what = "perRegion"))
+raw <- cbind(sigRegions, raw)
+write.table(raw, "DMR_raw_methylation_Dx_Discovery50_females.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+# DMRs with EARLI Samples Only ####
+# Load and Process Samples (Done)
+cores <- 5
+name <- gsub( "_.*$","", list.files(path = getwd(), pattern = "*.txt.gz"))
+bs.filtered <- processBismark(files = list.files(path = getwd(), pattern = "*.txt.gz"),
+                              meta = read.xlsx("sample_info_EARLI.xlsx", colNames = TRUE) %>% mutate_if(is.character,as.factor),
+                              groups = testCovariate, Cov = coverage, mc.cores = cores, per.Group = perGroup)
+saveRDS(bs.filtered, "Filtered_BSseq_Discovery50_EARLI.rds") # Includes chrX, chrY
+
+# Background Regions (Done)
+background <- getBackground(bs.filtered, minNumRegion = minCpGs, maxGap = 1000) # Includes chrX, chrY
+write.table(background, file = "bsseq_background_Discovery50_EARLI.csv", sep = ",", quote = FALSE, row.names = FALSE)
+
+# Meth ~ Diagnosis DMRs and Plots (Done)
+bs.filtered <- chrSelectBSseq(bs.filtered, seqnames = c(paste("chr", 1:22, sep = ""), "chrM")) # Remove chrX, chrY
+regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms,
+                  testCovariate = testCovariate, adjustCovariate = NULL, matchCovariate = NULL)
+regions$percentDifference <- round(regions$beta/pi * 100)
+sigRegions <- regions[regions$pval < 0.05,]
+gr2csv(regions, "CandidateRegions_DxNoXY_Discovery50_EARLI.csv")
+gr2csv(sigRegions, "DMRs_DxNoXY_Discovery50_EARLI.csv")
+
+# Smoothed Methylation and Plots (Done)
+bs.filtered.bsseq <- BSmooth(bs.filtered, BPPARAM = MulticoreParam(workers = cores, progressbar = TRUE))
+pData <- pData(bs.filtered.bsseq)
+pData$col <- NULL
+pData$col[pData[,testCovariate] == levels(pData[,testCovariate])[1]] <- "#3366CC"
+pData$col[pData[,testCovariate] == levels(pData[,testCovariate])[2]] <-  "#FF3366"
+pData$label <- NULL
+pData$label[pData[,testCovariate] == levels(pData[,testCovariate])[1]] <- "TD"
+pData$label[pData[,testCovariate] == levels(pData[,testCovariate])[2]] <-  "ASD"
+pData(bs.filtered.bsseq) <- pData
+saveRDS(bs.filtered.bsseq, "Filtered_Smoothed_BSseq_Discovery50_EARLI_noXY.rds")
+
+annoTrack <- readRDS("hg38_annoTrack.rds")
+
+smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegions, 
+                      out = "DMR_smoothed_methylation_DxNoXY_Discovery50_EARLI.txt")
+
+pdf("DMRs_DxNoXY_Discovery50_EARLI_noPoints.pdf", height = 4, width = 8)
+plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate,
+          extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2, addRegions = sigRegions, 
+          annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE, horizLegend = TRUE, addPoints = FALSE)
+dev.off()
+
+pdf("DMRs_DxNoXY_Discovery50_EARLI.pdf", height = 4, width = 8)
+plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate,
+          extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2, addRegions = sigRegions, 
+          annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE, horizLegend = TRUE)
+dev.off()
+
+# Get raw DMR methylation (Done)
+bs.filtered <- readRDS("Filtered_BSseq_Discovery50_EARLI.rds")
+sigRegions <- read.csv("DMRs_DxNoXY_Discovery50_EARLI.csv", header = TRUE, stringsAsFactors = FALSE)
+raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = data.frame2GRanges(sigRegions), type = "raw", what = "perRegion"))
+raw <- cbind(sigRegions, raw)
+write.table(raw, "DMR_raw_methylation_DxNoXY_Discovery50_EARLI.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
 # DMR Comparison ####
 samples <- read.xlsx("DMRs/Discovery/Diagnosis 50/sample_info.xlsx", colNames = TRUE)
