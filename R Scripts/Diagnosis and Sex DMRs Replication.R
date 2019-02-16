@@ -278,3 +278,177 @@ raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = data.frame2GRanges(s
 raw <- cbind(sigRegions, raw)
 write.table(raw, "DMR_raw_methylation_Dx_Replication50_females.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
+# DMR Comparison ####
+samples <- read.xlsx("DMRs/Replication/Diagnosis 50/sample_info.xlsx", colNames = TRUE)
+table(samples$Diagnosis, samples$Sex)
+#          F  M
+# Ctrl_TD  3 17
+# Exp_ASD  5 21
+
+# Load DMRs ####
+DxAllDMRs <- read.csv("DMRs/Replication/Diagnosis 50/DMRs_DxNoXY_Replication50.csv", header = TRUE, 
+                      stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrX", "chrY"))
+DxAllCand <- read.csv("DMRs/Replication/Diagnosis 50/CandidateRegions_DxNoXY_Replication50.csv", header = TRUE, 
+                      stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrX", "chrY"))
+DxAllBack <- read.csv("DMRs/Replication/Diagnosis 50/bsseq_background_Replication50.csv", header = TRUE, 
+                      stringsAsFactors = FALSE) %>% subset(!chr %in% c("chrX", "chrY"))
+
+DxSexAllDMRs <- read.csv("DMRs/Replication/Diagnosis and Sex 50/DMRs_DxAdjSex_Replication50.csv", header = TRUE, 
+                         stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrY"))
+DxSexAllCand <- read.csv("DMRs/Replication/Diagnosis and Sex 50/backgroundRegions50.csv", header = TRUE, 
+                         stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrY"))
+DxSexAllBack <- read.csv("DMRs/Replication/Diagnosis 50/bsseq_background_Replication50.csv", header = TRUE, 
+                         stringsAsFactors = FALSE) %>% subset(!chr %in% c("chrY"))
+
+DxMalesDMRs <- read.csv("DMRs/Replication/Diagnosis Males 50/DMRs_Dx_Replication50_males.csv", header = TRUE, 
+                        stringsAsFactors = FALSE)
+DxMalesCand <- read.csv("DMRs/Replication/Diagnosis Males 50/CandidateRegions_Dx_Replication50_males.csv", header = TRUE, 
+                        stringsAsFactors = FALSE)
+DxMalesBack <- read.csv("DMRs/Replication/Diagnosis Males 50/bsseq_background_Replication50_males.csv", header = TRUE, 
+                        stringsAsFactors = FALSE)
+
+DxFemalesDMRs <- read.csv("DMRs/Replication/Diagnosis Females 50/DMRs_Dx_Replication50_females.csv", header = TRUE, 
+                          stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrY"))
+DxFemalesCand <- read.csv("DMRs/Replication/Diagnosis Females 50/CandidateRegions_Dx_Replication50_females.csv", header = TRUE, 
+                          stringsAsFactors = FALSE) %>% subset(!seqnames %in% c("chrY"))
+DxFemalesBack <- read.csv("DMRs/Replication/Diagnosis Females 50/bsseq_background_Replication50_females.csv", header = TRUE, 
+                          stringsAsFactors = FALSE) %>% subset(!chr %in% c("chrY"))
+
+# Region Stats ####
+regions <- list(DxAllDMRs, DxAllCand, DxAllBack, DxSexAllDMRs, DxSexAllCand, DxSexAllBack, DxMalesDMRs, DxMalesCand, DxMalesBack, 
+                DxFemalesDMRs, DxFemalesCand, DxFemalesBack)
+names(regions) <- c("DxAllDMRs", "DxAllCand", "DxAllBack", "DxSexAllDMRs", "DxSexAllCand", "DxSexAllBack", 
+                    "DxMalesDMRs", "DxMalesCand", "DxMalesBack", "DxFemalesDMRs", "DxFemalesCand", "DxFemalesBack")
+regions <- sapply(regions, function(x){colnames(x)[1] <- "chr"; return(x)})
+regionStats <- getRegionStats(regions, TD = c(20, 20, 17, 3), ASD = c(26, 26, 21, 5))
+write.table(regionStats, "Tables/DMR Region Stats All Chr Dx Replication 50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+# Region Stats chrX
+regionsX <- regions[!names(regions) %in% c("DxAllDMRs", "DxAllCand", "DxAllBack")] # no chrX
+regionsX <- sapply(regions, function(x){subset(x, chr == "chrX")})
+regionStatsX <- getRegionStats(regionsX, TD = c(20, 20, 17, 3), ASD = c(26, 26, 21, 5))
+write.table(regionStatsX, "Tables/DMR Region Stats ChrX Dx Replication 50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+# Region Overlap Venn Diagrams ####
+library(ChIPpeakAnno)
+GR_regions <- sapply(regions, function(x) {GRanges(seqnames = x$chr, ranges = IRanges(start = x$start, end = x$end))})
+
+pdf(file="Figures/DMR Overlap Dx Replication 50.pdf", width=10, height=8, onefile = FALSE)
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs, GR_regions$DxSexAllDMRs, 
+                                                      GR_regions$DxMalesDMRs, GR_regions$DxFemalesDMRs), 
+                                         NameOfPeaks = c("All_DMRs", "All_DMRs_Sex", "Males_DMRs", "Females_DMRs"), 
+                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                         rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
+                                         fill = c("lightblue", "lavender", "lightpink", "lightgreen"), 
+                                         cat.pos = c(355, 10, 0, 0), cat.dist = c(0.2, 0.2, 0.1, 0.08), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.dist = -0.4,
+                                         ext.length = 0.85))
+dev.off()
+
+pdf(file="Figures/Hyper DMR Overlap Dx Replication 50.pdf", width=10, height=8, onefile = FALSE)
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs[DxAllDMRs$percentDifference > 0], 
+                                                      GR_regions$DxSexAllDMRs[DxSexAllDMRs$percentDifference > 0], 
+                                                      GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference > 0], 
+                                                      GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference > 0]), 
+                                         NameOfPeaks = c("All_DMRs", "All_DMRs_Sex", "Males_DMRs", "Females_DMRs"), 
+                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                         rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
+                                         fill = c("lightblue", "lavender", "lightpink", "lightgreen"), 
+                                         cat.pos = c(350, 10, 0, 0), cat.dist = c(0.2, 0.2, 0.1, 0.08), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.dist = -0.4, 
+                                         ext.length = 0.85))
+dev.off()
+
+pdf(file="Figures/Hypo DMR Overlap Dx Replication 50.pdf", width=10, height=8, onefile = FALSE)
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs[DxAllDMRs$percentDifference < 0],
+                                                      GR_regions$DxSexAllDMRs[DxSexAllDMRs$percentDifference < 0],
+                                                      GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference < 0], 
+                                                      GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference < 0]), 
+                                         NameOfPeaks = c("All_DMRs", "All_DMRs_Sex", "Males_DMRs", "Females_DMRs"), 
+                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                         rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
+                                         fill = c("lightblue", "lavender", "lightpink", "lightgreen"), 
+                                         cat.pos = c(350, 10, 0, 0), cat.dist = c(0.2, 0.2, 0.1, 0.08), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.dist = -0.4, 
+                                         ext.length = 0.85))
+dev.off()
+
+# Diagnosis DMRs (noXY), Diagnosis + Sex DMRs
+pdf(file="Figures/Hyper DMR Overlap All Dx or Sex Replication 50.pdf", width=10, height=8, onefile = FALSE)
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs[DxAllDMRs$percentDifference > 0], 
+                                                      GR_regions$DxSexAllDMRs[DxSexAllDMRs$percentDifference > 0]),
+                                         NameOfPeaks = c("All_DMRs", "All_DMRs_Sex"), 
+                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                         rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
+                                         fill = c("lightblue", "lightpink"), 
+                                         cat.pos = c(0, 0), cat.dist = c(-0.02, -0.02), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.text = FALSE))
+dev.off()
+
+pdf(file="Figures/Hypo DMR Overlap All Dx or Sex Replication 50.pdf", width=10, height=8, onefile = FALSE)
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxAllDMRs[DxAllDMRs$percentDifference < 0], 
+                                                      GR_regions$DxSexAllDMRs[DxSexAllDMRs$percentDifference < 0]),
+                                         NameOfPeaks = c("All_DMRs", "All_DMRs_Sex"), 
+                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                         rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
+                                         fill = c("lightblue", "lightpink"), 
+                                         cat.pos = c(0, 355), cat.dist = c(-0.02, -0.025), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.text = FALSE))
+dev.off()
+
+# Males Diagnosis DMRs, Females Diagnosis DMRs
+pdf(file="Figures/Hyper DMR Overlap Males and Females Dx Replication 50.pdf", width=10, height=8, onefile = FALSE)
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference > 0], 
+                                                      GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference > 0]),
+                                         NameOfPeaks = c("Males_DMRs", "Females_DMRs"), 
+                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                         rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
+                                         fill = c("lightblue", "lightpink"), 
+                                         cat.pos = c(0, 0), cat.dist = c(0.02, 0.02), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.dist = -0.15, 
+                                         ext.length = 0.85))
+dev.off()
+
+# Males Diagnosis DMRs, Females Diagnosis DMRs
+pdf(file="Figures/Hypo DMR Overlap Males and Females Dx Replication 50.pdf", width=10, height=8, onefile = FALSE)
+venn <- suppressMessages(makeVennDiagram(Peaks = list(GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference < 0], 
+                                                      GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference < 0]),
+                                         NameOfPeaks = c("Males_DMRs", "Females_DMRs"), 
+                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                         rotation.degree = 0, margin = 0.02, cat.cex = 2, cex = 2.5, 
+                                         fill = c("lightblue", "lightpink"), 
+                                         cat.pos = c(0, 0), cat.dist = c(0.02, 0.02), 
+                                         fontfamily = "sans", cat.fontfamily = "sans", ext.dist = -0.2, 
+                                         ext.length = 0.85))
+dev.off()
+
+
+# Male Female Overlap ####
+HyperMF <- intersect(x = GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference > 0],
+                     y = GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference > 0]) %>% as.data.frame
+HypoMF <- intersect(x = GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference < 0],
+                    y = GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference < 0]) %>% as.data.frame
+MF <- rbind(HyperMF, HypoMF)
+colnames(MF)[1] <- "chr"
+MF$DMRid <- paste("DMR", 1:nrow(MF), sep = "_")
+MF$percentDifference <- c(rep(1, nrow(HyperMF)), rep(-1, nrow(HypoMF)))
+regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+HyperGenes <- getDMRgeneList(MF, regDomains = regDomains, direction = "hyper", type = "gene_name")
+HypoGenes <- getDMRgeneList(MF, regDomains = regDomains, direction = "hypo", type = "gene_name")
+
+HyperMalesDMRsInF <- subset(DxMalesDMRs[DxMalesDMRs$percentDifference > 0,], GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference > 0] %over%
+                                    GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference > 0])
+HypoMalesDMRsInF <- subset(DxMalesDMRs[DxMalesDMRs$percentDifference < 0,], GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference < 0] %over%
+                                   GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference < 0])
+MalesDMRsInF <- rbind(HyperMalesDMRsInF, HypoMalesDMRsInF)
+write.table(MalesDMRsInF, "Tables/Dx Replication Males DMRs Overlapping with Females.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+HyperFemalesDMRsInM <- subset(DxFemalesDMRs[DxFemalesDMRs$percentDifference > 0,], GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference > 0] %over%
+                                      GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference > 0])
+HypoFemalesDMRsInM <- subset(DxFemalesDMRs[DxFemalesDMRs$percentDifference < 0,], GR_regions$DxFemalesDMRs[DxFemalesDMRs$percentDifference < 0] %over%
+                                     GR_regions$DxMalesDMRs[DxMalesDMRs$percentDifference < 0])
+FemalesDMRsInM <- rbind(HyperFemalesDMRsInM, HypoFemalesDMRsInM)
+write.table(FemalesDMRsInM, "Tables/Dx Replication Females DMRs Overlapping with Males.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+rm(HyperMF, HypoMF, HyperMalesDMRsInF, HypoMalesDMRsInF, HyperFemalesDMRsInM, HypoFemalesDMRsInM, venn)
+

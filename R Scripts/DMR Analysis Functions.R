@@ -1,0 +1,623 @@
+# DMR Analysis Functions ####
+# Charles Mordaunt
+# 2/7/19
+
+#sapply(c("tidyverse", "ggdendro", "scales", "ggplot2", "ggbiplot", "reshape", "grid", "RColorBrewer", "CMplot", "rlist",
+#         "annotatr", "GenomicRanges", "LOLA", "rtracklayer", "R.utils", "rGREAT", "DMRichR"), require, character.only = TRUE)
+
+CMplotDMR <- function(candidates, prefix, plot.type, bin.max = 450){
+        candidates <- cbind("region" = "region", candidates[,c("chr", "start", "pval")], stringsAsFactors = FALSE)
+        candidates$chr <- substring(candidates$chr, 4)
+        colnames(candidates)[colnames(candidates) == "pval"] <- "pvalue"
+        if(plot.type == "m"){
+                message("Creating Manhattan plot")
+                pdf(paste(prefix, "Manhattan Plot.pdf", sep = " "), height = 5, width = 12)
+                par(mar = c(5, 5.5, 1, 3.5), xaxs = "i")
+                CMplot(candidates, col = suppressMessages(gg_color_hue(2)), bin.size = 1e7, bin.max = bin.max, cex.axis = 1.2, 
+                       plot.type = "m", threshold = 0.05, threshold.lwd = 2, threshold.col = "black", cex = 0.3, 
+                       amplify = FALSE, chr.den.col = brewer.pal(9, "YlOrRd"), file.output = FALSE, verbose = FALSE)
+                dev.off()
+        }
+        else{
+                if(plot.type == "q"){
+                        message("Creating QQ plot")
+                        pdf(paste(prefix, "QQ Plot.pdf", sep = " "), height = 5.5, width = 5.5)
+                        par(mar = c(4, 4.5, 2.5, 1.5), xaxs = "i", yaxs = "i", mgp = c(2.5, 1, 0))
+                        CMplot(candidates, col = "black", cex.axis = 1.2, plot.type = "q", cex = 0.3, file.output = FALSE, 
+                               verbose = FALSE, box = TRUE)
+                        dev.off()
+                }
+                else{
+                        print("plot.type must be either m or q.")
+                }
+        }
+}
+
+loadRegions <- function(file, chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"), sort = TRUE){
+        if(grepl("txt", file, fixed = TRUE)){
+                regions <- read.delim(file, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+        }
+        else{
+                regions <- read.csv(file, header = TRUE, stringsAsFactors = FALSE)
+        }
+        if("seqnames" %in% colnames(regions)){
+                colnames(regions)[colnames(regions) == "seqnames"] <- "chr"
+        }
+        regions <- subset(regions, chr %in% chroms)
+        regions$chr <- factor(regions$chr, levels = chroms)
+        if(sort){
+                regions <- regions[order(regions$chr, regions$start),]
+        }
+        return(regions)
+}
+
+plotDendro <- function(ddata, row = !col, col = !row, labels = col) {
+        # plot a dendrogram
+        yrange <- range(ddata$segments$y)
+        yd <- yrange[2] - yrange[1]
+        nc <- max(nchar(as.character(ddata$labels$label)))
+        if(row){
+                tangle <- 0 
+        } 
+        else { 
+                tangle <- 90 
+        }
+        tshow <- col
+        p <- ggplot() +
+                geom_segment(data = segment(ddata), aes(x = x, y = y, xend = xend, yend = yend), lwd = 0.45) +
+                labs(x = NULL, y = NULL) + theme_dendro()
+        if(row) {
+                p <- p +
+                        scale_x_continuous(expand = c(0.5/length(ddata$labels$x), 0)) +
+                        coord_flip()
+        } else {
+                p <- p +
+                        theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 15, color = "black"))
+        }
+        return(p)
+}
+
+plotLegend <-function(a.gplot){
+        # from http://stackoverflow.com/questions/11883844/inserting-a-table-under-the-legend-in-a-ggplot2-histogram
+        tmp <- ggplot_gtable(ggplot_build(a.gplot))
+        leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+        legend <- tmp$grobs[[leg]]
+        return(legend)
+}
+
+buildHeatmap <- function(x, phenoData, hm.colors = c("#0000FF", "Black", "#FF0000"), hm.values = c(0, 0.5, 1), 
+                         hm.low, hm.high, pheno.breaks, pheno.values) {
+        if(is.null(colnames(x))){
+                colnames(x) <- sprintf("col%s", 1:ncol(x))
+        }
+        if(is.null(rownames(x))){
+                rownames(x) <- sprintf("row%s", 1:nrow(x))
+        }
+        
+        # Dendrograms
+        row.hc <- hclust(dist(x), "ward.D")
+        col.hc <- hclust(dist(t(x)), "ward.D")
+        row.dendro <- dendro_data(as.dendrogram(row.hc), type = "rectangle")
+        col.dendro <- dendro_data(as.dendrogram(col.hc), type = "rectangle")
+        col.plot <- plotDendro(col.dendro, col = TRUE, labels = FALSE) +
+                theme(plot.margin = unit(c(0, -1.8, 0, -2), "lines"), axis.text.x = element_blank())
+        row.plot <- plotDendro(row.dendro, row = TRUE, labels = FALSE) +
+                theme(plot.margin = unit(c(0, 2, 0, 0), "lines"))
+        col.ord <- match(col.dendro$labels$label, colnames(x))
+        row.ord <- match(row.dendro$labels$label, rownames(x))
+        xx <- x[row.ord, col.ord]
+        dimnames(xx) <- NULL
+        xx <- melt(xx)
+        
+        # Heatmap
+        center.plot <- ggplot(xx, aes(X2,X1)) + 
+                geom_tile(aes(fill = value, color = value)) +
+                scale_fill_gradientn(colors = hm.colors, values = hm.values, limits = c(hm.low, hm.high), na.value = "black") +
+                scale_color_gradientn(colors = hm.colors, values = hm.values, limits = c(hm.low, hm.high), na.value = "black") +
+                labs(x = NULL, y = NULL) +
+                scale_x_continuous(expand = c(0, 0)) +
+                scale_y_continuous(expand = c(0, 0), breaks = NULL) +
+                theme(plot.margin = unit(rep(0, 4), "lines"))
+        
+        # phenoData
+        sample.ord <- match(col.dendro$labels$label, as.character(phenoData$Sample))
+        phenoData$Sample <- factor(as.character(phenoData$Sample), levels = as.character(phenoData$Sample)[sample.ord], 
+                                   ordered = TRUE)
+        phenoData <- melt(phenoData, id.vars = "Sample")
+        phenoData$variable <- factor(phenoData$variable, levels = rev(unique(phenoData$variable)), ordered = TRUE)
+        phenoData.plot <- ggplot(phenoData, aes(Sample, variable)) +
+                geom_tile(aes(fill = value, color = value)) +
+                scale_x_discrete(expand = c(0, 0)) +
+                scale_y_discrete(expand = c(0, 0)) +
+                scale_color_manual(breaks = pheno.breaks, values = pheno.values) +
+                scale_fill_manual(breaks = pheno.breaks, values = pheno.values)
+        ret <- list(col = col.plot, row = row.plot, center = center.plot, phenoData = phenoData.plot)
+        invisible(ret)
+}
+
+printHeatmap <- function(L, widths = c(0.02, 0.8, 0.16, 0.02), heights = c(0.02, 0.15, 0.06, 0.75, 0.02),
+                         heatmap.legend.position = c(0.44, -0.45), pheno.legend.position = c(0.925, 0.915)){
+        grid.newpage()
+        top.layout <- grid.layout(nrow = 5, ncol = 4, widths = unit(widths, "null"), heights = unit(heights, "null"))
+        pushViewport(viewport(layout = top.layout))
+        
+        # Dendrograms
+        print(L$col, vp = viewport(layout.pos.col = 2, layout.pos.row = 2))
+        print(L$row, vp = viewport(layout.pos.col = 3, layout.pos.row = 4))
+        
+        # Heatmap
+        print(L$center +
+                      theme(axis.line = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), 
+                            axis.title = element_blank(), legend.position = "none", panel.background = element_blank(), 
+                            panel.border = element_blank(), panel.grid.major = element_blank(), 
+                            panel.grid.minor = element_blank(), plot.background = element_blank()),
+              vp = viewport(layout.pos.col = 2, layout.pos.row = 4))
+        
+        # PhenoData
+        print(L$phenoData +
+                      theme_bw(base_size = 24) +
+                      theme(panel.grid.major = element_blank(), panel.border = element_blank(), 
+                            legend.key = element_blank(), legend.key.size = unit(1, "lines"), 
+                            panel.grid.minor = element_blank(), legend.position = "none", 
+                            legend.background = element_blank(), legend.text = element_text(size = 12, color = "Black"),
+                            plot.margin = unit(c(0, 0, 0, -0.45), "lines"), axis.text = element_blank(),
+                            axis.ticks = element_blank(), axis.title = element_blank(), legend.title = element_blank(),
+                            plot.title = element_blank()), 
+              vp = viewport(layout.pos.col = 2, layout.pos.row = 3))
+        
+        # Heatmap Legend
+        legend <- plotLegend(L$center +
+                                     theme(legend.title = element_blank(), 
+                                           legend.text = element_text(size = 15, hjust=1, 
+                                                                      margin = unit(c(0, 0, 0, 0.2), "lines")),
+                                           legend.background = element_blank(), legend.position = heatmap.legend.position))
+        pushViewport(viewport(layout.pos.col = 3, layout.pos.row = 2))
+        grid.draw(legend)
+        upViewport(0)
+        
+        # PhenoData Legend
+        phenoLegend <- plotLegend(L$phenoData +
+                                          theme(legend.title = element_blank(), 
+                                                legend.text = element_text(size = 15, hjust = 0, 
+                                                                           margin = unit(c(0, 0, 0, 0.5), "lines")),
+                                                legend.direction = "vertical", legend.position = pheno.legend.position,
+                                                legend.background = element_blank()))
+        pushViewport(viewport(layout.pos.col = 3, layout.pos.row = 3))
+        grid.draw(phenoLegend)
+        upViewport(0)
+}
+
+ggbiplotPCA <- function(data.pca, groups, pc = 1:2, file, xlim = NULL, ylim = NULL, breaks = c("TD", "ASD"), 
+                        values = c("TD" = "#3366CC", "ASD" = "#FF3366"), legend.position = c(0.86, 1.03)){
+        # Plots principal components colored by grouping variable and writes file
+        pc1 <- summary(data.pca)$importance["Proportion of Variance", paste("PC", pc[1], sep = "")] * 100
+        pc2 <- summary(data.pca)$importance["Proportion of Variance", paste("PC", pc[2], sep = "")] * 100
+        g <- ggbiplot(data.pca, obs.scale = 1, var.scale = 1, groups = groups, ellipse = TRUE, circle = FALSE, 
+                      var.axes = FALSE, varname.abbrev = FALSE, choices = pc, ellipse.prob = 0.95)
+        suppressMessages(g + 
+                                 theme_bw(base_size = 25) +
+                                 theme(legend.direction = 'horizontal', legend.position = legend.position, panel.grid.major = element_blank(), 
+                                       panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+                                       legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title = element_blank(),
+                                       axis.text = element_text(color = "black"), legend.background = element_blank(), 
+                                       legend.spacing.x = unit(0.5, "lines"), plot.margin = unit(c(2, 1, 1, 1), "lines")) +
+                                 coord_cartesian(xlim = xlim, ylim = ylim) +
+                                 xlab(paste("PC", pc[1], " (", round(pc1, digits = 0), "% of Variance)", sep = "")) +
+                                 ylab(paste("PC", pc[2], " (", round(pc2, digits = 0), "% of Variance)", sep = "")) +
+                                 scale_color_manual(breaks = breaks , values = values) +
+                                 scale_x_continuous(breaks = pretty_breaks(6)) +
+                                 scale_y_continuous(breaks = pretty_breaks(6)) +
+                                 geom_point(aes(color = groups), size = 3))
+        ggsave(file, dpi = 600, width = 8, height = 8, units = "in")
+}
+
+methLm <- function(catVars, contVars, sampleData, meth, adj = NULL){
+        # Analyzes categorical and continuous variables for association with methylation, 
+        # using linear regression with an optional adjustment variable
+        stats <- NULL
+        methDataCol <- as.numeric(sampleData[,meth])
+        if(!is.null(adj)){
+                adjDataCol <- sampleData[,adj]
+        }
+        for(i in 1:length(catVars)){
+                sampleDataCol <- sampleData[,catVars[i]]
+                if(!is.null(adj)){
+                        temp <- tryCatch(summary(lm(methDataCol ~ sampleDataCol + adjDataCol))$coefficients[-1,],
+                                         error = function(x){
+                                                 message("Error with ", meth, " and ", catVars[i])
+                                                 rep(NA, 4) # Returns NA if error in lm
+                                         })
+                        if(!is.na(temp[1])){temp <- temp[-nrow(temp),]} # Remove adj var if temp is not NA
+                }
+                else {
+                        temp <- tryCatch(summary(lm(methDataCol ~ sampleDataCol))$coefficients[-1,],
+                                         error = function(x){
+                                                 message("Error with ", meth, " and ", catVars[i])
+                                                 rep(NA, 4) # Returns NA if error in lm
+                                         })
+                }
+                if(length(temp) == 4){
+                        temp <- c(catVars[i], levels(sampleDataCol)[2], temp)
+                } 
+                else {
+                        temp <- cbind(rep(catVars[i], nrow(temp)), 
+                                      gsub("sampleDataCol", replacement = "", x = rownames(temp), fixed = TRUE), 
+                                      temp)
+                }
+                stats <- rbind(stats, temp)
+        }
+        for(i in 1:length(contVars)){
+                sampleDataCol <- as.numeric(sampleData[,contVars[i]])
+                sampleDataCol <- sampleDataCol/sd(sampleDataCol, na.rm = TRUE)
+                if(!is.null(adj)){
+                        temp <- summary(lm(methDataCol ~ sampleDataCol + adjDataCol))$coefficients[-1,]
+                        temp <- temp[-nrow(temp),] # Remove adj var
+                }
+                else {
+                        temp <- summary(lm(methDataCol ~ sampleDataCol))$coefficients[-1,]
+                }
+                temp <- c(contVars[i], contVars[i], temp)
+                stats <- rbind(stats, temp)
+        }
+        rownames(stats) <- 1:nrow(stats)
+        colnames(stats) <- c("Variable", "Term", "Estimate", "StdError", "tvalue", "pvalue")
+        stats <- as.data.frame(stats, stringsAsFactors = FALSE)
+        stats$Region <- meth
+        return(stats)
+}
+
+DMRmethLm <- function(DMRs, catVars, contVars, sampleData, file, adj = NULL){
+        if(!is.null(adj)){
+                message("[DMRmethLm] Getting DMR methylation by covariate stats using adjustment variable")
+        }
+        else {
+                message("[DMRmethLm] Getting DMR methylation by covariate stats")
+        }
+        start_time <- Sys.time()
+        covStats <- lapply(DMRs, function(x){
+                methLm(catVars = catVars, contVars = contVars, sampleData = sampleData, meth = x, adj = adj) 
+        }) %>% list.rbind
+        covStats$Variable <- as.character(covStats$Variable)
+        covStats$Variable[covStats$Variable %in% c("Site", "MomEdu_detail")] <- paste(covStats$Variable[covStats$Variable %in% c("Site", "MomEdu_detail")],
+                                                                                      covStats$Term[covStats$Variable %in% c("Site", "MomEdu_detail")], sep = "_")
+        covStats$Variable <- gsub(" ", "_", covStats$Variable)
+        covStats$Variable <- factor(covStats$Variable, levels = unique(covStats$Variable))
+        covStats$Region <- factor(covStats$Region, levels = unique(covStats$Region))
+        covStats[,c("Estimate", "StdError", "tvalue", "pvalue")] <- lapply(covStats[,c("Estimate", "StdError", "tvalue", 
+                                                                                       "pvalue")], as.numeric)
+        covStats$log_pvalue <- -log10(covStats$pvalue)
+        covStats$qvalue <- p.adjust(covStats$pvalue, method = "fdr")
+        covStats <- covStats[,c("Region", "Variable", "Term", "Estimate", "StdError", "tvalue", "pvalue", "log_pvalue", 
+                                "qvalue")]
+        end_time <- Sys.time()
+        message("[DMRmethLm] Complete, writing file. Time difference of ", round(end_time - start_time, 2), " minutes")
+        write.table(covStats, file = file, sep = "\t", quote = FALSE, row.names = FALSE)
+        return(covStats)
+}
+
+DMRmethLmSum <- function(covStats, file){
+        covSum <- cbind(table(covStats$Variable, covStats$pvalue < 0.05), 
+                        table(covStats$Variable, covStats$pvalue < 0.05 & covStats$Estimate > 0)[,"TRUE"],
+                        table(covStats$Variable, covStats$pvalue < 0.05 & covStats$Estimate < 0)[,"TRUE"],
+                        table(covStats$Variable, covStats$qvalue < 0.05)[,"TRUE"]) %>% as.data.frame
+        covSum$Variable <- rownames(covSum)
+        rownames(covSum) <- 1:nrow(covSum)
+        colnames(covSum) <- c("NoAssoc", "NominalSig", "NominalPos", "NominalNeg", "FDRsig", "Variable")
+        covSum$perNominalSig <- covSum$NominalSig * 100 / length(unique(covStats$Region))
+        covSum <- covSum[order(-covSum$NominalSig), c("Variable", "NoAssoc", "NominalSig", "perNominalSig", "NominalPos", "NominalNeg", "FDRsig")]
+        write.table(covSum, file = file, sep = "\t",
+                    quote = FALSE, row.names = FALSE)
+        return(covSum)
+}
+
+covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hierarchical"), 
+                       regionOrdering = c("unsorted", "variable", "hierarchical"), variables = NULL,
+                       sortVariable = "Diagnosis_Alg", file){
+        # Replace NA/Inf/NaN Values with 0
+        covStats$log_pvalue[is.na(covStats$log_pvalue) | is.infinite(covStats$log_pvalue) | 
+                                    is.nan(covStats$log_pvalue)] <- 0
+        # Sort Variables
+        if(variableOrdering == "unsorted"){
+                variableOrder <- 1:length(unique(covStats$Variable))
+        }
+        if(variableOrdering == "manual"){
+                variableOrder <- match(variables, unique(covStats$Variable))
+        }
+        if(variableOrdering == "hierarchical"){
+                pvals <- cast(covStats[,c("Region", "Variable", "log_pvalue")], formula = Variable ~ Region, 
+                              fun.aggregate = mean, value = "log_pvalue", add.missing = TRUE, fill = 0)
+                variableOrder <- hclust(dist(pvals[,2:ncol(pvals)], method = "euclidean"), method = "ward.D")$order
+        }
+        covStats$Variable <- factor(covStats$Variable, levels = unique(covStats$Variable)[variableOrder], 
+                                    ordered = TRUE)
+        # Sort Regions
+        if(regionOrdering == "unsorted"){
+                regionOrder <- 1:length(unique(covStats$Region)) 
+        }
+        if(regionOrdering == "variable"){
+                regionOrder <- order(covStats$log_pvalue[covStats$Variable == sortVariable])
+        }
+        if(regionOrdering == "hierarchical"){
+                pvals <- cast(covStats[,c("Region", "Variable", "log_pvalue")], formula = Region ~ Variable, 
+                              fun.aggregate = mean, value = "log_pvalue", add.missing = TRUE, fill = 0)
+                regionOrder <- hclust(dist(pvals[,2:ncol(pvals)], method = "euclidean"), method = "ward.D")$order
+        }
+        covStats$Region <- factor(covStats$Region, levels = unique(covStats$Region)[regionOrder], 
+                                  ordered = TRUE)
+        # Plot Heatmap
+        gg <- ggplot(data = covStats)
+        gg +
+                geom_tile(aes(y = Region, x = Variable, fill = log_pvalue)) +
+                scale_fill_gradientn("-log(p-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                                     limits = c(0,quantile(x = covStats$log_pvalue, probs = 0.999, names = FALSE, na.rm = TRUE))) +
+                theme_bw(base_size = 24) +
+                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                      panel.border = element_rect(color = "black", size = 1.25), 
+                      plot.margin = unit(c(1, 5.5, 1, 1), "lines"), axis.ticks.x = element_line(size = 1.25), 
+                      axis.ticks.y = element_blank(), panel.background = element_rect(fill = "black"),
+                      axis.text.x = element_text(size = 9, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
+                      axis.text.y = element_blank(), axis.title = element_blank(), legend.key = element_blank(),  
+                      legend.position = c(1.07, 0.835), legend.background = element_blank(), 
+                      legend.key.size = unit(1, "lines"), legend.title = element_text(size = 12), 
+                      legend.text = element_text(size = 11))
+        ggsave(file, dpi = 600, width = 10, height = 6, units = "in")
+}
+
+getDMRanno <- function(DMRstats, regDomains, file){
+        start_time <- Sys.time()
+        message("[getDMRanno] Adding genes to DMRs by regulatory domains")
+        GR_regDomains <- GRanges(seqnames = regDomains$gene_chr, ranges = IRanges(start = regDomains$distal_start, end = regDomains$distal_end))
+        GR_DMRstats <- GRanges(seqnames = DMRstats$chr, ranges = IRanges(start = DMRstats$start, end = DMRstats$end))
+        overlaps <- as.data.frame(findOverlaps(GR_DMRstats, GR_regDomains))
+        rm(GR_regDomains, GR_DMRstats)
+        DMRstats_genes <- cbind("DMRid" = DMRstats$DMRid[overlaps$queryHits], regDomains[overlaps$subjectHits,], row.names=NULL)
+        rm(overlaps)
+        DMRstats_genes <- merge(DMRstats, DMRstats_genes, by = "DMRid", all = TRUE, sort = FALSE)
+        message("[getDMRanno] Getting DMR positions relative to genes")
+        message("[getDMRanno] Gene positions added:\t")
+        DMRstats_annotated <- NULL
+        for(i in 1:nrow(DMRstats_genes)){
+                if(i %% 500 == 0){message(i, "\t", appendLF = FALSE)}
+                temp <- DMRstats_genes[i,]
+                if(!temp$gene_strand %in% c("+", "-")){temp$distanceToTSS <- NA; temp$positionInGene <- NA} 
+                else {
+                        if(temp$gene_strand == "+"){ # + strand
+                                if(temp$start < temp$gene_start & temp$end < temp$gene_start){temp$distanceToTSS <- temp$end - temp$gene_start} #upstream of TSS (-)
+                                if(temp$start <= temp$gene_start & temp$end >= temp$gene_start){temp$distanceToTSS <- 0} #overlapping TSS
+                                if(temp$start > temp$gene_start & temp$end > temp$gene_start){temp$distanceToTSS <- temp$start - temp$gene_start} #downstream of TSS (+)
+                                if(temp$end < temp$gene_start){temp$positionInGene <- "upstream"}
+                                if(temp$end > temp$gene_start & temp$start < temp$gene_end){temp$positionInGene <- "gene_body"}
+                                if(temp$start > temp$gene_end){temp$positionInGene <- "downstream"}
+                                if(temp$distanceToTSS == 0){temp$positionInGene <- "TSS"}
+                        }
+                        else { # - strand
+                                if(temp$start > temp$gene_end & temp$end > temp$gene_end){temp$distanceToTSS <- temp$gene_end - temp$start} #upstream of TSS (-)
+                                if(temp$start <= temp$gene_end & temp$end >= temp$gene_end){temp$distanceToTSS <- 0} #overlapping TSS
+                                if(temp$start < temp$gene_end & temp$end < temp$gene_end){temp$distanceToTSS <- temp$gene_end - temp$end} #downstream of TSS (+)
+                                if(temp$start > temp$gene_end){temp$positionInGene <- "upstream"}
+                                if(temp$start < temp$gene_end & temp$end > temp$gene_start){temp$positionInGene <- "gene_body"}
+                                if(temp$end < temp$gene_start){temp$positionInGene <- "downstream"}
+                                if(temp$distanceToTSS == 0){temp$positionInGene <- "TSS"}
+                        }
+                }
+                DMRstats_annotated <- rbind(DMRstats_annotated, temp)
+        }
+        DMRstats_annotated$DMRid <- factor(DMRstats_annotated$DMRid, levels = unique(DMRstats_annotated$DMRid))
+        DMRstats_annotated <- aggregate(formula = cbind(gene_name, gene_entrezID, gene_strand, distanceToTSS, positionInGene) ~ DMRid, 
+                                        data = DMRstats_annotated, FUN = function(x) paste(x, collapse = ", "), simplify = TRUE)
+        DMRstats_annotated <- merge(x = DMRstats, y = DMRstats_annotated, by = "DMRid", all.x = TRUE, all.y = FALSE, sort = FALSE)
+        message("\n[getDMRanno] Getting CpG annotations")
+        annotations <- build_annotations(genome = "hg38", annotations = "hg38_cpgs")
+        annotations <- GenomeInfoDb::keepStandardChromosomes(annotations, pruning.mode = "coarse")
+        DMRs_CpGs <- annotate_regions(regions = GRanges(seqnames = DMRstats$chr, 
+                                                        ranges = IRanges(start = DMRstats$start, end = DMRstats$end), 
+                                                        DMRid = DMRstats$DMRid),
+                                      annotations = annotations, ignore.strand = TRUE, quiet = TRUE) %>% as.data.frame
+        colnames(DMRs_CpGs)[colnames(DMRs_CpGs) == "annot.type"] <- "CpG_Anno"
+        DMRs_CpGs$CpG_Anno[DMRs_CpGs$CpG_Anno == "hg38_cpg_islands"] <- "CpG_Island"
+        DMRs_CpGs$CpG_Anno[DMRs_CpGs$CpG_Anno == "hg38_cpg_shores"] <- "CpG_Shore"
+        DMRs_CpGs$CpG_Anno[DMRs_CpGs$CpG_Anno == "hg38_cpg_shelves"] <- "CpG_Shelf"
+        DMRs_CpGs$CpG_Anno[DMRs_CpGs$CpG_Anno == "hg38_cpg_inter"] <- "CpG_Open_Sea"
+        DMRs_CpGs <- aggregate(formula = CpG_Anno ~ DMRid, data = DMRs_CpGs, FUN = function(x) paste(unique(x), collapse = ", "), simplify = TRUE)
+        DMRstats_annotated <- merge(x = DMRstats_annotated, y = DMRs_CpGs, by = "DMRid", all.x = TRUE, all.y = FALSE, sort = FALSE)
+        message("[getDMRanno] Getting gene regulatory annotations")
+        annotations <- build_annotations(genome = "hg38", annotations = c("hg38_basicgenes", "hg38_genes_intergenic", 
+                                                                          "hg38_genes_intronexonboundaries", 
+                                                                          "hg38_enhancers_fantom"))
+        annotations <- GenomeInfoDb::keepStandardChromosomes(annotations, pruning.mode = "coarse")
+        DMRs_GeneReg <- annotate_regions(regions = GRanges(seqnames = DMRstats$chr, 
+                                                           ranges = IRanges(start = DMRstats$start, end = DMRstats$end), 
+                                                           DMRid = DMRstats$DMRid),
+                                         annotations = annotations, ignore.strand = TRUE, quiet = TRUE) %>% as.data.frame
+        colnames(DMRs_GeneReg)[colnames(DMRs_GeneReg) == "annot.type"] <- "GeneReg_Anno"
+        DMRs_GeneReg$GeneReg_Anno <- gsub(pattern = "hg38_", replacement = "", x = DMRs_GeneReg$GeneReg_Anno, fixed = TRUE)
+        DMRs_GeneReg <- aggregate(formula = GeneReg_Anno ~ DMRid, data = DMRs_GeneReg, FUN = function(x) paste(unique(x), collapse = ", "), simplify = TRUE)
+        DMRstats_annotated <- merge(x = DMRstats_annotated, y = DMRs_GeneReg, by = "DMRid", all.x = TRUE, all.y = FALSE, sort = FALSE)
+        write.table(DMRstats_annotated, file, sep = "\t", quote = FALSE, row.names = FALSE)
+        end_time <- Sys.time()
+        message("[getDMRanno] Complete! Time difference of ", round(end_time - start_time, 2), " minutes")
+        return(DMRstats_annotated)
+}
+
+getDMRgeneList <- function(DMRstats, regDomains, direction = c("all", "hyper", "hypo"), 
+                           type = c("gene_name", "gene_entrezID")){
+        if(is.null(direction)){direction <- "all"}
+        if(direction == "hyper"){DMRstats <- subset(DMRstats, percentDifference > 0)}
+        if(direction == "hypo"){DMRstats <- subset(DMRstats, percentDifference < 0)}
+        GR_regDomains <- GRanges(seqnames = regDomains$gene_chr, ranges = IRanges(start = regDomains$distal_start, end = regDomains$distal_end))
+        GR_DMRstats <- GRanges(seqnames = DMRstats$chr, ranges = IRanges(start = DMRstats$start, end = DMRstats$end))
+        overlaps <- as.data.frame(findOverlaps(GR_DMRstats, GR_regDomains))
+        geneList <- regDomains[overlaps$subjectHits, type] %>% unique %>% sort
+        message(nrow(DMRstats), " input regions correspond with ", length(geneList), " ", type, "s.")
+        return(geneList)
+}
+
+makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
+        if(direction == "hyper"){DMRs <- subset(DMRs, percentDifference > 0)}
+        if(direction == "hypo"){DMRs <- subset(DMRs, percentDifference < 0)}
+        GR <- GRanges(seqnames = DMRs$chr, ranges = IRanges(start = DMRs$start, end = DMRs$end))
+}
+
+prepGREAT <- function(DMRs, Background, fileName, writeBack = FALSE, backName, 
+                      chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")){
+        start_time <- Sys.time()
+        chain <- import.chain("Tables/hg38ToHg19.over.chain")
+        
+        message("[prepGREAT] Lifting over DMRs to hg19 and removing duplicates")
+        seqlevelsStyle(DMRs) <- "UCSC"
+        DMRs$RegionID <- paste("Region", 1:length(DMRs), sep = "_")
+        DMRs_hg19 <- suppressWarnings(unlist(liftOver(DMRs, chain)))
+        dups <- DMRs_hg19$RegionID[duplicated(DMRs_hg19$RegionID)] %>% unique
+        DMRs_hg19_dups <- DMRs_hg19[DMRs_hg19$RegionID %in% dups]
+        DMRs_hg19_unique <- DMRs_hg19[!DMRs_hg19$RegionID %in% dups]
+        DMRs_hg19_dups_fix <- GRanges(NULL)
+        for(i in 1:length(dups)){
+                temp <- DMRs_hg19_dups[DMRs_hg19_dups$RegionID == dups[i]]
+                temp <- temp[width(temp) == max(width(temp))] # Take largest duplicate
+                DMRs_hg19_dups_fix <- union(DMRs_hg19_dups_fix, temp)
+        }
+        DMRs_hg19 <- union(DMRs_hg19_unique, DMRs_hg19_dups_fix)
+        if(!isDisjoint(DMRs_hg19)){DMRs_hg19 <- disjoin(DMRs_hg19)} 
+        
+        message("[prepGREAT] Lifting over background to hg19 and removing duplicates")
+        seqlevelsStyle(Background) <- "UCSC"
+        Background$RegionID <- paste("Region", 1:length(Background), sep = "_")
+        Background_hg19 <- suppressWarnings(unlist(liftOver(Background, chain)))
+        dups <- Background_hg19$RegionID[duplicated(Background_hg19$RegionID)] %>% unique
+        Background_hg19_dups <- Background_hg19[Background_hg19$RegionID %in% dups]
+        Background_hg19_unique <- Background_hg19[!Background_hg19$RegionID %in% dups]
+        Background_hg19_dups_fix <- GRanges(NULL)
+        for(i in 1:length(dups)){
+                temp <- Background_hg19_dups[Background_hg19_dups$RegionID == dups[i]]
+                temp <- temp[width(temp) == max(width(temp))] # Take largest duplicate
+                Background_hg19_dups_fix <- union(Background_hg19_dups_fix, temp)
+        }
+        Background_hg19 <- union(Background_hg19_unique, Background_hg19_dups_fix)
+        if(!isDisjoint(Background_hg19)){Background_hg19 <- disjoin(Background_hg19)} 
+        
+        DMRs_hg19 <- redefineUserSets(GRangesList(DMRs_hg19), Background_hg19)
+        message("[prepGREAT] ", table(overlapsAny(DMRs_hg19[[1]], Background_hg19, type = "equal")), 
+                " DMRs in background out of ", length(overlapsAny(DMRs_hg19[[1]])), " total DMRs")
+        
+        message("[prepGREAT] Preparing DMR table")
+        DMRs_hg19 <- as.data.frame(DMRs_hg19[[1]])[,c("seqnames", "start", "end")]
+        colnames(DMRs_hg19) <- c("chr", "start", "end")
+        DMRs_hg19$chr <- as.character(DMRs_hg19$chr)
+        DMRs_hg19 <- DMRs_hg19[order(DMRs_hg19$chr, DMRs_hg19$start),]
+        DMRs_hg19 <- unique(subset(DMRs_hg19, chr %in% chroms))
+        write.table(DMRs_hg19, fileName, quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")
+        message("[prepGREAT] Writing zipped DMR file to ", fileName)
+        gzip(fileName, overwrite=TRUE)
+        
+        if(writeBack){
+                message("[prepGREAT] Preparing background table")
+                Background_hg19 <- as.data.frame(Background_hg19)[,c("seqnames", "start", "end")]
+                colnames(Background_hg19) <- c("chr", "start", "end")
+                Background_hg19$chr <- as.character(Background_hg19$chr)
+                Background_hg19 <- Background_hg19[order(Background_hg19$chr, Background_hg19$start),]
+                Background_hg19 <- unique(subset(Background_hg19, chr %in% chroms))
+                if(nrow(Background_hg19) > 1000000){
+                        message("[prepGREAT] Warning: Background has ", nrow(Background_hg19), 
+                                " regions. Need to reduce background to < 1M regions")
+                }
+                write.table(Background_hg19, backName, quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")
+                message("[prepGREAT] Writing zipped background file to ", backName)
+                gzip(backName, overwrite=TRUE)
+        }
+        end_time <- Sys.time()
+        message("[prepGREAT] Complete! Time difference of ", round(end_time - start_time, 2), " minutes")
+}
+
+getGREATenrichments <- function(BEDfile_DMR, BEDfile_Back, species = "hg19", rule = "basalPlusExt", minGenes = 10, maxGenes = 2000,
+                                exclude = c("MGI Expression: Detected", "MSigDB Oncogenic Signatures", 
+                                            "MSigDB Cancer Neighborhood", "MSigDB Perturbation", 
+                                            "MSigDB Predicted Promoter Motifs")){
+        # Gets enrichments with FDR q < 0.05 from a DMR and Background bed.gz file, Fails with "MGI Expression: Detected"
+        start_time <- Sys.time()
+        message("[getGREATenrichments] Submitting Regions to GREAT")
+        job <- submitGreatJob(gr = BEDfile_DMR, bg = BEDfile_Back, species = species, includeCuratedRegDoms = FALSE, 
+                              rule = rule, request_interval = 30, version = "3.0.0")
+        message("[getGREATenrichments] Getting Enrichment Tables")
+        allOntologies <- availableOntologies(job = job) %>% as.character
+        enrichTables <- getEnrichmentTables(job = job, ontology = allOntologies[!allOntologies %in% exclude])
+        message("[getGREATenrichments] Formatting Results")
+        results <- NULL
+        for(i in 1:length(enrichTables)){
+                temp <- enrichTables[[i]]
+                temp$Ontology <- rep(names(enrichTables)[i], nrow(temp))
+                results <- rbind(results, temp)
+        }
+        results <- subset(results, Total_Genes_Annotated >= minGenes & Total_Genes_Annotated <= maxGenes)
+        results$qvalue <- p.adjust(results$Hyper_Raw_PValue, method = "fdr")
+        results <- subset(results, qvalue < 0.05)
+        results$log_qvalue <- -log10(results$qvalue)
+        results <- results[order(-results$log_qvalue),c("ID", "name", "Ontology", "Hyper_Foreground_Region_Hits",
+                                                        "Hyper_Expected", "Hyper_Region_Set_Coverage", 
+                                                        "Hyper_Term_Region_Coverage", "Hyper_Foreground_Gene_Hits",
+                                                        "Hyper_Background_Gene_Hits", "Total_Genes_Annotated", 
+                                                        "Hyper_Fold_Enrichment", "Hyper_Raw_PValue", "qvalue", "log_qvalue")]
+        end_time <- Sys.time()
+        message("[getGREATenrichments] Complete! Time difference of ", round(end_time - start_time, 2), " minutes")
+        return(results)
+}
+
+plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.width = 50, legend.position = c(1.32, 0.87),
+                      width = 7, height = 5, wrap = FALSE){
+        gg <- ggplot()
+        gg <- gg +
+                geom_tile(data = greatCombined, aes(y = name, x = Direction, fill = log_qvalue)) +
+                scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1)) +
+                scale_x_discrete(expand = c(0,0), drop = FALSE) +
+                theme_bw(base_size = 24) +
+                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                      panel.border = element_rect(color = "black", size = 1.25), 
+                      plot.margin = unit(c(0.5, 5, 0.5, 0.5), "lines"), axis.ticks = element_line(size = 0.8), 
+                      axis.text.x = element_text(size = 11, color = "black"), 
+                      axis.text.y = element_text(size = axis.text.y.size, color = "black"),
+                      axis.title = element_blank(), legend.key = element_blank(),  
+                      legend.position = legend.position, legend.background = element_blank(), 
+                      legend.key.size = unit(1, "lines"), legend.title = element_text(size = 11), 
+                      legend.text = element_text(size = 10), panel.background = element_rect(fill = "black"))
+        replacements <- c("Dna" = "DNA", "Of" = "of", "The" = "the", "Ensg" = "ENSG", "Ng" = "ng",
+                          "Ml" = "ml", "Lps" = "LPS", "Pbmc" = "PBMC", "Tlr4" = "TLR4", 
+                          "Trem1" = "TREM1", "With" = "with", " *\\(.*?\\)" = "", " *\\[.*?\\]" = "",
+                          "\\." = "", "Genes " = "", "In " = "in ", "Rna" = "RNA", "Mrna" = "mRNA",
+                          "Peripheral Blood Mononuclear Cells" = "PBMCs", "And" = "and", "Cd" = "CD",
+                          "Nf" = "NF", "Kappab" = "kappaB", "Gtp" = "GTP", "To" = "to", "At" = "at",
+                          "Igg" = "IgG", "Cxcr" = "CXCR", "Ifn" = "IFN", "Dc" = "DC", "Tiv" = "TIV",
+                          "Vaccinee" = "Vaccine", "Il4" = "IL4", "Ii" = "II", "NFat" = "NFAT", "Gnrh" = "GnRH",
+                          "Er" = "ER", "Mtor" = "mTOR", "CDk" = "CDK", "Tgf" = "TGF")
+        if(wrap){
+                gg <- gg +
+                        scale_y_discrete(expand = c(0,0), drop = FALSE, labels = function(x){
+                                str_to_title(x) %>% str_replace_all(replacements) %>% 
+                                        str_wrap(width = axis.text.y.width) %>% 
+                                        str_trunc(width = axis.text.y.width * 2 - 8, side = "right")
+                        })
+        }
+        else {
+                gg <- gg +
+                        scale_y_discrete(expand = c(0,0), drop = FALSE, labels = function(x){
+                                str_to_title(x) %>% str_replace_all(replacements) %>% 
+                                        str_trunc(width = axis.text.y.width * 2 - 8, side = "right")
+                        })
+        }
+        ggsave(file, plot = gg, dpi = 600, width = width, height = height, units = "in")
+}
+
+getRegionStats <- function(regionData, TD = c(56, 56, 39, 17), ASD = c(52, 52, 37, 15)){
+        regionStats <- sapply(regionData, function(x){
+                c("Number" = nrow(x), "Width" = sum(x$width), "CpGs" = sum(x[,colnames(x) %in% c("n", "L")]))
+        })
+        regionStats <- regionStats %>% t %>% as.data.frame
+        regionStats$Regions <- row.names(regionStats)
+        row.names(regionStats) <- 1:nrow(regionStats)
+        regionStats$TD <- rep(TD, each = 3)
+        regionStats$ASD <- rep(ASD, each = 3)
+        regionStats$All <- regionStats$TD + regionStats$ASD
+        regionStats$NumberPerBack <- round(regionStats$Number * 100 / rep(regionStats$Number[grepl("Back", regionStats$Regions)], each = 3), 3)
+        regionStats$WidthPerBack <- round(regionStats$Width * 100 / rep(regionStats$Width[grepl("Back", regionStats$Regions)], each = 3), 3)
+        regionStats$CpGsPerBack <- round(regionStats$CpGs * 100 / rep(regionStats$CpGs[grepl("Back", regionStats$Regions)], each = 3), 3)
+        regionStats <- regionStats[,c("Regions", "TD", "ASD", "All", "Number", "NumberPerBack", "Width", "WidthPerBack", "CpGs", "CpGsPerBack")]
+        return(regionStats)
+}
