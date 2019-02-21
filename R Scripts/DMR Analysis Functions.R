@@ -51,7 +51,7 @@ loadRegions <- function(file, chroms = c(paste("chr", 1:22, sep = ""), "chrX", "
         return(regions)
 }
 
-plotDendro <- function(ddata, row = !col, col = !row, labels = col) {
+.plotDendro <- function(ddata, row = !col, col = !row, labels = col) {
         # plot a dendrogram
         yrange <- range(ddata$segments$y)
         yd <- yrange[2] - yrange[1]
@@ -77,7 +77,7 @@ plotDendro <- function(ddata, row = !col, col = !row, labels = col) {
         return(p)
 }
 
-plotLegend <-function(a.gplot){
+.plotLegend <-function(a.gplot){
         # from http://stackoverflow.com/questions/11883844/inserting-a-table-under-the-legend-in-a-ggplot2-histogram
         tmp <- ggplot_gtable(ggplot_build(a.gplot))
         leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
@@ -99,9 +99,9 @@ buildHeatmap <- function(x, phenoData, hm.colors = c("#0000FF", "Black", "#FF000
         col.hc <- hclust(dist(t(x)), "ward.D")
         row.dendro <- dendro_data(as.dendrogram(row.hc), type = "rectangle")
         col.dendro <- dendro_data(as.dendrogram(col.hc), type = "rectangle")
-        col.plot <- plotDendro(col.dendro, col = TRUE, labels = FALSE) +
+        col.plot <- .plotDendro(col.dendro, col = TRUE, labels = FALSE) +
                 theme(plot.margin = unit(c(0, -1.8, 0, -2), "lines"), axis.text.x = element_blank())
-        row.plot <- plotDendro(row.dendro, row = TRUE, labels = FALSE) +
+        row.plot <- .plotDendro(row.dendro, row = TRUE, labels = FALSE) +
                 theme(plot.margin = unit(c(0, 2, 0, 0), "lines"))
         col.ord <- match(col.dendro$labels$label, colnames(x))
         row.ord <- match(row.dendro$labels$label, rownames(x))
@@ -166,7 +166,7 @@ printHeatmap <- function(L, widths = c(0.02, 0.8, 0.16, 0.02), heights = c(0.02,
               vp = viewport(layout.pos.col = 2, layout.pos.row = 3))
         
         # Heatmap Legend
-        legend <- plotLegend(L$center +
+        legend <- .plotLegend(L$center +
                                      theme(legend.title = element_blank(), 
                                            legend.text = element_text(size = 15, hjust=1, 
                                                                       margin = unit(c(0, 0, 0, 0.2), "lines")),
@@ -176,7 +176,7 @@ printHeatmap <- function(L, widths = c(0.02, 0.8, 0.16, 0.02), heights = c(0.02,
         upViewport(0)
         
         # PhenoData Legend
-        phenoLegend <- plotLegend(L$phenoData +
+        phenoLegend <- .plotLegend(L$phenoData +
                                           theme(legend.title = element_blank(), 
                                                 legend.text = element_text(size = 15, hjust = 0, 
                                                                            margin = unit(c(0, 0, 0, 0.5), "lines")),
@@ -211,7 +211,7 @@ ggbiplotPCA <- function(data.pca, groups, pc = 1:2, file, xlim = NULL, ylim = NU
         ggsave(file, dpi = 600, width = 8, height = 8, units = "in")
 }
 
-methLm <- function(catVars, contVars, sampleData, meth, adj = NULL){
+.methLm <- function(catVars, contVars, sampleData, meth, adj = NULL){
         # Analyzes categorical and continuous variables for association with methylation, 
         # using linear regression with an optional adjustment variable
         stats <- NULL
@@ -275,7 +275,7 @@ DMRmethLm <- function(DMRs, catVars, contVars, sampleData, file, adj = NULL){
         }
         start_time <- Sys.time()
         covStats <- lapply(DMRs, function(x){
-                methLm(catVars = catVars, contVars = contVars, sampleData = sampleData, meth = x, adj = adj) 
+                .methLm(catVars = catVars, contVars = contVars, sampleData = sampleData, meth = x, adj = adj) 
         }) %>% list.rbind
         covStats$Variable <- as.character(covStats$Variable)
         covStats$Variable[covStats$Variable %in% c("Site", "MomEdu_detail")] <- paste(covStats$Variable[covStats$Variable %in% c("Site", "MomEdu_detail")],
@@ -583,10 +583,12 @@ plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.w
                           "Trem1" = "TREM1", "With" = "with", " *\\(.*?\\)" = "", " *\\[.*?\\]" = "",
                           "\\." = "", "Genes " = "", "In " = "in ", "Rna" = "RNA", "Mrna" = "mRNA",
                           "Peripheral Blood Mononuclear Cells" = "PBMCs", "And" = "and", "Cd" = "CD",
-                          "Nf" = "NF", "Kappab" = "kappaB", "Gtp" = "GTP", "To" = "to", "At" = "at",
+                          "Nf" = "NF", "Kappab" = "kappaB", "Gtp" = "GTP", "To" = "to", "At " = "at ",
                           "Igg" = "IgG", "Cxcr" = "CXCR", "Ifn" = "IFN", "Dc" = "DC", "Tiv" = "TIV",
                           "Vaccinee" = "Vaccine", "Il4" = "IL4", "Ii" = "II", "NFat" = "NFAT", "Gnrh" = "GnRH",
-                          "Er" = "ER", "Mtor" = "mTOR", "CDk" = "CDK", "Tgf" = "TGF")
+                          "Er" = "ER", "Mtor" = "mTOR", "CDk" = "CDK", "Tgf" = "TGF", "Arf" = "ARF", "Mirna" = "miRNA",
+                          "Il1" = "IL1", "ERythropoiesis" = "Erythropoiesis", "Hiv" = "HIV", "Hdac" = "HDAC", 
+                          "Gaba" = "GABA", "Cns" = "CNS")
         if(wrap){
                 gg <- gg +
                         scale_y_discrete(expand = c(0,0), drop = FALSE, labels = function(x){
@@ -621,3 +623,60 @@ getRegionStats <- function(regionData, TD = c(56, 56, 39, 17), ASD = c(52, 52, 3
         regionStats <- regionStats[,c("Regions", "TD", "ASD", "All", "Number", "NumberPerBack", "Width", "WidthPerBack", "CpGs", "CpGsPerBack")]
         return(regionStats)
 }
+
+DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, rotation.degree = 0, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03)){
+        pdf(file = file, width = 10, height = 8, onefile = FALSE)
+        venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, maxgap = -1, minoverlap = 1, 
+                                                 by = "region", connectedPeaks = "min", rotation.degree = rotation.degree, 
+                                                 margin = 0.04, cat.cex = 2, cex = 2.5, fill = c("lightblue", "lightpink"),
+                                                 cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans", 
+                                                 cat.fontfamily = "sans", ext.dist = -0.4, ext.length = 0.85))
+        dev.off()
+}
+
+plotGOMheatmap <- function(data, type = c("log_OddsRatio", "log_qValue"), file, expand = c(0.04, 0),
+                           intersect.size = 5, sig.size = 9, axis.text.size = 14){
+        if(type == "log_OddsRatio"){
+                gg <- ggplot(data = data)
+                gg +
+                        geom_tile(aes(x = ListA, y = ListB, fill = log10(OddsRatio))) +
+                        geom_text(aes(x = ListA, y = ListB, label = Intersection), color = "white", size = intersect.size, nudge_y = -0.15) +
+                        geom_text(aes(x = ListA, y = ListB, label = "*", alpha = Significant), color = "white", size = sig.size, nudge_y = 0.05) +
+                        scale_fill_gradientn("log(OR)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "black") +
+                        scale_alpha_manual(values=c("TRUE" = 1, "FALSE" = 0), guide = "none") +
+                        theme_bw(base_size = 24) +
+                        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25), 
+                              axis.ticks = element_line(size = 1), legend.key = element_blank(), legend.text=element_text(size=14),
+                              panel.grid.minor = element_blank(), legend.position = c(1.09, 0.87), 
+                              legend.background = element_blank(), panel.background = element_rect(fill = "#333333"),
+                              plot.margin = unit(c(1,8,1,1), "lines"), 
+                              axis.text.x = element_text(size = axis.text.size, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
+                              axis.text.y = element_text(size = axis.text.size, color = "Black", angle = 0, hjust = 1, vjust = 0.5),
+                              axis.title = element_blank(), legend.title = element_text(size = 16)) +
+                        scale_x_discrete(expand = expand, drop = FALSE) +
+                        scale_y_discrete(expand = expand, drop = FALSE)
+                ggsave(file = file, dpi = 600, width = 10, height = 8, units = "in")
+        }
+        else {
+                gg <- ggplot(data = data)
+                gg +
+                        geom_tile(aes(x = ListA, y = ListB, fill = log_qValue)) +
+                        geom_text(aes(x = ListA, y = ListB, label = Intersection), color = "white", size = intersect.size, nudge_y = -0.15) +
+                        geom_text(aes(x = ListA, y = ListB, label = "*", alpha = Significant), color = "white", size = sig.size, nudge_y = 0.05) +
+                        scale_fill_gradientn("log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "black") +
+                        scale_alpha_manual(values=c("TRUE" = 1, "FALSE" = 0), guide = "none") +
+                        theme_bw(base_size = 24) +
+                        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25), 
+                              axis.ticks = element_line(size = 1), legend.key = element_blank(), legend.text=element_text(size=14),
+                              panel.grid.minor = element_blank(), legend.position = c(1.12, 0.87), 
+                              legend.background = element_blank(), panel.background = element_rect(fill = "#333333"),
+                              plot.margin = unit(c(1,8,1,1), "lines"), 
+                              axis.text.x = element_text(size = axis.text.size, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
+                              axis.text.y = element_text(size = axis.text.size, color = "Black", angle = 0, hjust = 1, vjust = 0.5),
+                              axis.title = element_blank(), legend.title = element_text(size = 16)) +
+                        scale_x_discrete(expand = expand, drop = FALSE) +
+                        scale_y_discrete(expand = expand, drop = FALSE)
+                ggsave(file = file, dpi = 600, width = 10, height = 8, units = "in")
+        }
+}
+

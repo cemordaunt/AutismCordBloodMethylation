@@ -908,5 +908,234 @@ plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis DMRs GREA
 
 rm(greatAll, greatCombined, greatHyper, greatHypo, BEDfile_Back, greatPlotData)
 
+# Females Diagnosis 100 DMRs ------------------------------------------------
+# Data ####
+# DMRs
+DMRs <- loadRegions("DMRs/Replication/Diagnosis Females 100/DMRs_Dx_Replication100_females.csv",
+                    chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), sort = TRUE)
+DMRs$DMRid <- paste("DMR", 1:nrow(DMRs), sep = "_")
+DMRs <- DMRs[,c("chr", "start", "end", "DMRid", "width", "L", "percentDifference", "stat", "pval", "qval")]
+raw <- loadRegions("DMRs/Replication/Diagnosis Females 100/DMR_raw_methylation_Dx_Replication100_females.txt", 
+                   chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), sort = TRUE)
+raw$DMRid <- paste("DMR", 1:nrow(raw), sep = "_")
+raw <- cbind(raw[,c("chr", "start", "end", "DMRid", colnames(raw)[grepl("JLCM", colnames(raw), fixed = TRUE)])])
 
+# Candidates
+candidates <- loadRegions("DMRs/Replication/Diagnosis Females 100/CandidateRegions_Dx_Replication100_females.csv",
+                          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), sort = TRUE)
+candidates <- candidates[,c("chr", "start", "end", "width", "L", "percentDifference", "stat", "pval", "qval")]
+
+# Background
+background <- loadRegions("DMRs/Replication/Diagnosis Females 100/bsseq_background_Replication100_females.csv",
+                          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), sort = TRUE)
+
+# Samples
+samples <- read.delim(file = "Merged Database/MARBLES EARLI WGBS Sample Merged Covariate Database with Demo.txt", 
+                      sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+samples <- subset(samples, Sequencing_ID %in% colnames(raw))
+
+# Manhattan and QQ plots ####
+# Manhattan plot
+CMplotDMR(candidates, prefix = "Figures/Replication Females Diagnosis 100 DMRs", plot.type = "m", bin.max = 900)
+
+# QQ plot
+CMplotDMR(candidates, prefix = "Figures/Replication Females Diagnosis 100 DMRs", plot.type = "q")
+rm(candidates)
+
+# Raw Meth Heatmap ####
+# Meth Data
+meth_heat <- raw[,grepl("JLCM", colnames(raw), fixed = TRUE)]
+methdiff <- (meth_heat - rowMeans(meth_heat, na.rm = TRUE)) %>% as.matrix %>% "*" (100)
+hm.lim <- quantile(abs(methdiff), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+table(is.na(methdiff))
+
+# Pheno Data
+phenoData <- samples[,c("Sequencing_ID", "Diagnosis_Alg", "Sex")]
+colnames(phenoData) <- c("Sample", "Diagnosis", "Sex")
+phenoData <- phenoData[match(colnames(methdiff), phenoData$Sample),]
+table(colnames(methdiff) == phenoData$Sample) # All TRUE
+phenoData$Sample <- factor(phenoData$Sample, levels = unique(phenoData$Sample), ordered = TRUE)
+phenoData$Diagnosis <- factor(phenoData$Diagnosis, levels = c("TD", "ASD"), ordered = TRUE)
+phenoData$Sex <- factor(phenoData$Sex, levels = c("M", "F"))
+
+# Plot Heatmap
+pdf(file = "Figures/Replication Females Diagnosis 100 DMRs Raw Methylation Heatmap.pdf", width = 10, height = 8, onefile = FALSE)
+buildHeatmap(x = methdiff, phenoData = phenoData[,c("Sample", "Diagnosis", "Sex")], hm.low = - hm.lim, hm.high = hm.lim, 
+             pheno.breaks = c("TD", "ASD", "M", "F"), 
+             pheno.values = c("TD" = "#3366CC", "ASD" = "#FF3366", "M" = "#FFFF33", "F" = "#FF6633")) %>%
+        printHeatmap(pheno.legend.position = c(0.897, 0.915))
+dev.off()
+rm(hm.lim, methdiff)
+
+# Raw Meth PCA ####
+meth_heat <- raw[,grepl("JLCM", colnames(raw), fixed = TRUE)] %>% as.matrix
+table(colnames(meth_heat) == phenoData$Sample) # All TRUE
+table(is.na(meth_heat))
+for(i in 1:nrow(meth_heat)){
+        temp <- as.numeric(meth_heat[i,])
+        temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with mean meth of that DMR
+        meth_heat[i,] <- temp
+}
+table(is.na(meth_heat))
+data.pca <- prcomp(t(meth_heat), center = TRUE, scale. = TRUE)
+ggbiplotPCA(data.pca = data.pca, groups = phenoData$Diagnosis, pc = c(1,2), 
+            file = "Figures/Replication Females Diagnosis 100 DMRs Raw Meth PCA by Diagnosis.png", xlim = c(-100, 100), 
+            ylim = c(-100, 100))
+rm(data.pca, i, temp, phenoData, meth_heat)
+
+# Raw Meth Covariate Association ####
+# Prep Data
+meth_cov <- raw[,grepl("JLCM", colnames(raw), fixed = TRUE)] %>% t %>% as.data.frame
+colnames(meth_cov) <- raw$DMRid
+meth_cov$Sequencing_ID <- rownames(meth_cov)
+samples_cov <- merge(x = samples, y = meth_cov, by = "Sequencing_ID", all = FALSE, sort = FALSE)
+catVars <- c("Study", "Platform", "Sex", "Site", "Diagnosis_Alg", "MomEdu_detail", "DM1or2", "GDM", "PE", 
+             "home_ownership", "marital_status", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", 
+             "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", 
+             "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9")
+catVars <- catVars[!catVars %in% c("Platform", "Study", "Site", "Sex", "PE", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3",
+                                   "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1")] # Exclude catVars with only 1 level
+samples_cov$Study <- factor(samples_cov$Study, levels = c("MARBLES", "EARLI"))
+samples_cov$Platform <- factor(samples_cov$Platform, levels = c("HiSeqX10", "HiSeq4000"))
+samples_cov$Sex <- factor(samples_cov$Sex, levels = c("M", "F"))
+samples_cov$Site <- factor(samples_cov$Site, levels = c("UC Davis", "Kaiser Permanente", "Drexel", "Johns Hopkins University"))
+samples_cov$Diagnosis_Alg <- factor(samples_cov$Diagnosis_Alg, levels = c("TD", "ASD"))
+samples_cov$MomEdu_detail <- factor(samples_cov$MomEdu_detail, levels = c(6, 1:5, 7,8))
+samples_cov$home_ownership[samples_cov$home_ownership == 99] <- NA
+samples_cov$marital_status[samples_cov$marital_status == 99] <- NA
+factorCols <- c("DM1or2", "GDM", "PE", "marital_status", "home_ownership", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", 
+                "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", 
+                "AllEQ_PV_YN_Mo4", "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", 
+                "AllEQ_PV_YN_Mo9")
+samples_cov[,factorCols] <- lapply(samples_cov[,factorCols], as.factor)
+contVars <- colnames(samples_cov)[!colnames(samples_cov) %in% catVars & !colnames(samples_cov) %in% raw$DMRid &
+                                          !colnames(samples_cov) %in% c("COI_ID", "Sequencing_ID", "Cord_Blood_IBC", 
+                                                                        "Platform", "Study", "Site", "Sex", "PE", 
+                                                                        "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3",
+                                                                        "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1", 
+                                                                        "AllEQ_PV_YN_Mo1")]
+
+# Get Stats
+covStats <- DMRmethLm(DMRs = raw$DMRid, catVars = catVars, contVars = contVars, sampleData = samples_cov, 
+                      file = "Tables/Replication Females Diagnosis 100 DMRs Raw Methylation by Covariate Stats.txt")
+# Missing Data
+
+covSum <- DMRmethLmSum(covStats, file = "Tables/Replication Females Diagnosis 100 DMRs Raw Methylation by Covariate Summary.txt")
+
+# Plot Heatmap
+variables <- c("Diagnosis_Alg", "Sex", "Study", "Site_Drexel", "Site_Johns_Hopkins_University", "Site_Kaiser_Permanente", 
+               "ADOScs", "MSLelcStandard36", "MSLelTscore36", "MSLfmTscore36", "MSLrlTscore36", "MSLvrTscore36", "ga_w", 
+               "bw_g", "percent_trimmed", "percent_aligned", "percent_duplicate", "dedup_reads_M", "C_coverage", 
+               "CG_coverage", "percent_cpg_meth", "percent_chg_meth", "percent_chh_meth", "MomEdu_detail_1", 
+               "MomEdu_detail_2", "MomEdu_detail_3", "MomEdu_detail_4", "MomEdu_detail_5", "MomEdu_detail_7", 
+               "MomEdu_detail_8", "home_ownership", "marital_status", "MomAgeYr", "Mat_Height_cm", "Mat_Weight_kg_PrePreg",
+               "Mat_BMI_PrePreg", "DM1or2", "GDM", "PE", "parity", "dad_age", "SmokeYN_Pregnancy","cotinine_urine_ngml", 
+               "final_creatinine_mgdl", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", 
+               "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", 
+               "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9", "AllEQ_tot_All_FA_mcg_Mo_3", 
+               "AllEQ_tot_All_FA_mcg_Mo_2", "AllEQ_tot_All_FA_mcg_Mo_1", "AllEQ_tot_All_FA_mcg_Mo1", 
+               "AllEQ_tot_All_FA_mcg_Mo2", "AllEQ_tot_All_FA_mcg_Mo3", "AllEQ_tot_All_FA_mcg_Mo4", 
+               "AllEQ_tot_All_FA_mcg_Mo5", "AllEQ_tot_All_FA_mcg_Mo6", "AllEQ_tot_All_FA_mcg_Mo7", 
+               "AllEQ_tot_All_FA_mcg_Mo8","AllEQ_tot_All_FA_mcg_Mo9")
+covHeatmap(covStats, variableOrdering = "manual", regionOrdering = "variable", variables = variables,
+           sortVariable = "Diagnosis_Alg", 
+           file = "Figures/Replication Females Diagnosis 100 DMRs Raw Meth Covariate Heatmap Sorted by Diagnosis.png")
+covHeatmap(covStats, variableOrdering = "hierarchical", regionOrdering = "hierarchical", 
+           file = "Figures/Replication Females Diagnosis 100 DMRs Raw Meth Covariate Heatmap Clustered.png")
+
+rm(meth_cov, samples_cov, catVars, contVars, factorCols, variables, covStats, covSum)
+
+# DMR Annotation ####
+regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+DMRs_anno <- getDMRanno(DMRstats = DMRs, regDomains = regDomains, file = "Tables/Replication Females Diagnosis 100 DMRs Annotation.txt")
+rm(regDomains, DMRs_anno)
+
+# GREAT Analysis ####
+# Make Files for GREAT (hg19, DMRs redefined to match background, background < 1M regions)
+prepGREAT(DMRs = makeGRange(DMRs, direction = "all"), Background = makeGRange(background, direction = "all"), 
+          fileName = "UCSC Tracks/Females Diagnosis 100 DMRs Replication hg19 for GREAT.bed", writeBack = TRUE,
+          backName = "UCSC Tracks/Females Diagnosis 100 Background Replication hg19 for GREAT.bed", 
+          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"))
+prepGREAT(DMRs = makeGRange(DMRs, direction = "hyper"), Background = makeGRange(background, direction = "all"), 
+          fileName = "UCSC Tracks/Females Diagnosis 100 Hyper DMRs Replication hg19 for GREAT.bed", writeBack = FALSE,
+          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"))
+prepGREAT(DMRs = makeGRange(DMRs, direction = "hypo"), Background = makeGRange(background, direction = "all"), 
+          fileName = "UCSC Tracks/Females Diagnosis 100 Hypo DMRs Replication hg19 for GREAT.bed", writeBack = FALSE,
+          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"))
+rm(background, DMRs, raw, samples)
+
+# Get Enrichments from GREAT
+BEDfile_Back <- "UCSC Tracks/Females Diagnosis 100 Background Replication hg19 for GREAT.bed.gz"
+greatAll <- getGREATenrichments(BEDfile_DMR = "UCSC Tracks/Females Diagnosis 100 DMRs Replication hg19 for GREAT.bed.gz", 
+                                BEDfile_Back = BEDfile_Back)
+greatHyper <- getGREATenrichments(BEDfile_DMR = "UCSC Tracks/Females Diagnosis 100 Hyper DMRs Replication hg19 for GREAT.bed.gz", 
+                                  BEDfile_Back = BEDfile_Back)
+greatHypo <- getGREATenrichments(BEDfile_DMR = "UCSC Tracks/Females Diagnosis 100 Hypo DMRs Replication hg19 for GREAT.bed.gz", 
+                                 BEDfile_Back = BEDfile_Back)
+greatCombined <- rbind(greatAll, greatHyper, greatHypo)
+greatCombined$Direction <- factor(c(rep("All", nrow(greatAll)), rep("Hyper", nrow(greatHyper)), 
+                                    rep("Hypo", nrow(greatHypo))), levels = c("All", "Hyper", "Hypo"))
+write.table(greatCombined, "Tables/Replication Females Diagnosis 100 DMRs GREAT Combined Results.txt", sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+(table(greatCombined$Direction, greatCombined$Ontology) * 100 / nrow(greatCombined)) %>% round(1)
+
+# Plot All Enrichments
+greatPlotData <- subset(greatCombined, ID %in% # Get top 5 from each direction
+                                unique(c(greatCombined$ID[greatCombined$Direction == "All"][1:5], 
+                                         greatCombined$ID[greatCombined$Direction == "Hyper"][1:5],
+                                         greatCombined$ID[greatCombined$Direction == "Hypo"][1:5])))
+greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
+plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis 100 DMRs GREAT Plot.png", axis.text.y.size = 9, 
+          axis.text.y.width = 60, legend.position = c(1.24, 0.87), wrap = TRUE)
+
+# Plot Immune Enrichments (Same as all enrichments)
+greatPlotData <- subset(greatCombined, Ontology == "MSigDB Immunologic Signatures")
+greatPlotData <- subset(greatPlotData, ID %in% # Get top 5 from each direction
+                                unique(c(greatPlotData$ID[greatPlotData$Direction == "All"][1:5], 
+                                         greatPlotData$ID[greatPlotData$Direction == "Hyper"][1:5],
+                                         greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:5])))
+greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
+plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis 100 DMRs GREAT Immune Plot.png", 
+          axis.text.y.size = 9, axis.text.y.width = 60, legend.position = c(1.24, 0.87), wrap = TRUE)
+
+# Plot GO Terms
+greatPlotData <- subset(greatCombined, Ontology %in% c("GO Biological Process", "GO Cellular Component", "GO Molecular Function"))
+greatPlotData <- subset(greatPlotData, ID %in% # Get top 10 from each direction
+                                unique(c(greatPlotData$ID[greatPlotData$Direction == "All"][1:10], 
+                                         greatPlotData$ID[greatPlotData$Direction == "Hyper"][1:10],
+                                         greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:10])))
+greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
+plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis 100 DMRs GREAT GO Term Plot.png", 
+          axis.text.y.size = 9, axis.text.y.width = 35, legend.position = c(1.2, 0.87), wrap = FALSE) 
+
+# Plot Mouse Phenotype
+greatPlotData <- subset(greatCombined, Ontology == "Mouse Phenotype")
+greatPlotData <- subset(greatPlotData, ID %in% # Get top 15 from each direction
+                                unique(c(greatPlotData$ID[greatPlotData$Direction == "All"][1:15], 
+                                         greatPlotData$ID[greatPlotData$Direction == "Hyper"][1:15],
+                                         greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:15])))
+greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
+plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis 100 DMRs GREAT Mouse Pheno Plot.png", 
+          axis.text.y.size = 9, axis.text.y.width = 35, legend.position = c(1.18, 0.87), wrap = FALSE) 
+
+# Plot MSigDB Pathway
+greatPlotData <- subset(greatCombined, Ontology == "MSigDB Pathway")
+greatPlotData <- subset(greatPlotData, ID %in% # Get top 15 from each direction
+                                unique(c(greatPlotData$ID[greatPlotData$Direction == "All"][1:15], 
+                                         greatPlotData$ID[greatPlotData$Direction == "Hyper"][1:15],
+                                         greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:15])))
+greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
+plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis 100 DMRs GREAT MSigDB Pathway Plot.png", 
+          axis.text.y.size = 9, axis.text.y.width = 35, legend.position = c(1.23, 0.87), wrap = FALSE) 
+
+# Plot Human Phenotype
+greatPlotData <- subset(greatCombined, Ontology == "Human Phenotype")
+greatPlotData <- subset(greatPlotData, ID %in% # Get top 15 from each direction
+                                unique(c(greatPlotData$ID[greatPlotData$Direction == "All"][1:15], 
+                                         greatPlotData$ID[greatPlotData$Direction == "Hyper"][1:15],
+                                         greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:15])))
+greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
+plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis 100 DMRs GREAT Human Pheno Plot.png", 
+          axis.text.y.size = 10, axis.text.y.width = 35, legend.position = c(1.16, 0.87), wrap = FALSE) 
+
+rm(greatAll, greatCombined, greatHyper, greatHypo, BEDfile_Back, greatPlotData)
 
