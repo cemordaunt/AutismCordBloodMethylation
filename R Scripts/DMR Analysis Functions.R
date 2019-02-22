@@ -680,3 +680,25 @@ plotGOMheatmap <- function(data, type = c("log_OddsRatio", "log_qValue"), file, 
         }
 }
 
+DMRpermTest <- function(A, B, genome, universe, Comparison, file){
+        message("[DMRpermTest] Performing permutation test of regions using regioneR.")
+        pt <- permTest(A = A, B = B, genome = genome, ntimes = 10000, universe = universe, 
+                       evaluate.function = c(numOverlaps, meanDistance), randomize.function = resampleRegions, 
+                       mc.set.seed = FALSE, force.parallel = TRUE)
+        stats <- data.frame("Comparison" = Comparison, "Overlap_observed" = pt$Function1$observed, 
+                            "Overlap_zscore" = pt$Function1$zscore, "Overlap_pvalue" = pt$Function1$pval, 
+                            "Distance_observed" = pt$Function2$observed, "Distance_zscore" = pt$Function2$zscore, 
+                            "Distance_pvalue" = pt$Function2$pval)
+        message("[DMRpermTest] Complete! Writing plot and returning stats.")
+        pdf(file = file, width = 10, height = 5)
+        plot(x = pt, ncol = 2)
+        dev.off()
+        return(stats)
+}
+
+GRangeExtend <- function(x, extend){
+        ranges(x) <- IRanges(start(x) - extend, end(x) + extend)
+        x <- trim(x)
+        return(x)
+}
+

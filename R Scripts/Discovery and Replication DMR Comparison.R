@@ -4,12 +4,15 @@
 # 2/19/19
 
 # Packages ####
-sapply(c("reshape2", "tidyverse", "ChIPpeakAnno", "annotatr", "GeneOverlap", "UpSetR"), require, character.only = TRUE)
+sapply(c("reshape2", "tidyverse", "ChIPpeakAnno", "annotatr", "GeneOverlap", "UpSetR", "parallel", "regioneR", "LOLA"), 
+       require, character.only = TRUE)
 
 # Functions ####
 source("R Scripts/DMR Analysis Functions.R")
 
 # Data ####
+regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+
 # Discovery DMRs
 DisDxAll <- loadRegions("DMRs/Discovery/Diagnosis 50/DMRs_DxNoXY_Discovery50.csv", 
                         chroms = c(paste("chr", 1:22, sep = ""), "chrM"))
@@ -45,36 +48,28 @@ names(RepRegions) <- c(paste("RepDxAll", c("", "Hyper", "Hypo"), sep = ""), past
 GR_RepRegions <- sapply(RepRegions, function(x) {GRanges(seqnames = x$chr, ranges = IRanges(start = x$start, end = x$end))})
 
 # Discovery Background
-DisDxAllBack <- loadRegions("DMRs/Discovery/Diagnosis 50/bsseq_background_Discovery50.csv",
-                            chroms = c(paste("chr", 1:22, sep = ""), "chrM")) %>% 
-        getDMRgeneList(regDomains = regDomains, direction = "all", type = "gene_name")
-DisDxSexAllBack <- loadRegions("DMRs/Discovery/Diagnosis and Sex 50/bsseq_background_Discovery50.csv",
-                            chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")) %>% 
-        getDMRgeneList(regDomains = regDomains, direction = "all", type = "gene_name")
-DisDxMalesBack <- loadRegions("DMRs/Discovery/Diagnosis Males 50/bsseq_background_Discovery50_males.csv",
-                            chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")) %>% 
-        getDMRgeneList(regDomains = regDomains, direction = "all", type = "gene_name")
-DisDxFemalesBack <- loadRegions("DMRs/Discovery/Diagnosis Females 50/bsseq_background_Discovery50_females.csv",
-                            chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")) %>% 
-        getDMRgeneList(regDomains = regDomains, direction = "all", type = "gene_name")
+DisDxBackRegions <- list("DisDxAllBack" = loadRegions("DMRs/Discovery/Diagnosis 50/bsseq_background_Discovery50.csv",
+                                                      chroms = c(paste("chr", 1:22, sep = ""), "chrM")),
+                         "DisDxSexAllBack" = loadRegions("DMRs/Discovery/Diagnosis and Sex 50/bsseq_background_Discovery50.csv",
+                                                         chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")),
+                         "DisDxMalesBack" = loadRegions("DMRs/Discovery/Diagnosis Males 50/bsseq_background_Discovery50_males.csv",
+                                                        chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")),
+                         "DisDxFemalesBack" = loadRegions("DMRs/Discovery/Diagnosis Females 50/bsseq_background_Discovery50_females.csv",
+                                                          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")))
+GR_DisDxBackRegions <- sapply(DisDxBackRegions, function(x) {GRanges(seqnames = x$chr, ranges = IRanges(start = x$start, end = x$end))})
+
 
 # Replication Background
-RepDxAllBack <- loadRegions("DMRs/Replication/Diagnosis 50/bsseq_background_Replication50.csv",
-                            chroms = c(paste("chr", 1:22, sep = ""), "chrM")) %>% 
-        getDMRgeneList(regDomains = regDomains, direction = "all", type = "gene_name")
-RepDxSexAllBack <- loadRegions("DMRs/Replication/Diagnosis and Sex 50/bsseq_background_Replication50.csv",
-                               chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")) %>% 
-        getDMRgeneList(regDomains = regDomains, direction = "all", type = "gene_name")
-RepDxMalesBack <- loadRegions("DMRs/Replication/Diagnosis Males 50/bsseq_background_Replication50_males.csv",
-                              chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")) %>% 
-        getDMRgeneList(regDomains = regDomains, direction = "all", type = "gene_name")
-RepDxFemalesBack <- loadRegions("DMRs/Replication/Diagnosis Females 100/bsseq_background_Replication100_females.csv",
-                                chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")) %>% 
-        getDMRgeneList(regDomains = regDomains, direction = "all", type = "gene_name")
+RepDxBackRegions <- list("RepDxAllBack" = loadRegions("DMRs/Replication/Diagnosis 50/bsseq_background_Replication50.csv",
+                                                      chroms = c(paste("chr", 1:22, sep = ""), "chrM")),
+                         "RepDxSexAllBack" = loadRegions("DMRs/Replication/Diagnosis and Sex 50/bsseq_background_Replication50.csv",
+                                                         chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")),
+                         "RepDxMalesBack" = loadRegions("DMRs/Replication/Diagnosis Males 50/bsseq_background_Replication50_males.csv",
+                                                        chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")),
+                         "RepDxFemalesBack" = loadRegions("DMRs/Replication/Diagnosis Females 100/bsseq_background_Replication100_females.csv",
+                                                          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")))
+GR_RepDxBackRegions <- sapply(RepDxBackRegions, function(x) {GRanges(seqnames = x$chr, ranges = IRanges(start = x$start, end = x$end))})
 
-intersectBack <- intersect(DisDxAllBack, DisDxSexAllBack) %>% intersect(DisDxMalesBack) %>% intersect(DisDxFemalesBack) %>%
-        intersect(RepDxAllBack) %>% intersect(RepDxSexAllBack) %>% intersect(RepDxMalesBack) %>% intersect(RepDxFemalesBack)
-length(intersectBack)
 rm(DisDxAll, DisDxSexAll, DisDxMales, DisDxFemales, RepDxAll, RepDxSexAll, RepDxMales, RepDxFemales)
 
 # Overlap by Location -----------------------------------------------------
@@ -131,10 +126,210 @@ DisRepIntersect$Intersect <- c(rep("DxAllHyper", intersect(GR_DisRegions$DisDxAl
                                rep("DxFemalesHyper", intersect(GR_DisRegions$DisDxFemalesHyper, GR_RepRegions$RepDxFemalesHyper) %>% length),
                                rep("DxFemalesHypo", intersect(GR_DisRegions$DisDxFemalesHypo, GR_RepRegions$RepDxFemalesHypo) %>% length))
 
-regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 DisRepIntersectAnno <- getDMRanno(DisRepIntersect, regDomains = regDomains, file = "Tables/Discovery Replication DMR Intersect with Anno.txt")
 
+# Venn Diagrams with Extended DMRs ####
+GR_DisRegions_extend <- lapply(GR_DisRegions, GRangeExtend, extend = 5000)
+GR_RepRegions_extend <- lapply(GR_RepRegions, GRangeExtend, extend = 5000)
+
+# Diagnosis All DMRs
+DMRoverlapVenn(list(GR_DisRegions_extend$DisDxAllHyper, GR_RepRegions_extend$RepDxAllHyper), 
+               NameOfPeaks = c("Dis_All_DMRs", "Rep_All_DMRs"), 
+               file = "Figures/Hyper Extended DMR Overlap Dx All Dis vs Rep Venn.pdf",
+               rotation.degree = 180, cat.pos = c(170, 180), cat.dist = c(0.03, 0.03))
+DMRoverlapVenn(list(GR_DisRegions_extend$DisDxAllHypo, GR_RepRegions_extend$RepDxAllHypo), 
+               NameOfPeaks = c("Dis_All_DMRs", "Rep_All_DMRs"), 
+               file = "Figures/Hypo Extended DMR Overlap Dx All Dis vs Rep Venn.pdf",
+               rotation.degree = 180, cat.pos = c(165, 180), cat.dist = c(0.03, 0.03))
+
+# Diagnosis Sex All DMRs
+DMRoverlapVenn(list(GR_DisRegions_extend$DisDxSexAllHyper, GR_RepRegions_extend$RepDxSexAllHyper), 
+               NameOfPeaks = c("Dis_All_DMRs_Sex", "Rep_All_DMRs_Sex"), 
+               file = "Figures/Hyper Extended DMR Overlap Dx Sex All Dis vs Rep Venn.pdf",
+               rotation.degree = 180, cat.pos = c(10, 0), cat.dist = c(0.03, 0.03))
+DMRoverlapVenn(list(GR_DisRegions_extend$DisDxSexAllHypo, GR_RepRegions_extend$RepDxSexAllHypo), 
+               NameOfPeaks = c("Dis_All_DMRs_Sex", "Rep_All_DMRs_Sex"), 
+               file = "Figures/Hypo Extended DMR Overlap Dx Sex All Dis vs Rep Venn.pdf",
+               rotation.degree = 180, cat.pos = c(8, 0), cat.dist = c(0.03, 0.03))
+
+# Diagnosis Males DMRs
+DMRoverlapVenn(list(GR_DisRegions_extend$DisDxMalesHyper, GR_RepRegions_extend$RepDxMalesHyper), 
+               NameOfPeaks = c("Dis_Males_DMRs", "Rep_Males_DMRs"), 
+               file = "Figures/Hyper Extended DMR Overlap Dx Males Dis vs Rep Venn.pdf",
+               rotation.degree = 180, cat.pos = c(170, 180), cat.dist = c(0.03, 0.03))
+DMRoverlapVenn(list(GR_DisRegions_extend$DisDxMalesHypo, GR_RepRegions_extend$RepDxMalesHypo), 
+               NameOfPeaks = c("Dis_Males_DMRs", "Rep_Males_DMRs"), 
+               file = "Figures/Hypo Extended DMR Overlap Dx Males Dis vs Rep Venn.pdf",
+               rotation.degree = 180, cat.pos = c(170, 180), cat.dist = c(0.03, 0.03))
+
+# Diagnosis Females DMRs
+DMRoverlapVenn(list(GR_DisRegions_extend$DisDxFemalesHyper, GR_RepRegions_extend$RepDxFemalesHyper), 
+               NameOfPeaks = c("Dis_Females_DMRs", "Rep_Females_DMRs"), 
+               file = "Figures/Hyper Extended DMR Overlap Dx Females Dis vs Rep Venn.pdf",
+               rotation.degree = 180, cat.pos = c(165, 180), cat.dist = c(0.03, 0.03))
+DMRoverlapVenn(list(GR_DisRegions_extend$DisDxFemalesHypo, GR_RepRegions_extend$RepDxFemalesHypo), 
+               NameOfPeaks = c("Dis_Females_DMRs", "Rep_Females_DMRs"), 
+               file = "Figures/Hypo Extended DMR Overlap Dx Females Dis vs Rep Venn.pdf",
+               rotation.degree = 180, cat.pos = c(165, 180), cat.dist = c(0.03, 0.03))
+
+# Intersecting Regions with Extended DMRs ####
+DisRepIntersect <- rbind(intersect(GR_DisRegions_extend$DisDxAllHyper, GR_RepRegions_extend$RepDxAllHyper) %>% as.data.frame,
+                         intersect(GR_DisRegions_extend$DisDxAllHypo, GR_RepRegions_extend$RepDxAllHypo) %>% as.data.frame,
+                         intersect(GR_DisRegions_extend$DisDxSexAllHyper, GR_RepRegions_extend$RepDxSexAllHyper) %>% as.data.frame,
+                         intersect(GR_DisRegions_extend$DisDxSexAllHypo, GR_RepRegions_extend$RepDxSexAllHypo) %>% as.data.frame,
+                         intersect(GR_DisRegions_extend$DisDxMalesHyper, GR_RepRegions_extend$RepDxMalesHyper) %>% as.data.frame,
+                         intersect(GR_DisRegions_extend$DisDxMalesHypo, GR_RepRegions_extend$RepDxMalesHypo) %>% as.data.frame,
+                         intersect(GR_DisRegions_extend$DisDxFemalesHyper, GR_RepRegions_extend$RepDxFemalesHyper) %>% as.data.frame,
+                         intersect(GR_DisRegions_extend$DisDxFemalesHypo, GR_RepRegions_extend$RepDxFemalesHypo) %>% as.data.frame)
+colnames(DisRepIntersect)[1] <- "chr"
+DisRepIntersect$DMRid <- paste("DMR", 1:nrow(DisRepIntersect), sep = "_")
+DisRepIntersect$Intersect <- c(rep("DxAllHyper", intersect(GR_DisRegions_extend$DisDxAllHyper, GR_RepRegions_extend$RepDxAllHyper) %>% length),
+                               rep("DxAllHypo", intersect(GR_DisRegions_extend$DisDxAllHypo, GR_RepRegions_extend$RepDxAllHypo) %>% length),
+                               rep("DxSexAllHyper", intersect(GR_DisRegions_extend$DisDxSexAllHyper, GR_RepRegions_extend$RepDxSexAllHyper) %>% length),
+                               rep("DxSexAllHypo", intersect(GR_DisRegions_extend$DisDxSexAllHypo, GR_RepRegions_extend$RepDxSexAllHypo) %>% length),
+                               rep("DxMalesHyper", intersect(GR_DisRegions_extend$DisDxMalesHyper, GR_RepRegions_extend$RepDxMalesHyper) %>% length),
+                               rep("DxMalesHypo", intersect(GR_DisRegions_extend$DisDxMalesHypo, GR_RepRegions_extend$RepDxMalesHypo) %>% length),
+                               rep("DxFemalesHyper", intersect(GR_DisRegions_extend$DisDxFemalesHyper, GR_RepRegions_extend$RepDxFemalesHyper) %>% length),
+                               rep("DxFemalesHypo", intersect(GR_DisRegions_extend$DisDxFemalesHypo, GR_RepRegions_extend$RepDxFemalesHypo) %>% length))
+
+DisRepIntersectAnno <- getDMRanno(DisRepIntersect, regDomains = regDomains, 
+                                  file = "Tables/Discovery Replication Extended DMR Intersect with Anno.txt")
+
+# regioneR Stats ####
+set.seed(5)
+
+# DxAll
+hg38_auto <- getGenomeAndMask("hg38", mask = NULL)$genome %>% 
+        filterChromosomes(keep.chr = c(paste("chr", 1:22, sep = ""), "chrM"))
+stats_DxAllHyper <- DMRpermTest(A = GR_DisRegions$DisDxAllHyper, B = GR_RepRegions$RepDxAllHyper, genome = hg38_auto, 
+                                universe = intersect(GR_DisDxBackRegions$DisDxAllBack, GR_RepDxBackRegions$RepDxAllBack),
+                                file = "Figures/Hyper DMR Overlap Dx All Dis vs Rep RegioneR Plots.pdf",
+                                Comparison = "DxAllHyper")
+stats_DxAllHypo <- DMRpermTest(A = GR_DisRegions$DisDxAllHypo, B = GR_RepRegions$RepDxAllHypo, genome = hg38_auto, 
+                               universe = intersect(GR_DisDxBackRegions$DisDxAllBack, GR_RepDxBackRegions$RepDxAllBack),
+                               file = "Figures/Hypo DMR Overlap Dx All Dis vs Rep RegioneR Plots.pdf",
+                               Comparison = "DxAllHypo")
+
+# DxSexAll
+hg38_X <- getGenomeAndMask("hg38", mask = NULL)$genome %>% 
+        filterChromosomes(keep.chr = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"))
+stats_DxSexAllHyper <- DMRpermTest(A = GR_DisRegions$DisDxSexAllHyper, B = GR_RepRegions$RepDxSexAllHyper, genome = hg38_X, 
+                                   universe = intersect(GR_DisDxBackRegions$DisDxSexAllBack, GR_RepDxBackRegions$RepDxSexAllBack),
+                                   file = "Figures/Hyper DMR Overlap Dx Sex All Dis vs Rep RegioneR Plots.pdf",
+                                   Comparison = "DxSexAllHyper")
+stats_DxSexAllHypo <- DMRpermTest(A = GR_DisRegions$DisDxSexAllHypo, B = GR_RepRegions$RepDxSexAllHypo, genome = hg38_X, 
+                                  universe = intersect(GR_DisDxBackRegions$DisDxSexAllBack, GR_RepDxBackRegions$RepDxSexAllBack),
+                                  file = "Figures/Hypo DMR Overlap Dx Sex All Dis vs Rep RegioneR Plots.pdf",
+                                  Comparison = "DxSexAllHypo")
+
+# DxMales
+hg38_XY <- getGenomeAndMask("hg38", mask = NULL)$genome %>%
+        filterChromosomes(keep.chr = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"))
+stats_DxMalesHyper <- DMRpermTest(A = GR_DisRegions$DisDxMalesHyper, B = GR_RepRegions$RepDxMalesHyper, genome = hg38_XY, 
+                                    universe = intersect(GR_DisDxBackRegions$DisDxMalesBack, GR_RepDxBackRegions$RepDxMalesBack),
+                                    file = "Figures/Hyper DMR Overlap Dx Males Dis vs Rep RegioneR Plots.pdf",
+                                    Comparison = "DxMalesHyper")
+stats_DxMalesHypo <- DMRpermTest(A = GR_DisRegions$DisDxMalesHypo, B = GR_RepRegions$RepDxMalesHypo, genome = hg38_XY, 
+                                   universe = intersect(GR_DisDxBackRegions$DisDxMalesBack, GR_RepDxBackRegions$RepDxMalesBack),
+                                   file = "Figures/Hypo DMR Overlap Dx Males Dis vs Rep RegioneR Plots.pdf",
+                                   Comparison = "DxMalesHypo")
+
+# DxFemales
+stats_DxFemalesHyper <- DMRpermTest(A = GR_DisRegions$DisDxFemalesHyper, B = GR_RepRegions$RepDxFemalesHyper, genome = hg38_X, 
+                                   universe = intersect(GR_DisDxBackRegions$DisDxFemalesBack, GR_RepDxBackRegions$RepDxFemalesBack),
+                                   file = "Figures/Hyper DMR Overlap Dx Females Dis vs Rep RegioneR Plots.pdf",
+                                   Comparison = "DxFemalesHyper")
+stats_DxFemalesHypo <- DMRpermTest(A = GR_DisRegions$DisDxFemalesHypo, B = GR_RepRegions$RepDxFemalesHypo, genome = hg38_X, 
+                                  universe = intersect(GR_DisDxBackRegions$DisDxFemalesBack, GR_RepDxBackRegions$RepDxFemalesBack),
+                                  file = "Figures/Hypo DMR Overlap Dx Females Dis vs Rep RegioneR Plots.pdf",
+                                  Comparison = "DxFemalesHypo")
+
+stats_All <- rbind(stats_DxAllHyper, stats_DxAllHypo, stats_DxSexAllHyper, stats_DxSexAllHypo, stats_DxMalesHyper, 
+                   stats_DxMalesHypo, stats_DxFemalesHyper, stats_DxFemalesHypo)
+write.table(stats_All, file = "Tables/DMR Overlap Dis vs Rep RegioneR Stats.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+rm(stats_DxAllHyper, stats_DxAllHypo, stats_DxSexAllHyper, stats_DxSexAllHypo, stats_DxMalesHyper, stats_DxMalesHypo, 
+   stats_DxFemalesHyper, stats_DxFemalesHypo)
+
+# regioneR Stats with DMRs Redefined as Background Subset ####
+hg38_auto <- getGenomeAndMask("hg38", mask = NULL)$genome %>% 
+        filterChromosomes(keep.chr = c(paste("chr", 1:22, sep = ""), "chrM"))
+hg38_X <- getGenomeAndMask("hg38", mask = NULL)$genome %>% 
+        filterChromosomes(keep.chr = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"))
+hg38_XY <- getGenomeAndMask("hg38", mask = NULL)$genome %>%
+        filterChromosomes(keep.chr = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"))
+
+# DxAll
+universe_back <- intersect(GR_DisDxBackRegions$DisDxAllBack, GR_RepDxBackRegions$RepDxAllBack)
+A_HyperDMRs <- redefineUserSets(GRangesList(GR_DisRegions$DisDxAllHyper), universe_back)[[1]]
+B_HyperDMRs <- redefineUserSets(GRangesList(GR_RepRegions$RepDxAllHyper), universe_back)[[1]]
+A_HypoDMRs <- redefineUserSets(GRangesList(GR_DisRegions$DisDxAllHypo), universe_back)[[1]]
+B_HypoDMRs <- redefineUserSets(GRangesList(GR_RepRegions$RepDxAllHypo), universe_back)[[1]]
+
+stats_DxAllHyper <- DMRpermTest(A = A_HyperDMRs, B = B_HyperDMRs, genome = hg38_auto, universe = universe_back,
+                                file = "Figures/Hyper DMR Redefined Overlap Dx All Dis vs Rep RegioneR Plots.pdf",
+                                Comparison = "DxAllHyper")
+stats_DxAllHypo <- DMRpermTest(A = A_HypoDMRs, B = B_HypoDMRs, genome = hg38_auto, universe = universe_back,
+                               file = "Figures/Hypo DMR Redefined Overlap Dx All Dis vs Rep RegioneR Plots.pdf",
+                               Comparison = "DxAllHypo")
+
+# DxSexAll
+universe_back <- intersect(GR_DisDxBackRegions$DisDxSexAllBack, GR_RepDxBackRegions$RepDxSexAllBack)
+A_HyperDMRs <- redefineUserSets(GRangesList(GR_DisRegions$DisDxSexAllHyper), universe_back)[[1]]
+B_HyperDMRs <- redefineUserSets(GRangesList(GR_RepRegions$RepDxSexAllHyper), universe_back)[[1]]
+A_HypoDMRs <- redefineUserSets(GRangesList(GR_DisRegions$DisDxSexAllHypo), universe_back)[[1]]
+B_HypoDMRs <- redefineUserSets(GRangesList(GR_RepRegions$RepDxSexAllHypo), universe_back)[[1]]
+
+stats_DxSexAllHyper <- DMRpermTest(A = A_HyperDMRs, B = B_HyperDMRs, genome = hg38_X, universe = universe_back,
+                                   file = "Figures/Hyper DMR Redefined Overlap Dx Sex All Dis vs Rep RegioneR Plots.pdf",
+                                   Comparison = "DxSexAllHyper")
+stats_DxSexAllHypo <- DMRpermTest(A = A_HypoDMRs, B = B_HypoDMRs, genome = hg38_X, universe = universe_back,
+                                  file = "Figures/Hypo DMR Redefined Overlap Dx Sex All Dis vs Rep RegioneR Plots.pdf",
+                                  Comparison = "DxSexAllHypo")
+
+# DxMales
+universe_back <- intersect(GR_DisDxBackRegions$DisDxMalesBack, GR_RepDxBackRegions$RepDxMalesBack)
+A_HyperDMRs <- redefineUserSets(GRangesList(GR_DisRegions$DisDxMalesHyper), universe_back)[[1]]
+B_HyperDMRs <- redefineUserSets(GRangesList(GR_RepRegions$RepDxMalesHyper), universe_back)[[1]]
+A_HypoDMRs <- redefineUserSets(GRangesList(GR_DisRegions$DisDxMalesHypo), universe_back)[[1]]
+B_HypoDMRs <- redefineUserSets(GRangesList(GR_RepRegions$RepDxMalesHypo), universe_back)[[1]]
+
+stats_DxMalesHyper <- DMRpermTest(A = A_HyperDMRs, B = B_HyperDMRs, genome = hg38_XY, universe = universe_back,
+                                  file = "Figures/Hyper DMR Redefined Overlap Dx Males Dis vs Rep RegioneR Plots.pdf",
+                                  Comparison = "DxMalesHyper")
+stats_DxMalesHypo <- DMRpermTest(A = A_HypoDMRs, B = B_HypoDMRs, genome = hg38_XY, universe = universe_back,
+                                 file = "Figures/Hypo DMR Redefined Overlap Dx Males Dis vs Rep RegioneR Plots.pdf",
+                                 Comparison = "DxMalesHypo")
+
+# DxFemales
+universe_back <- intersect(GR_DisDxBackRegions$DisDxFemalesBack, GR_RepDxBackRegions$RepDxFemalesBack)
+A_HyperDMRs <- redefineUserSets(GRangesList(GR_DisRegions$DisDxFemalesHyper), universe_back)[[1]]
+B_HyperDMRs <- redefineUserSets(GRangesList(GR_RepRegions$RepDxFemalesHyper), universe_back)[[1]]
+A_HypoDMRs <- redefineUserSets(GRangesList(GR_DisRegions$DisDxFemalesHypo), universe_back)[[1]]
+B_HypoDMRs <- redefineUserSets(GRangesList(GR_RepRegions$RepDxFemalesHypo), universe_back)[[1]]
+
+stats_DxFemalesHyper <- DMRpermTest(A = A_HyperDMRs, B = B_HyperDMRs, genome = hg38_X, universe = universe_back,
+                                    file = "Figures/Hyper DMR Redefined Overlap Dx Females Dis vs Rep RegioneR Plots.pdf",
+                                    Comparison = "DxFemalesHyper")
+stats_DxFemalesHypo <- DMRpermTest(A = A_HypoDMRs, B = B_HypoDMRs, genome = hg38_X, universe = universe_back,
+                                   file = "Figures/Hypo DMR Redefined Overlap Dx Females Dis vs Rep RegioneR Plots.pdf",
+                                   Comparison = "DxFemalesHypo")
+
+stats_All_redefined <- rbind(stats_DxAllHyper, stats_DxAllHypo, stats_DxSexAllHyper, stats_DxSexAllHypo, stats_DxMalesHyper, 
+                             stats_DxMalesHypo, stats_DxFemalesHyper, stats_DxFemalesHypo)
+write.table(stats_All_redefined, file = "Tables/DMR Redefined Overlap Dis vs Rep RegioneR Stats.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+rm(stats_DxAllHyper, stats_DxAllHypo, stats_DxSexAllHyper, stats_DxSexAllHypo, stats_DxMalesHyper, stats_DxMalesHypo, 
+   stats_DxFemalesHyper, stats_DxFemalesHypo)
+
 # Overlap by Gene ---------------------------------------------------------
+# Background Genes ####
+DisDxBackGenes <- lapply(DisDxBackRegions, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_name")
+RepDxBackGenes <- lapply(RepDxBackRegions, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_name")
+intersectBack <- intersect(DisDxBackGenes$DisDxAllBack, DisDxBackGenes$DisDxSexAllBack) %>% 
+        intersect(DisDxBackGenes$DisDxMalesBack) %>% intersect(DisDxBackGenes$DisDxFemalesBack) %>%
+        intersect(RepDxBackGenes$RepDxAllBack) %>% intersect(RepDxBackGenes$RepDxSexAllBack) %>% 
+        intersect(RepDxBackGenes$RepDxMalesBack) %>% intersect(RepDxBackGenes$RepDxFemalesBack) %>% unique %>% sort
+rm(DisDxBackGenes, RepDxBackGenes)
+
 # Gene Overlap Stats ####
 DisRegions_genes <- lapply(DisRegions, function(x) getDMRgeneList(x, regDomains = regDomains, direction = "all", type = "gene_name"))
 RepRegions_genes <- lapply(RepRegions, function(x) getDMRgeneList(x, regDomains = regDomains, direction = "all", type = "gene_name"))
@@ -316,12 +511,39 @@ upset(fromList(intersectGenes_all), nsets = 4, nintersects = NA, order.by = "deg
       mainbar.y.label = "Genes", text.scale = c(2.5, 2.5, 2, 2, 2.25, 2.5), point.size = 3.5, line.size = 1.5) 
 dev.off()
 
+# Overlap by GREAT --------------------------------------------------------
+# Term Intersect ####
+# No enriched terms for Discovery DxAll, DxSexAll, so can't overlap these
+# Load Data
+DisMalesGreat <- read.delim("Tables/Males Diagnosis DMRs Discovery GREAT Combined Results.txt", sep = "\t",
+                            stringsAsFactors = FALSE)
+DisFemalesGreat <- read.delim("Tables/Females Diagnosis DMRs Discovery GREAT Combined Results.txt", sep = "\t",
+                              stringsAsFactors = FALSE)
+RepMalesGreat <- read.delim("Tables/Replication Males Diagnosis DMRs GREAT Combined Results.txt", sep = "\t",
+                            stringsAsFactors = FALSE)
+RepFemalesGreat <- read.delim("Tables/Replication Females Diagnosis 100 DMRs GREAT Combined Results.txt", sep = "\t",
+                          stringsAsFactors = FALSE)
 
+# Get terms
+DisMalesGreat_names <- list("All" = DisMalesGreat$name[DisMalesGreat$Direction == "All"],
+                            "Hyper" = DisMalesGreat$name[DisMalesGreat$Direction == "Hyper"],
+                            "Hypo" = DisMalesGreat$name[DisMalesGreat$Direction == "Hypo"])
+DisFemalesGreat_names <- list("All" = DisFemalesGreat$name[DisFemalesGreat$Direction == "All"],
+                              "Hyper" = DisFemalesGreat$name[DisFemalesGreat$Direction == "Hyper"],
+                              "Hypo" = DisFemalesGreat$name[DisFemalesGreat$Direction == "Hypo"])
+RepMalesGreat_names <- list("All" = RepMalesGreat$name[RepMalesGreat$Direction == "All"],
+                            "Hyper" = RepMalesGreat$name[RepMalesGreat$Direction == "Hyper"],
+                            "Hypo" = RepMalesGreat$name[RepMalesGreat$Direction == "Hypo"])
+RepFemalesGreat_names <- list("All" = RepFemalesGreat$name[RepFemalesGreat$Direction == "All"],
+                              "Hyper" = RepFemalesGreat$name[RepFemalesGreat$Direction == "Hyper"],
+                              "Hypo" = RepFemalesGreat$name[RepFemalesGreat$Direction == "Hypo"])
 
-
-        
-
-
-
+# Intersect terms
+DisMalesGreat_int <- list("All" = intersect(DisMalesGreat_names$All, RepMalesGreat_names$All) %>% sort,
+                          "Hyper" = intersect(DisMalesGreat_names$Hyper, RepMalesGreat_names$Hyper) %>% sort,
+                          "Hypo" = intersect(DisMalesGreat_names$Hypo, RepMalesGreat_names$Hypo) %>% sort)
+DisFemalesGreat_int <- list("All" = intersect(DisFemalesGreat_names$All, RepFemalesGreat_names$All) %>% sort,
+                            "Hyper" = intersect(DisFemalesGreat_names$Hyper, RepFemalesGreat_names$Hyper) %>% sort,
+                            "Hypo" = intersect(DisFemalesGreat_names$Hypo, RepFemalesGreat_names$Hypo) %>% sort)
 
 
