@@ -246,18 +246,20 @@ ggbiplotPCA <- function(data.pca, groups, pc = 1:2, file, xlim = NULL, ylim = NU
                 }
                 stats <- rbind(stats, temp)
         }
-        for(i in 1:length(contVars)){
-                sampleDataCol <- as.numeric(sampleData[,contVars[i]])
-                sampleDataCol <- sampleDataCol/sd(sampleDataCol, na.rm = TRUE)
-                if(!is.null(adj)){
-                        temp <- summary(lm(methDataCol ~ sampleDataCol + adjDataCol))$coefficients[-1,]
-                        temp <- temp[-nrow(temp),] # Remove adj var
+        if(!is.null(contVars)){
+                for(i in 1:length(contVars)){
+                        sampleDataCol <- as.numeric(sampleData[,contVars[i]])
+                        sampleDataCol <- sampleDataCol/sd(sampleDataCol, na.rm = TRUE)
+                        if(!is.null(adj)){
+                                temp <- summary(lm(methDataCol ~ sampleDataCol + adjDataCol))$coefficients[-1,]
+                                temp <- temp[-nrow(temp),] # Remove adj var
+                        }
+                        else {
+                                temp <- summary(lm(methDataCol ~ sampleDataCol))$coefficients[-1,]
+                        }
+                        temp <- c(contVars[i], contVars[i], temp)
+                        stats <- rbind(stats, temp)
                 }
-                else {
-                        temp <- summary(lm(methDataCol ~ sampleDataCol))$coefficients[-1,]
-                }
-                temp <- c(contVars[i], contVars[i], temp)
-                stats <- rbind(stats, temp)
         }
         rownames(stats) <- 1:nrow(stats)
         colnames(stats) <- c("Variable", "Term", "Estimate", "StdError", "tvalue", "pvalue")
@@ -700,5 +702,136 @@ GRangeExtend <- function(x, extend){
         ranges(x) <- IRanges(start(x) - extend, end(x) + extend)
         x <- trim(x)
         return(x)
+}
+
+DMRrandomForest <- function(discDMRmeth, repDMRmeth, samples){
+        # Prepare Data
+        message("Preparing Discovery Methylation Data")
+        discMeth <- discDMRmeth[,grepl("JLCM", colnames(discDMRmeth), fixed = TRUE)] %>% t %>% as.data.frame
+        colnames(discMeth) <- discDMRmeth$DMRid
+        if(table(is.na(discMeth))["TRUE"] > 0){
+                message("Replacing NA values with DMR mean methylation")
+                for(i in 1:ncol(discMeth)){
+                        temp <- as.numeric(discMeth[,i])
+                        temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with mean meth of that DMR
+                        discMeth[,i] <- temp
+                }
+        }
+        discMeth$Diagnosis <- factor(samples$Diagnosis_Alg[match(rownames(discMeth), samples$Sequencing_ID)], 
+                                     levels = c("TD", "ASD"))
+        
+        message("Preparing Replication Discovery Methylation Data")
+        repMeth <- repDMRmeth[,grepl("JLCM", colnames(repDMRmeth), fixed = TRUE)] %>% t %>% as.data.frame
+        colnames(repMeth) <- repDMRmeth$DMRid
+        if(table(is.na(repMeth))["TRUE"] > 0){
+                message("Replacing NA values with DMR mean methylation")
+                for(i in 1:ncol(repMeth)){
+                        temp <- as.numeric(repMeth[,i])
+                        temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with mean meth of that DMR
+                        repMeth[,i] <- temp
+                }
+        }
+        repMeth$Diagnosis <- factor(samples$Diagnosis_Alg[match(rownames(repMeth), samples$Sequencing_ID)], 
+                                    levels = c("TD", "ASD"))
+        
+        # Initial Model
+        message("\nMaking initial random forest model", appendLF = FALSE)
+        set.seed(5)
+        model1 <- randomForest(Diagnosis ~ ., data = discMeth, localImp = TRUE, ntree = 500)
+        print(model1)
+        
+        message("Predicting discovery group diagnosis with initial model")
+        discInitialPredict <- predict(model1, discMeth, type = "class")
+        message("Classifications", appendLF = FALSE)
+        print(table(discInitialPredict, discMeth$Diagnosis))  
+        message("Accuracy: ", mean(discInitialPredict == discMeth$Diagnosis))
+        
+        message("\nPredicting replication group diagnosis with initial model")
+        repInitialPredict <- predict(model1, repMeth, type = "class")
+        message("Classifications", appendLF = FALSE)
+        print(table(repInitialPredict,repMeth$Diagnosis))
+        message("Accuracy: ", mean(repInitialPredict == repMeth$Diagnosis))
+        
+        # Optimize parameters
+        message("\nOptimizing parameters")
+        message("mtry =\t", appendLF = FALSE)
+        def <- nrow(discDMRmeth) %>% sqrt %>% round
+        mtryOpt <- NULL
+        for(mtry in round(def/4):(def*4)){
+                if(mtry %% 10 == 0){message(mtry, "\t", appendLF = FALSE)}
+                set.seed(5)
+                model <- randomForest(Diagnosis ~ ., data = discMeth, mtry = mtry, ntree = 500, localImp = TRUE)
+                error <- tail(model$err.rate[,"OOB"], 1) * 100
+                temp <- c(mtry, 500, error)
+                mtryOpt <- rbind(mtryOpt, temp)
+        }
+        mtryOpt <- as.data.frame(mtryOpt)
+        rownames(mtryOpt) <- 1:nrow(mtryOpt)
+        colnames(mtryOpt) <- c("mtry", "ntree", "OOBerror")
+        message("\nLowest OOB Error: ", min(mtryOpt$OOBerror))
+        mtryOpt <- subset(mtryOpt, OOBerror == min(mtryOpt$OOBerror))
+        print(mtryOpt)
+        mtryOpt <- min(mtryOpt$mtry)
+        message("Optimized mtry value: ", mtryOpt)
+        
+        message("ntree =\t", appendLF = FALSE)
+        ntreeOpt <- NULL
+        for(ntree in seq(100, 2500, 50)){
+                if(ntree %% 500 == 0){message(ntree, "\t", appendLF = FALSE)}
+                set.seed(5)
+                model <- randomForest(Diagnosis ~ ., data = discMeth, mtry = mtryOpt, ntree = ntree, localImp = TRUE)
+                error <- tail(model$err.rate[,"OOB"], 1) * 100
+                temp <- c(mtryOpt, ntree, error)
+                ntreeOpt <- rbind(ntreeOpt, temp)
+        }
+        ntreeOpt <- as.data.frame(ntreeOpt)
+        rownames(ntreeOpt) <- 1:nrow(ntreeOpt)
+        colnames(ntreeOpt) <- c("mtry", "ntree", "OOBerror")
+        message("\nLowest OOB Error: ", min(ntreeOpt$OOBerror))
+        ntreeOpt <- subset(ntreeOpt, OOBerror == min(ntreeOpt$OOBerror))
+        print(ntreeOpt)
+        ntreeOpt <- min(ntreeOpt$ntree)
+        message("Optimized ntree value: ", ntreeOpt)
+        
+        # Optimized Model
+        message("\nMaking optimized random forest model")
+        set.seed(5)
+        model2 <- randomForest(Diagnosis ~ ., data = discMeth, localImp = TRUE, mtry = mtryOpt, ntree = ntreeOpt)
+        print(model2)
+        
+        message("Predicting discovery group diagnosis with optimized model")
+        discOptimizedPredict <- predict(model2, discMeth, type = "class")
+        message("Classifications", appendLF = FALSE)
+        print(table(discOptimizedPredict, discMeth$Diagnosis))
+        message("Accuracy: ", mean(discOptimizedPredict == discMeth$Diagnosis))
+        
+        message("\nPredicting replication group diagnosis with optimized model")
+        repOptimizedPredict <- predict(model2, repMeth, type = "class")
+        message("Classifications", appendLF = FALSE)
+        print(table(repOptimizedPredict,repMeth$Diagnosis))
+        message("Accuracy: ", mean(repOptimizedPredict == repMeth$Diagnosis))
+        
+        discPredict <- data.frame("InitialModelPredict" = discInitialPredict, "OptimizedModelPredict" = discOptimizedPredict, 
+                                  "Diagnosis" = discMeth$Diagnosis)
+        repPredict <- data.frame("InitialModelPredict" = repInitialPredict, "OptimizedModelPredict" = repOptimizedPredict,
+                                 "Diagnosis" = repMeth$Diagnosis)
+        
+        # Results
+        message("\n Returning model information")
+        modelInfo <- list("discMeth" = discMeth, "repMeth" = repMeth, "InitialModel" = model1, "OptimizedModel" = model2,
+                          "discPredict" = discPredict, "repPredict" = repPredict)
+        
+        message("Initial Model Summary")
+        print(modelInfo$InitialModel)
+        message("Classifications")
+        print(table(modelInfo$repPredict$InitialModelPredict, modelInfo$repPredict$Diagnosis))
+        message("Accuracy = ", mean(modelInfo$repPredict$InitialModelPredict == modelInfo$repPredict$Diagnosis))
+        
+        message("\nOptimized Model Summary")
+        print(modelInfo$OptimizedModel)
+        message("Classifications")
+        print(table(modelInfo$repPredict$OptimizedModelPredict, modelInfo$repPredict$Diagnosis))
+        message("Accuracy = ", mean(modelInfo$repPredict$OptimizedModelPredict == modelInfo$repPredict$Diagnosis))
+        return(modelInfo)
 }
 
