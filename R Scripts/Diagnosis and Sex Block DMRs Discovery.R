@@ -16,7 +16,6 @@ register(MulticoreParam(1))
 cutoff <- as.numeric(0.01)
 # No blocks found for cutoff = 0.05
 
-# (All Block Comparisons Running with cutoff = 0.01 on Epigenerate 2/24)
 # Diagnosis Block DMRs All Samples ----------------------------------------
 # (Complete)
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
@@ -31,6 +30,7 @@ gr2csv(sigBlocks, "DifferentialBlocks_DxNoXY_Discovery50.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis and Sex Block DMRs All Samples ----------------------------------------
+# (Complete)
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
 blocks <- dmrseq(bs = bs.filtered, testCovariate = testCovariate, adjustCovariate = "Sex", cutoff = cutoff,
                  minNumRegion = minCpGs, bpSpan = 5e4, minInSpan = 500, maxGapSmooth = 1e6, maxGap = 5e3, 
@@ -42,6 +42,7 @@ gr2csv(sigBlocks, "DifferentialBlocks_DxAdjSex_Discovery50.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis Block DMRs Males ----------------------------------------
+# (Running on Barbera 2/24)
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50_males.rds")
 blocks <- dmrseq(bs = bs.filtered, testCovariate = testCovariate, adjustCovariate = NULL, cutoff = cutoff,
                  minNumRegion = minCpGs, bpSpan = 5e4, minInSpan = 500, maxGapSmooth = 1e6, maxGap = 5e3, 
@@ -53,6 +54,7 @@ gr2csv(sigBlocks, "DifferentialBlocks_Dx_Discovery50_males.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis Block DMRs Females ----------------------------------------
+# (Running on Barbera 2/24)
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50_females.rds")
 blocks <- dmrseq(bs = bs.filtered, testCovariate = testCovariate, adjustCovariate = NULL, cutoff = cutoff,
                  minNumRegion = minCpGs, bpSpan = 5e4, minInSpan = 500, maxGapSmooth = 1e6, maxGap = 5e3, 

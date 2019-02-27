@@ -835,3 +835,224 @@ DMRrandomForest <- function(discDMRmeth, repDMRmeth, samples){
         return(modelInfo)
 }
 
+prepLOLAhistone <- function(histone, index, regions, file){
+        message("[prepLOLAhistone] Preparing histone enrichment results for ", regions)
+        histone <- subset(histone, userSet == regions & antibody %in% c("H3K27me3", "H3K36me3", "H3K4me1", "H3K4me3", "H3K9me3", "H3K27ac"))
+        histone$EID <- strsplit(as.character(histone$filename), "-") %>% sapply(function(x){x[1]})
+        match <- match(histone$EID, index$EID)
+        histone$type <- index$type[match]
+        histone$order <- index$order[match]
+        histone$color <- index$color[match]
+        histone$cellType <- index$cellType[match]
+        histone$tissue <- index$tissue[match]
+        
+        if(!is.na(table(histone$support < 5)["TRUE"]) & table(histone$support < 5)["TRUE"] > 0){
+                message("[prepLOLAhistone] Editing overlaps with support < 5")
+                histone$oddsRatio[histone$support < 5] <- 0
+                histone$pValueLog[histone$support < 5] <- 0
+                histone$qValue[histone$support < 5] <- 1
+        } 
+        histone$pct_DMRs <- histone$support * 100 / (histone$support[1] + histone$c[1])
+        
+        if(!is.na(table(is.infinite(histone$pValueLog))["TRUE"]) & table(is.infinite(histone$pValueLog))["TRUE"] > 0){
+                message("[prepLOLAhistone] Replacing infinite log(p-values) with 1.5 * max")
+                histone$pValueLog[is.infinite(histone$pValueLog)] <- NA
+                histone$pValueLog[is.na(histone$pValueLog)] <- 1.5 * max(histone$pValueLog, na.rm = TRUE)
+        }
+        
+        histone$pValue <- 10^(-histone$pValueLog)
+        histone$qValueLog <- -log10(histone$qValue)
+        if(!is.na(table(is.infinite(histone$qValueLog))["TRUE"]) & table(is.infinite(histone$qValueLog))["TRUE"] > 0){
+                message("[prepLOLAhistone] Replacing infinite log(q-values) with 1.5 * max")
+                histone$qValueLog[is.infinite(histone$qValueLog)] <- NA
+                histone$qValueLog[is.na(histone$qValueLog)] <- 1.5 * max(histone$qValueLog, na.rm = TRUE)
+        }
+        
+        histone <- histone[,c("userSet", "dbSet", "antibody", "cellType", "tissue", "type", "pValue", "qValue", "pValueLog", "qValueLog", 
+                              "oddsRatio", "support", "pct_DMRs", "rnkPV", "rnkOR", "rnkSup", "maxRnk", "meanRnk", "b", "c", "d", 
+                              "size", "filename", "order", "color")]
+        histone$order <- factor(histone$order, levels = sort(unique(histone$order), decreasing = TRUE), ordered = TRUE)
+        histone$antibody <- factor(histone$antibody, levels = c("H3K4me1", "H3K4me3", "H3K9me3", "H3K27ac", "H3K27me3", "H3K36me3"), 
+                                   ordered = TRUE)
+        histone <- histone[order(histone$order, histone$antibody), ]
+        histone$tissue <- factor(histone$tissue, levels = rev(as.character(unique(histone$tissue))), ordered = TRUE)
+        message("[prepLOLAhistone] Complete! Writing file")
+        write.csv(x = histone, file = file, quote = FALSE, row.names = FALSE)
+        return(histone)
+}
+
+plotLOLAhistone <- function(histone, title, type = c("oddsRatio", "qValueLog", "legend"), hm.max, file){
+        if(!type %in% c("oddsRatio", "qValueLog", "legend")){
+                message("[plotLOLAhistone] type must be oddsRatio, qValueLog or legend")
+        }
+        else {
+                message("[plotLOLAhistone] Plotting histone enrichment ", type)
+                if(type == "oddsRatio"){
+                        gg <- ggplot(data = histone)
+                        gg +
+                                geom_tile(aes(x = antibody, y = order, fill = oddsRatio)) +
+                                scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                     na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                theme_bw(base_size = 24) +
+                                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                      panel.border = element_rect(color = "black", size = 1.25), 
+                                      panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                      axis.ticks.y = element_blank(), legend.key = element_blank(),  legend.position = c(1.21, 0.855), 
+                                      legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                      plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = element_blank(), 
+                                      axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                      axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0)) +
+                                scale_x_discrete(expand = c(0, 0)) + 
+                                ggtitle(title)
+                        ggsave(file, dpi = 600, width = 5.5, height = 7, units = "in")
+                }
+                if(type == "qValueLog"){
+                        gg <- ggplot(data = histone)
+                        gg +
+                                geom_tile(aes(x = antibody, y = order, fill = qValueLog)) +
+                                scale_fill_gradientn("-log(q-value)", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                     na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                theme_bw(base_size = 24) +
+                                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                      panel.border = element_rect(color = "black", size = 1.25), 
+                                      panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                      axis.ticks.y = element_blank(), legend.key = element_blank(), legend.position = c(1.23, 0.855), 
+                                      legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                      plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = element_blank(), 
+                                      axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                      axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0)) +
+                                scale_x_discrete(expand = c(0, 0)) + 
+                                ggtitle(title)
+                        ggsave(file, dpi = 600, width = 5.5, height = 7, units = "in")
+                }
+                if(type == "legend"){
+                        gg <- ggplot(data = histone)
+                        gg +
+                                geom_tile(aes(x = 16, y = order, fill = tissue)) +
+                                scale_fill_manual(name = "Tissue", values = rev(as.character(unique(histone$color)))) +
+                                theme_bw(base_size = 24) +
+                                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                      panel.border = element_rect(color = "black", size = 1.25), legend.key = element_blank(), 
+                                      legend.position = c(4.7, 0.23), legend.background = element_blank(), 
+                                      legend.text = element_text(size = 15, color = "Black"), plot.margin = unit(c(2.5, 22, 6.3, 1), "lines"), 
+                                      axis.text = element_blank(), axis.ticks = element_blank(), axis.title = element_blank(), 
+                                      legend.title = element_text(size = 18)) +
+                                scale_x_discrete(expand = c(0, 0))
+                        ggsave(file, dpi = 600, width = 5, height = 7, units = "in")
+                }
+                message("[plotLOLAhistone] Complete! Writing file")
+        }
+}
+
+prepLOLAchromHMM <- function(chromHMM, index, regions, file){
+        message("[prepLOLAchromHMM] Preparing chromHMM enrichment results for ", regions)
+        chromHMM <- subset(chromHMM, userSet == regions)
+        chromHMM$EID <- strsplit(as.character(chromHMM$filename), "_") %>% sapply(function(x){x[1]})
+        match <- match(chromHMM$EID, index$EID)
+        chromHMM$type <- index$type[match]
+        chromHMM$order <- index$order[match]
+        chromHMM$color <- index$color[match]
+        chromHMM$cellType <- index$cellType[match]
+        chromHMM$tissue <- index$tissue[match]
+        
+        if(!is.na(table(chromHMM$support < 5)["TRUE"]) & table(chromHMM$support < 5)["TRUE"] > 0){
+                message("[prepLOLAchromHMM] Editing overlaps with support < 5")
+                chromHMM$oddsRatio[chromHMM$support < 5] <- 0
+                chromHMM$pValueLog[chromHMM$support < 5] <- 0
+                chromHMM$qValue[chromHMM$support < 5] <- 1
+        } 
+        chromHMM$pct_DMRs <- chromHMM$support * 100 / (chromHMM$support[1] + chromHMM$c[1])
+        
+        if(!is.na(table(is.infinite(chromHMM$pValueLog))["TRUE"]) & table(is.infinite(chromHMM$pValueLog))["TRUE"] > 0){
+                message("[prepLOLAchromHMM] Replacing infinite log(p-values) with 1.5 * max")
+                chromHMM$pValueLog[is.infinite(chromHMM$pValueLog)] <- NA
+                chromHMM$pValueLog[is.na(chromHMM$pValueLog)] <- 1.5 * max(chromHMM$pValueLog, na.rm = TRUE)
+        }
+        
+        chromHMM$pValue <- 10^(-chromHMM$pValueLog)
+        chromHMM$qValueLog <- -log10(chromHMM$qValue)
+        if(!is.na(table(is.infinite(chromHMM$qValueLog))["TRUE"]) & table(is.infinite(chromHMM$qValueLog))["TRUE"] > 0){
+                message("[prepLOLAchromHMM] Replacing infinite log(q-values) with 1.5 * max")
+                chromHMM$qValueLog[is.infinite(chromHMM$qValueLog)] <- NA
+                chromHMM$qValueLog[is.na(chromHMM$qValueLog)] <- 1.5 * max(chromHMM$qValueLog, na.rm = TRUE)
+        }
+        
+        chromHMM <- chromHMM[,c("userSet", "dbSet", "antibody", "cellType", "tissue", "type", "pValue", "qValue", "pValueLog", "qValueLog", 
+                                "oddsRatio", "support", "pct_DMRs", "rnkPV", "rnkOR", "rnkSup", "maxRnk", "meanRnk", "b", "c", "d", 
+                                "size", "filename", "order", "color")]
+        chromHMM$order <- factor(chromHMM$order, levels = sort(unique(chromHMM$order), decreasing = TRUE), ordered = TRUE)
+        colnames(chromHMM)[colnames(chromHMM) == "antibody"] <- "chromState"
+        chromHMM$chromState <- sapply(strsplit(as.character(chromHMM$chromState), split='_', fixed=TRUE), function(x) (x[2]))
+        chromHMM$chromState <- factor(chromHMM$chromState, levels = c("TssA", "TssAFlnk", "TxFlnk", "Tx", "TxWk", "EnhG", "Enh", 
+                                                                      "ZnfRpts", "Het", "TssBiv", "BivFlnk", "EnhBiv", "ReprPC", 
+                                                                      "ReprPCwk", "Quies"), ordered = TRUE)
+        chromHMM <- chromHMM[order(chromHMM$order, chromHMM$chromState),]
+        chromHMM$tissue <- factor(chromHMM$tissue, levels = rev(as.character(unique(chromHMM$tissue))), ordered = TRUE)
+        message("[prepLOLAchromHMM] Complete! Writing file")
+        write.csv(x = chromHMM, file = file, quote = FALSE, row.names = FALSE)
+        return(chromHMM)
+}
+
+plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog", "legend"), hm.max, file){
+        if(!type %in% c("oddsRatio", "qValueLog", "legend")){
+                message("[plotLOLAchromHMM] type must be oddsRatio, qValueLog or legend")
+        }
+        else {
+                message("[plotLOLAchromHMM] Plotting chromHMM enrichment ", type)
+                if(type == "oddsRatio"){
+                        gg <- ggplot(data = chromHMM)
+                        gg +
+                                geom_tile(aes(x = chromState, y = order, fill = oddsRatio)) +
+                                scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                     na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                theme_bw(base_size = 24) +
+                                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                      panel.border = element_rect(color = "black", size = 1.25), 
+                                      panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                      axis.ticks.y = element_blank(), legend.key = element_blank(),  legend.position = c(1.21, 0.855), 
+                                      legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                      plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = element_blank(), 
+                                      axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                      axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0)) +
+                                scale_x_discrete(expand = c(0, 0)) + 
+                                ggtitle(title)
+                        ggsave(file, dpi = 600, width = 5.5, height = 7, units = "in")
+                }
+                if(type == "qValueLog"){
+                        gg <- ggplot(data = chromHMM)
+                        gg +
+                                geom_tile(aes(x = chromState, y = order, fill = qValueLog)) +
+                                scale_fill_gradientn("-log(q-value)", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                     na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                theme_bw(base_size = 24) +
+                                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                      panel.border = element_rect(color = "black", size = 1.25), 
+                                      panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                      axis.ticks.y = element_blank(), legend.key = element_blank(), legend.position = c(1.23, 0.855), 
+                                      legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                      plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = element_blank(), 
+                                      axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                      axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0)) +
+                                scale_x_discrete(expand = c(0, 0)) + 
+                                ggtitle(title)
+                        ggsave(file, dpi = 600, width = 5.5, height = 7, units = "in")
+                }
+                if(type == "legend"){
+                        gg <- ggplot(data = chromHMM)
+                        gg +
+                                geom_tile(aes(x = 16, y = order, fill = tissue)) +
+                                scale_fill_manual(name = "Tissue", values = rev(as.character(unique(chromHMM$color)))) +
+                                theme_bw(base_size = 24) +
+                                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                      panel.border = element_rect(color = "black", size = 1.25), legend.key = element_blank(), 
+                                      legend.position = c(4.7, 0.23), legend.background = element_blank(), 
+                                      legend.text = element_text(size = 15, color = "Black"), plot.margin = unit(c(2.5, 22, 6.3, 1), "lines"), 
+                                      axis.text = element_blank(), axis.ticks = element_blank(), axis.title = element_blank(), 
+                                      legend.title = element_text(size = 18)) +
+                                scale_x_discrete(expand = c(0, 0))
+                        ggsave(file, dpi = 600, width = 5, height = 7, units = "in")
+                }
+                message("[plotLOLAchromHMM] Complete! Writing file")
+        }
+}
+
