@@ -202,7 +202,6 @@ contVars <- colnames(samples_cov)[!colnames(samples_cov) %in% catVars & !colname
 covStats <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
                       contVars = contVars, sampleData = samples_cov, adj = "Platform",
                       file = "Tables/Estimated Cell Populations by Covariate Stats.txt")
-covSum <- DMRmethLmSum(covStats, file = "Tables/Estimated Cell Populations by Covariate Summary.txt")
 
 # Plot Heatmap
 variables<-c("Diagnosis_Alg", "Sex", "Study", "Site_Drexel", "Site_Johns_Hopkins_University", "Site_Kaiser_Permanente", 
@@ -235,10 +234,55 @@ ggScatterPlot(x = samples_cov$nRBC, y = samples_cov$percent_cpg_meth, groupVar =
               fileName = "Figures/Estimated nRBCs by Global mCpG.png", xlab = "Estimated nRBCs (%)",
               ylab = "Global CpG Methylation (%)", legendPos = c(0.9, 1.03))
 
+# Plot nRBCs by Global mCG and Sex
+g <- ggplot(samples_cov, aes(x = nRBC, y = percent_cpg_meth))
+g + 
+        geom_smooth(method = "lm") +
+        geom_point(aes(color = Diagnosis_Alg), size = 3) +
+        facet_grid(cols = vars(Sex)) +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.92, 1.05), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 22), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
+              strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(0, "lines"), 
+              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              axis.text = element_text(size = 17, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("Estimated nRBCs (%)") +
+        ylab("Global CpG Methylation (%)") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Estimated nRBCs by Global mCpG and Sex.png", dpi = 600, width = 10, height = 6, units = "in")
+
 # Plot nRBCs by Mullen ELC
 ggScatterPlot(x = samples_cov$nRBC, y = samples_cov$MSLelcStandard36, groupVar = samples_cov$Diagnosis_Alg,
               fileName = "Figures/Estimated nRBCs by Mullen Composite.png", xlab = "Estimated nRBCs (%)",
               ylab = "Mullen Composite Score", legendPos = c(0.9, 1.03), xlim = c(0, 23), ylim = c(40, 145))
+
+# Plot nRBCs by Mullen ELC and Sex
+g <- ggplot(samples_cov, aes(x = nRBC, y = MSLelcStandard36))
+g + 
+        geom_smooth(method = "lm") +
+        geom_point(aes(color = Diagnosis_Alg), size = 3) +
+        facet_grid(cols = vars(Sex)) +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.92, 1.05), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 22), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
+              strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(0, "lines"), 
+              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              axis.text = element_text(size = 17, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        coord_cartesian(xlim = c(0, 23), ylim = c(40, 145)) +
+        xlab("Estimated nRBCs (%)") +
+        ylab("Mullen Composite Score") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Estimated nRBCs by Mullen Composite and Sex.png", dpi = 600, width = 10, height = 6, units = "in")
 
 # Plot nRBCs by Diagnosis and Sex
 ggBoxPlot(data = samples_cov, x = samples_cov$Diagnosis_Alg, y = samples_cov$nRBC, fill = samples_cov$Diagnosis_Alg,
@@ -289,4 +333,26 @@ g +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366")) +
         facet_wrap(vars(CellType), nrow = 2, scales = "free")
 ggsave("Figures/Estimated Cell Populations by Gestational Age Scatterplots.png", dpi = 600, width = 10, height = 7, units = "in")
+
+# Covariate Association, Males Only ####
+# Data
+samples_cov_males <- subset(samples_cov, Sex == "M")
+catVars <- catVars[!catVars == "Sex"]
+variables <- variables[!variables == "Sex"]
+
+# Get Stats
+covStats_males <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
+                            contVars = contVars, sampleData = samples_cov_males, adj = "Platform",
+                            file = "Tables/Estimated Cell Populations by Covariate Stats Males Only.txt")
+
+# Covariate Association, Females Only ####
+# Data
+samples_cov_females <- subset(samples_cov, Sex == "F")
+
+# Get Stats
+covStats_females <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
+                            contVars = contVars, sampleData = samples_cov_females, adj = "Platform",
+                            file = "Tables/Estimated Cell Populations by Covariate Stats Females Only.txt")
+
+
 
