@@ -5,7 +5,7 @@
 #sapply(c("tidyverse", "ggdendro", "scales", "ggplot2", "ggbiplot", "reshape", "grid", "RColorBrewer", "CMplot", "rlist",
 #         "annotatr", "GenomicRanges", "LOLA", "rtracklayer", "R.utils", "rGREAT", "DMRichR"), require, character.only = TRUE)
 
-CMplotDMR <- function(candidates, prefix, plot.type, bin.max = 450){
+CMplotDMR <- function(candidates, prefix, plot.type, bin.max = 450, m.cex = 0.3){
         candidates <- cbind("region" = "region", candidates[,c("chr", "start", "pval")], stringsAsFactors = FALSE)
         candidates$chr <- substring(candidates$chr, 4)
         colnames(candidates)[colnames(candidates) == "pval"] <- "pvalue"
@@ -14,7 +14,7 @@ CMplotDMR <- function(candidates, prefix, plot.type, bin.max = 450){
                 pdf(paste(prefix, "Manhattan Plot.pdf", sep = " "), height = 5, width = 12)
                 par(mar = c(5, 5.5, 1, 3.5), xaxs = "i")
                 CMplot(candidates, col = suppressMessages(gg_color_hue(2)), bin.size = 1e7, bin.max = bin.max, cex.axis = 1.2, 
-                       plot.type = "m", threshold = 0.05, threshold.lwd = 2, threshold.col = "black", cex = 0.3, 
+                       plot.type = "m", threshold = 0.05, threshold.lwd = 2, threshold.col = "black", cex = m.cex, 
                        amplify = FALSE, chr.den.col = brewer.pal(9, "YlOrRd"), file.output = FALSE, verbose = FALSE)
                 dev.off()
         }
@@ -314,7 +314,8 @@ DMRmethLmSum <- function(covStats, file){
 
 covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hierarchical"), 
                        regionOrdering = c("unsorted", "variable", "hierarchical"), variables = NULL,
-                       sortVariable = "Diagnosis_Alg", file){
+                       sortVariable = "Diagnosis_Alg", file, probs = 0.999, axis.ticks.y = element_blank(),
+                       axis.text.y = element_blank(), legend.position = c(1.07, 0.835), width = 10, height = 6){
         # Replace NA/Inf/NaN Values with 0
         covStats$log_pvalue[is.na(covStats$log_pvalue) | is.infinite(covStats$log_pvalue) | 
                                     is.nan(covStats$log_pvalue)] <- 0
@@ -326,7 +327,7 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
                 variableOrder <- match(variables, unique(covStats$Variable))
         }
         if(variableOrdering == "hierarchical"){
-                pvals <- cast(covStats[,c("Region", "Variable", "log_pvalue")], formula = Variable ~ Region, 
+                pvals <- reshape::cast(covStats[,c("Region", "Variable", "log_pvalue")], formula = Variable ~ Region, 
                               fun.aggregate = mean, value = "log_pvalue", add.missing = TRUE, fill = 0)
                 variableOrder <- hclust(dist(pvals[,2:ncol(pvals)], method = "euclidean"), method = "ward.D")$order
         }
@@ -340,7 +341,7 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
                 regionOrder <- order(covStats$log_pvalue[covStats$Variable == sortVariable])
         }
         if(regionOrdering == "hierarchical"){
-                pvals <- cast(covStats[,c("Region", "Variable", "log_pvalue")], formula = Region ~ Variable, 
+                pvals <- reshape::cast(covStats[,c("Region", "Variable", "log_pvalue")], formula = Region ~ Variable, 
                               fun.aggregate = mean, value = "log_pvalue", add.missing = TRUE, fill = 0)
                 regionOrder <- hclust(dist(pvals[,2:ncol(pvals)], method = "euclidean"), method = "ward.D")$order
         }
@@ -351,18 +352,18 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
         gg +
                 geom_tile(aes(y = Region, x = Variable, fill = log_pvalue)) +
                 scale_fill_gradientn("-log(p-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
-                                     limits = c(0,quantile(x = covStats$log_pvalue, probs = 0.999, names = FALSE, na.rm = TRUE))) +
+                                     limits = c(0,quantile(x = covStats$log_pvalue, probs = probs, names = FALSE, na.rm = TRUE))) +
                 theme_bw(base_size = 24) +
                 theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
                       panel.border = element_rect(color = "black", size = 1.25), 
                       plot.margin = unit(c(1, 5.5, 1, 1), "lines"), axis.ticks.x = element_line(size = 1.25), 
-                      axis.ticks.y = element_blank(), panel.background = element_rect(fill = "black"),
+                      axis.ticks.y = axis.ticks.y, panel.background = element_rect(fill = "black"),
                       axis.text.x = element_text(size = 9, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
-                      axis.text.y = element_blank(), axis.title = element_blank(), legend.key = element_blank(),  
-                      legend.position = c(1.07, 0.835), legend.background = element_blank(), 
+                      axis.text.y = axis.text.y, axis.title = element_blank(), legend.key = element_blank(),  
+                      legend.position = legend.position, legend.background = element_blank(), 
                       legend.key.size = unit(1, "lines"), legend.title = element_text(size = 12), 
                       legend.text = element_text(size = 11))
-        ggsave(file, dpi = 600, width = 10, height = 6, units = "in")
+        ggsave(file, dpi = 600, width = width, height = height, units = "in")
 }
 
 getDMRanno <- function(DMRstats, regDomains, file){
@@ -1056,3 +1057,46 @@ plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog",
         }
 }
 
+ggBoxPlot <- function(data, x, y, fill, ylab, legend.name, facet, file, width = 10, height = 7, 
+                      legend.position = c(0.85, 0.38), axis.ticks.x = element_blank(), outlier.size = 0.8,
+                      axis.text.x = element_blank(), nrow = 2, ncol = NULL, ylim = c(0,100)){
+        gg <- ggplot(data = data)
+        gg <- gg +
+                geom_boxplot(aes(x = x, y = y, fill = fill), size = 0.8, outlier.size = outlier.size) +
+                theme_bw(base_size = 24) +
+                theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+                      axis.ticks.x = axis.ticks.x, legend.key = element_blank(), panel.grid.minor = element_blank(),
+                      legend.position = legend.position, legend.background = element_blank(), axis.text.x = axis.text.x, 
+                      legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 19), 
+                      axis.ticks.y = element_line(size = 1.25), legend.title = element_text(size = 22),
+                      strip.background = element_blank(), legend.direction = "vertical", panel.spacing.y = unit(0, "lines"), 
+                      plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title.x = element_blank(), 
+                      axis.text.y = element_text(size = 16, color = "black")) +
+                ylab(ylab) +
+                scale_fill_manual(name = legend.name, values = c("#3366CC", "#FF3366")) +
+                scale_color_manual(name = legend.name, values = c("#3366CC", "#FF3366")) +
+                coord_cartesian(ylim = ylim) +
+                facet_wrap(facets = facet, nrow = nrow, ncol = ncol)
+        ggsave(filename = file, plot = gg, dpi = 600, width = width, height = height, units = "in")
+}
+
+ggScatterPlot <- function(x, y, groupVar, fileName, xlab, ylab, xlim = NULL, ylim = NULL, legendPos = c(0.87,1.03)){
+        # Plots 2 continuous variables colored by a grouping variable and writes the file
+        g <- ggplot()
+        g + 
+                geom_smooth(aes(x=x, y=y), method="lm") +
+                geom_point(aes(x=x, y=y, color=groupVar), size=3) +
+                theme_bw(base_size = 25) +
+                theme(legend.direction = 'horizontal', legend.position = legendPos, panel.grid.major = element_blank(), 
+                      panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+                      legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+                      axis.text = element_text(color = "black"), legend.background = element_blank(), 
+                      plot.margin = unit(c(2,1,1,1), "lines")) +
+                coord_cartesian(xlim = xlim, ylim = ylim) +
+                scale_x_continuous(breaks=pretty_breaks(n=5)) +
+                scale_y_continuous(breaks=pretty_breaks(n=5)) +
+                xlab(xlab) +
+                ylab(ylab) +
+                scale_color_manual(breaks = c(levels(groupVar)[1], levels(groupVar)[2]), values = c("#3366CC", "#FF3366"))
+        ggsave(fileName, dpi = 600, width = 8, height = 7, units = "in")
+}

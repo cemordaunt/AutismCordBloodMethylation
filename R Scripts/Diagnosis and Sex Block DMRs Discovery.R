@@ -42,7 +42,7 @@ gr2csv(sigBlocks, "DifferentialBlocks_DxAdjSex_Discovery50.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis Block DMRs Males ----------------------------------------
-# (Running on Barbera 2/24)
+# (Complete)
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50_males.rds")
 blocks <- dmrseq(bs = bs.filtered, testCovariate = testCovariate, adjustCovariate = NULL, cutoff = cutoff,
                  minNumRegion = minCpGs, bpSpan = 5e4, minInSpan = 500, maxGapSmooth = 1e6, maxGap = 5e3, 
@@ -54,7 +54,7 @@ gr2csv(sigBlocks, "DifferentialBlocks_Dx_Discovery50_males.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis Block DMRs Females ----------------------------------------
-# (Running on Barbera 2/24)
+# (Running on Barbera 3/5)
 bs.filtered <- readRDS("Filtered_BSseq_Discovery50_females.rds")
 blocks <- dmrseq(bs = bs.filtered, testCovariate = testCovariate, adjustCovariate = NULL, cutoff = cutoff,
                  minNumRegion = minCpGs, bpSpan = 5e4, minInSpan = 500, maxGapSmooth = 1e6, maxGap = 5e3, 

@@ -352,6 +352,11 @@ write.table(gomResults, file = "Tables/Dis vs Rep DMR Gene Overlap Stats.txt", s
 
 # Venn Diagrams ####
 # DxAll Venn Diagrams
+venn.diagram(list("Discovery" = DisRegions_genes$DisDxAll, "Replication" = RepRegions_genes$RepDxAll),
+             file = "Figures/Dis vs Rep DxAll DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 2.75, 
+             lwd = 4, cat.cex = 3, cat.pos = c(140, 180), cat.dist = c(0.05, 0.03), rotation.degree = 180, margin = 0.06,
+             ext.text = FALSE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2)
 venn.diagram(list("Discovery" = DisRegions_genes$DisDxAllHyper, "Replication" = RepRegions_genes$RepDxAllHyper),
              file = "Figures/Dis vs Rep DxAllHyper DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
              units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
@@ -364,6 +369,11 @@ venn.diagram(list("Discovery" = DisRegions_genes$DisDxAllHypo, "Replication" = R
              ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
 
 # DxSexAll Venn Diagrams
+venn.diagram(list("Discovery" = DisRegions_genes$DisDxSexAll, "Replication" = RepRegions_genes$RepDxSexAll),
+             file = "Figures/Dis vs Rep DxSexAll DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 2.75, 
+             lwd = 4, cat.cex = 3, cat.pos = c(140, 180), cat.dist = c(0.05, 0.03), rotation.degree = 180, margin = 0.06,
+             ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
 venn.diagram(list("Discovery" = DisRegions_genes$DisDxSexAllHyper, "Replication" = RepRegions_genes$RepDxSexAllHyper),
              file = "Figures/Dis vs Rep DxSexAllHyper DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
              units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
@@ -376,6 +386,11 @@ venn.diagram(list("Discovery" = DisRegions_genes$DisDxSexAllHypo, "Replication" 
              ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
 
 # Dx Males Venn Diagrams
+venn.diagram(list("Discovery" = DisRegions_genes$DisDxMales, "Replication" = RepRegions_genes$RepDxMales),
+             file = "Figures/Dis vs Rep DxMales DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
+             lwd = 4, cat.cex = 3, cat.pos = c(150, 180), cat.dist = c(0.04, 0.03), rotation.degree = 180, margin = 0.04,
+             ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
 venn.diagram(list("Discovery" = DisRegions_genes$DisDxMalesHyper, "Replication" = RepRegions_genes$RepDxMalesHyper),
              file = "Figures/Dis vs Rep DxMalesHyper DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
              units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
@@ -388,6 +403,11 @@ venn.diagram(list("Discovery" = DisRegions_genes$DisDxMalesHypo, "Replication" =
              ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
 
 # Dx Females Venn Diagrams
+venn.diagram(list("Discovery" = DisRegions_genes$DisDxFemales, "Replication" = RepRegions_genes$RepDxFemales),
+             file = "Figures/Dis vs Rep DxFemales DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
+             lwd = 4, cat.cex = 3, cat.pos = c(160, 180), cat.dist = c(0.04, 0.03), rotation.degree = 180, margin = 0.04,
+             ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
 venn.diagram(list("Discovery" = DisRegions_genes$DisDxFemalesHyper, "Replication" = RepRegions_genes$RepDxFemalesHyper),
              file = "Figures/Dis vs Rep DxFemalesHyper DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
              units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
@@ -438,10 +458,66 @@ write.table(intersect_gomResults, file = "Tables/Dis vs Rep Overlapping DMR Gene
 # DMR genes in all comparisons
 intersect(intersectGenes$DxAll, intersectGenes$DxSexAll) %>% intersect(intersectGenes$DxMales) %>% 
         intersect(intersectGenes$DxFemales) %>% sort
+# [1] "CHST15"       "CPS1-IT1"     "EML6"         "GRIK2"        "LINC01435"    "LINC01515"    "LOC101928622"
+# [8] "LOC644669"    "PPP2R3A"      "ST6GAL2"      "TIMP3" 
+
+# DMR genes in DxAll, DxMales, and DxFemales
+intersect(intersectGenes$DxAll, intersectGenes$DxMales) %>% intersect(intersectGenes$DxFemales) %>% sort
+# [1] "C7orf62"      "CHST15"       "CPS1-IT1"     "EML6"         "EPHA6"        "GRIK2"        "LHFPL3"      
+# [8] "LINC00377"    "LINC01378"    "LINC01435"    "LINC01515"    "LINC01549"    "LOC101928254" "LOC101928622"
+# [15] "LOC101929153" "LOC105375972" "LOC441155"    "LOC644669"    "LRRC4C"       "MALRD1"       "MIR125B2"    
+# [22] "PABPC4L"      "PCGEM1"       "PIK3R1"       "PPP2R3A"      "RALYL"        "SLC6A15"      "ST6GAL2"     
+# [29] "TIMP3"  
+
+# DMR genes in all comparisons by direction
+intersect(intersectGenes$DxMalesHyper, intersectGenes$DxFemalesHyper) %>% intersect(intersectGenes$DxAllHyper) %>%
+        intersect(intersectGenes$DxSexAllHyper) %>% sort # None
+intersect(intersectGenes$DxMalesHypo, intersectGenes$DxFemalesHypo) %>% intersect(intersectGenes$DxAllHypo) %>%
+        intersect(intersectGenes$DxSexAllHypo) %>% sort # "LINC01515" "ST6GAL2"  
+
+# DMR genes in DxAll, DxMales, and DxFemales by direction
+intersect(intersectGenes$DxMalesHyper, intersectGenes$DxFemalesHyper) %>% intersect(intersectGenes$DxAllHyper) %>% 
+        sort # "PIK3R1" "RALYL" 
+intersect(intersectGenes$DxMalesHypo, intersectGenes$DxFemalesHypo) %>% intersect(intersectGenes$DxAllHypo) %>%
+       sort # "LINC01515" "MALRD1"    "PCGEM1"    "ST6GAL2"  
 
 # DMR genes in males and females by direction
 intersect(intersectGenes$DxMalesHyper, intersectGenes$DxFemalesHyper) %>% sort
+# [1] "CRAT37"       "LOC101927050" "NPAS3"        "PIK3R1"       "RALYL"        "SV2B"        
+
 intersect(intersectGenes$DxMalesHypo, intersectGenes$DxFemalesHypo) %>% sort
+# [1] "ALG10"        "ANXA1"        "ARL5B"        "BRDTP1"       "C2orf27B"     "CDH18"        "COX7B2"      
+# [8] "DCAF8L1"      "DIAPH2"       "DIAPH2-AS1"   "FMR1"         "FTHL17"       "FZD1"         "GABRA2"      
+# [15] "GRXCR1"       "HS3ST3A1"     "IL1RAPL2"     "LINC00648"    "LINC00889"    "LINC00968"    "LINC01515"   
+# [22] "LOC100507201" "LOC100996664" "LOC101927305" "LOC101927358" "LOC101927412" "LOC101928441" "LOC101928519"
+# [29] "LOC102723362" "LOC102723427" "LOC102723968" "LOC102724152" "LOC645949"    "LRRTM1"       "MALRD1"      
+# [36] "MC4R"         "MEAT6"        "MIR2054"      "MIR3915"      "MIR514A3"     "MIR6134"      "MIR663B"     
+# [43] "MTERF1"       "OPCML"        "PCGEM1"       "PMAIP1"       "RBFOX1"       "SLCO5A1"      "SPANXN1"     
+# [50] "ST6GAL2"      "TMEM47"       "XRCC6P5"      "ZIC3"     
+
+# Dx Males vs Females Venn Diagrams
+venn.diagram(list("Males" = intersectGenes$DxMales, "Females" = intersectGenes$DxFemales),
+             file = "Figures/Replicated Male vs Female DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
+             lwd = 4, cat.cex = 3, cat.pos = c(165, 180), cat.dist = c(0.03, 0.03), rotation.degree = 180, margin = 0.04,
+             ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
+venn.diagram(list("Males" = intersectGenes$DxMalesHyper, "Females" = intersectGenes$DxFemalesHyper),
+             file = "Figures/Replicated Male vs Female Hyper DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
+             lwd = 4, cat.cex = 3, cat.pos = c(160, 180), cat.dist = c(0.03, 0.03), rotation.degree = 180, margin = 0.04,
+             ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
+venn.diagram(list("Males" = intersectGenes$DxMalesHypo, "Females" = intersectGenes$DxFemalesHypo),
+             file = "Figures/Replicated Male vs Female Hypo DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
+             lwd = 4, cat.cex = 3, cat.pos = c(160, 180), cat.dist = c(0.03, 0.03), rotation.degree = 180, margin = 0.04,
+             ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
+
+# Dx All, Males, Females Venn Diagram
+venn.diagram(list("All" = intersectGenes$DxAll, "Males" = intersectGenes$DxMales, "Females" = intersectGenes$DxFemales),
+             file = "Figures/Replicated All vs Male vs Female DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightgreen", "lightblue", "lightpink"), cex = 3, 
+             lwd = 4, cat.cex = 3, cat.pos = c(323, 0, 45), cat.dist = c(0.063, 0.05, 0.05), rotation.degree = 60, reverse = TRUE, margin = 0.04,
+             ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
 
 # Overlap Plots ####
 # All, Hyper, Hypo DMR Gene Heatmaps
@@ -511,6 +587,20 @@ upset(fromList(intersectGenes_all), nsets = 4, nintersects = NA, order.by = "deg
       mainbar.y.label = "Genes", text.scale = c(2.5, 2.5, 2, 2, 2.25, 2.5), point.size = 3.5, line.size = 1.5) 
 dev.off()
 
+# Hyper Upset Plot
+intersectGenes_hyper <- intersectGenes[names(intersectGenes) %in% c("DxAllHyper", "DxSexAllHyper", "DxMalesHyper", "DxFemalesHyper")]
+pdf(file = "Figures/Dis vs Rep Overlapping Hyper DMR Gene Overlap Upset Plot by degree.pdf", width = 12, height = 8, onefile = FALSE)
+upset(fromList(intersectGenes_hyper), nsets = 4, nintersects = NA, order.by = "degree", sets.x.label = "Genes", 
+      mainbar.y.label = "Genes", text.scale = c(2.5, 2.5, 2, 2, 2.25, 2.5), point.size = 3.5, line.size = 1.5) 
+dev.off()
+
+# Hypo Upset Plot
+intersectGenes_hypo <- intersectGenes[names(intersectGenes) %in% c("DxAllHypo", "DxSexAllHypo", "DxMalesHypo", "DxFemalesHypo")]
+pdf(file = "Figures/Dis vs Rep Overlapping Hypo DMR Gene Overlap Upset Plot by degree.pdf", width = 12, height = 8, onefile = FALSE)
+upset(fromList(intersectGenes_hypo), nsets = 4, nintersects = NA, order.by = "degree", sets.x.label = "Genes", 
+      mainbar.y.label = "Genes", text.scale = c(2.5, 2.5, 2, 2, 2.25, 2.5), point.size = 3.5, line.size = 1.5) 
+dev.off()
+
 # Overlap by GREAT --------------------------------------------------------
 # Term Intersect ####
 # No enriched terms for Discovery DxAll, DxSexAll, so can't overlap these
@@ -539,11 +629,25 @@ RepFemalesGreat_names <- list("All" = RepFemalesGreat$name[RepFemalesGreat$Direc
                               "Hypo" = RepFemalesGreat$name[RepFemalesGreat$Direction == "Hypo"])
 
 # Intersect terms
-DisMalesGreat_int <- list("All" = intersect(DisMalesGreat_names$All, RepMalesGreat_names$All) %>% sort,
+MalesGreat_int <- list("All" = intersect(DisMalesGreat_names$All, RepMalesGreat_names$All) %>% sort,
                           "Hyper" = intersect(DisMalesGreat_names$Hyper, RepMalesGreat_names$Hyper) %>% sort,
                           "Hypo" = intersect(DisMalesGreat_names$Hypo, RepMalesGreat_names$Hypo) %>% sort)
-DisFemalesGreat_int <- list("All" = intersect(DisFemalesGreat_names$All, RepFemalesGreat_names$All) %>% sort,
+# No overlapping terms in males
+
+FemalesGreat_int <- list("All" = intersect(DisFemalesGreat_names$All, RepFemalesGreat_names$All) %>% sort,
                             "Hyper" = intersect(DisFemalesGreat_names$Hyper, RepFemalesGreat_names$Hyper) %>% sort,
                             "Hypo" = intersect(DisFemalesGreat_names$Hypo, RepFemalesGreat_names$Hypo) %>% sort)
+
+# Link with Stats
+FemalesGreatStats_int <- merge(x = DisFemalesGreat[DisFemalesGreat$Direction == "All",],
+                               y = RepFemalesGreat[RepFemalesGreat$Direction == "All",], 
+                               by = "ID", all.x = FALSE, all.y = FALSE, suffixes = c("_Dis", "_Rep"))
+write.csv(FemalesGreatStats_int, file = "Tables/Discovery vs Replication Overlapping Females GREAT Stats.csv",
+          row.names = FALSE, quote = FALSE)
+
+
+
+
+
 
 
