@@ -1058,7 +1058,8 @@ plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog",
 }
 
 ggBoxPlot <- function(data, x, y, fill, ylab, legend.name, facet, file, width = 10, height = 7, 
-                      legend.position = c(0.85, 0.38), axis.ticks.x = element_blank(), outlier.size = 0.8,
+                      legend.position = c(0.85, 0.38), legend.direction = "vertical", 
+                      axis.ticks.x = element_blank(), outlier.size = 0.8,
                       axis.text.x = element_blank(), nrow = 2, ncol = NULL, ylim = c(0,100)){
         gg <- ggplot(data = data)
         gg <- gg +
@@ -1069,7 +1070,7 @@ ggBoxPlot <- function(data, x, y, fill, ylab, legend.name, facet, file, width = 
                       legend.position = legend.position, legend.background = element_blank(), axis.text.x = axis.text.x, 
                       legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 19), 
                       axis.ticks.y = element_line(size = 1.25), legend.title = element_text(size = 22),
-                      strip.background = element_blank(), legend.direction = "vertical", panel.spacing.y = unit(0, "lines"), 
+                      strip.background = element_blank(), legend.direction = legend.direction, panel.spacing.y = unit(0, "lines"), 
                       plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title.x = element_blank(), 
                       axis.text.y = element_text(size = 16, color = "black")) +
                 ylab(ylab) +

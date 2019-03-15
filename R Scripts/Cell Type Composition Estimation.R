@@ -229,6 +229,126 @@ covHeatmap(covStats, variableOrdering = "hierarchical", regionOrdering = "hierar
            legend.position = c(1.06, 0.835),
            file = "Figures/Estimated Cell Populations by Covariate Heatmap Clustered.png")
 
+# Plot nRBCs by Diagnosis and Sex
+ggBoxPlot(data = samples_cov, x = samples_cov$Diagnosis_Alg, y = samples_cov$nRBC, fill = samples_cov$Diagnosis_Alg,
+          ylab = "Estimated nRBCs (%)", legend.name = NULL, legend.position = "none", facet = vars(Sex), 
+          file = "Figures/Estimated nRBCs by Diagnosis and Sex.png", width = 8, height = 7, nrow = NULL, ncol = 2,
+          axis.ticks.x = element_line(size = 1.25), axis.text.x = element_text(size = 16, color = "black"),
+          ylim = c(0, 40), outlier.size = 1.5)
+
+# Plot nRBCs by Diagnosis, Sex, and Platform
+samples_cov$SampleSet <- ifelse(samples_cov$Platform == "HiSeqX10", yes = "Discovery", no = "Replication") %>%
+        factor(levels = c("Discovery", "Replication"))
+ggBoxPlot(data = samples_cov, x = samples_cov$Sex, y = samples_cov$nRBC, fill = samples_cov$Diagnosis_Alg,
+          ylab = "Estimated nRBCs (%)", legend.name = NULL, legend.position = c(0.83, 0.96), facet = vars(SampleSet), 
+          file = "Figures/Estimated nRBCs by Diagnosis, Sex, and Platform.png", width = 8, height = 7, nrow = NULL, 
+          ncol = 4, axis.ticks.x = element_line(size = 1.25), axis.text.x = element_text(size = 16, color = "black"),
+          ylim = c(0, 40), outlier.size = 1.5, legend.direction = "horizontal")
+
+# nRBCs Stats
+# nRBCs by Diagnosis + Platform, stratified by sex
+summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = samples_cov))$coefficients
+#                   Estimate Std. Error  t value     Pr(>|t|)
+# Diagnosis_AlgASD  1.675600  0.7866926 2.129930 3.479822e-02
+# PlatformHiSeq4000 1.199557  0.8593466 1.395894 1.647955e-01
+
+summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = subset(samples_cov, Sex == "M")))$coefficients
+#                   Estimate Std. Error  t value     Pr(>|t|)
+# Diagnosis_AlgASD  2.429736  0.8800973 2.760758 6.749086e-03
+# PlatformHiSeq4000 1.029075  0.9333405 1.102572 2.725981e-01
+
+summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = subset(samples_cov, Sex == "F")))$coefficients
+#                     Estimate Std. Error    t value     Pr(>|t|)
+# Diagnosis_AlgASD  -0.5075624   1.709197 -0.2969596 7.681582e-01
+# PlatformHiSeq4000  1.6908438   2.136496  0.7914097 4.337493e-01
+
+# nRBCs by Diagnosis + Platform + Gestational Age, stratified by sex
+summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = samples_cov))$coefficients
+#                   Estimate Std. Error  t value     Pr(>|t|)
+# Diagnosis_AlgASD   1.735402  0.7739739  2.242197 0.026415383
+# PlatformHiSeq4000  1.076842  0.8464896  1.272127 0.205296487
+# ga_w              -0.743033  0.2994980 -2.480928 0.014208358
+
+summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = subset(samples_cov, Sex == "M")))$coefficients
+#                   Estimate Std. Error  t value     Pr(>|t|)
+# Diagnosis_AlgASD   2.4607665  0.8575232  2.8696211 0.004929108
+# PlatformHiSeq4000  0.8688506  0.9113457  0.9533709 0.342492469
+# ga_w              -0.8122895  0.3082723 -2.6349746 0.009628334
+
+summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = subset(samples_cov, Sex == "F")))$coefficients
+#                     Estimate Std. Error    t value     Pr(>|t|)
+# Diagnosis_AlgASD  -0.4780684  1.7408529 -0.2746173 0.7851801
+# PlatformHiSeq4000  1.7034877  2.1663993  0.7863221 0.4368244
+# ga_w              -0.1577352  0.9331823 -0.1690293 0.8667198
+
+# Test for reduced males
+table(samples_cov$Sex)
+#   M   F 
+# 114  40 
+samples_cov_males <- subset(samples_cov, Sex == "M")
+
+reducedMales <- NULL
+for(i in 1:1000){
+        temp <- summary(lm(nRBC ~ Diagnosis_Alg + Platform, 
+                           data = samples_cov_males[sample(1:nrow(samples_cov_males), 40),])
+                        )$coefficients["Diagnosis_AlgASD",]
+        reducedMales <- rbind(reducedMales, temp)
+}
+reducedMales <- as.data.frame(reducedMales)
+rownames(reducedMales) <- 1:nrow(reducedMales)
+colnames(reducedMales) <- c("Estimate", "StdError", "tvalue", "pvalue")
+
+p <- 2 * ecdf(as.numeric(unlist(reducedMales$Estimate)))(-0.5075624) # 0.01
+p <- 2 * (1-ecdf(as.numeric(unlist(reducedMales$pvalue)))(0.7681582)) # 0.1
+
+
+# Plot Reduced Males Estimate
+gg <- ggplot()
+gg +
+        geom_histogram(data = reducedMales, aes(x = Estimate), fill = "#3366CC", bins = 50) +
+        geom_vline(xintercept = c(2.43, -0.51), color = "#FF3366", size = 1.25) +
+        annotate("text", x = c(2.53, -0.41), y = 58, label = c("True Males", "True Females"), size = 6, hjust = 0) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), legend.key.size = unit(1, "lines"),
+              panel.grid.minor = element_blank(), legend.position = c(0.9, 0.87), 
+              legend.background = element_blank(), legend.text = element_text(size = 16, color = "Black"),
+              plot.margin = unit(c(1,1,1,1), "lines"), 
+              axis.text = element_text(color = "black", size = 16),
+              axis.ticks = element_line(color = "black", size = 1.05),
+              axis.title = element_text(color = "black", size = 18), 
+              legend.title = element_text(color = "black", size = 18)) +
+        xlab("ASD - TD nRBC Estimate (%)") +
+        ylab("Random Male Samples") +
+        scale_x_continuous(breaks = pretty_breaks(n = 4)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 4), expand = c(0.002, 0)) +
+        coord_cartesian(ylim = c(0, 60))
+ggsave("Figures/Reduced Males nRBC Difference Estimate Histogram.png", dpi = 600, width = 8, height = 8, units = "in")
+
+# Plot Reduced Males pvalue
+gg <- ggplot()
+gg +
+        geom_histogram(data = reducedMales, aes(x = pvalue), fill = "#3366CC", bins = 50) +
+        geom_vline(xintercept = c(0.007, 0.768), color = "#FF3366", size = 1.25) +
+        annotate("text", x = c(0.02, 0.79), y = 125, label = c("True Males", "True Females"), size = 6, hjust = 0) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), legend.key.size = unit(1, "lines"),
+              panel.grid.minor = element_blank(), legend.position = c(0.9, 0.87), 
+              legend.background = element_blank(), legend.text = element_text(size = 16, color = "Black"),
+              plot.margin = unit(c(1,1,1,1), "lines"), 
+              axis.text = element_text(color = "black", size = 16),
+              axis.ticks = element_line(color = "black", size = 1.05),
+              axis.title = element_text(color = "black", size = 18), 
+              legend.title = element_text(color = "black", size = 18)) +
+        xlab("ASD - TD nRBC p-value") +
+        ylab("Random Male Samples") +
+        scale_x_continuous(breaks = pretty_breaks(n = 4)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 6), expand = c(0.002, 0)) +
+        coord_cartesian(xlim = c(0,1), ylim = c(0, 130))
+ggsave("Figures/Reduced Males nRBC Difference pvalue Histogram.png", dpi = 600, width = 8, height = 8, units = "in")
+
+
 # Plot nRBCs by Global mCG
 ggScatterPlot(x = samples_cov$nRBC, y = samples_cov$percent_cpg_meth, groupVar = samples_cov$Diagnosis_Alg,
               fileName = "Figures/Estimated nRBCs by Global mCpG.png", xlab = "Estimated nRBCs (%)",
@@ -255,6 +375,50 @@ g +
         ylab("Global CpG Methylation (%)") +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
 ggsave("Figures/Estimated nRBCs by Global mCpG and Sex.png", dpi = 600, width = 10, height = 6, units = "in")
+
+# Plot nRBCs by Global mCG and Platform
+g <- ggplot(samples_cov, aes(x = nRBC, y = percent_cpg_meth))
+g + 
+        geom_smooth(method = "lm") +
+        geom_point(aes(color = Diagnosis_Alg), size = 3) +
+        facet_grid(cols = vars(SampleSet)) +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.92, 1.05), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 22), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
+              strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(0, "lines"), 
+              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              axis.text = element_text(size = 17, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("Estimated nRBCs (%)") +
+        ylab("Global CpG Methylation (%)") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Estimated nRBCs by Global mCpG and Platform.png", dpi = 600, width = 10, height = 6, units = "in")
+
+# Plot nRBCs by Global mCG, Sex, and Platform
+g <- ggplot(samples_cov, aes(x = nRBC, y = percent_cpg_meth))
+g + 
+        geom_smooth(method = "lm") +
+        geom_point(aes(color = Diagnosis_Alg), size = 3) +
+        facet_grid(rows = vars(SampleSet), cols = vars(Sex)) +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.91, 1.02), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 22), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
+              strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(1, "lines"), 
+              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              axis.text = element_text(size = 17, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("Estimated nRBCs (%)") +
+        ylab("Global CpG Methylation (%)") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Estimated nRBCs by Global mCpG, Sex, and Platform.png", dpi = 600, width = 10, height = 10, units = "in")
 
 # Plot nRBCs by Mullen ELC
 ggScatterPlot(x = samples_cov$nRBC, y = samples_cov$MSLelcStandard36, groupVar = samples_cov$Diagnosis_Alg,
@@ -283,28 +447,6 @@ g +
         ylab("Mullen Composite Score") +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
 ggsave("Figures/Estimated nRBCs by Mullen Composite and Sex.png", dpi = 600, width = 10, height = 6, units = "in")
-
-# Plot nRBCs by Diagnosis and Sex
-ggBoxPlot(data = samples_cov, x = samples_cov$Diagnosis_Alg, y = samples_cov$nRBC, fill = samples_cov$Diagnosis_Alg,
-          ylab = "Estimated nRBCs (%)", legend.name = NULL, legend.position = "none", facet = vars(Sex), 
-          file = "Figures/Estimated nRBCs by Diagnosis and Sex.png", width = 8, height = 7, nrow = NULL, ncol = 2,
-          axis.ticks.x = element_line(size = 1.25), axis.text.x = element_text(size = 16, color = "black"),
-          ylim = c(0, 40), outlier.size = 1.5)
-
-summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = samples_cov))$coefficients
-#                   Estimate Std. Error  t value     Pr(>|t|)
-# Diagnosis_AlgASD  1.675600  0.7866926 2.129930 3.479822e-02
-# PlatformHiSeq4000 1.199557  0.8593466 1.395894 1.647955e-01
-
-summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = subset(samples_cov, Sex == "M")))$coefficients
-#                   Estimate Std. Error  t value     Pr(>|t|)
-# Diagnosis_AlgASD  2.429736  0.8800973 2.760758 6.749086e-03
-# PlatformHiSeq4000 1.029075  0.9333405 1.102572 2.725981e-01
-
-summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = subset(samples_cov, Sex == "F")))$coefficients
-#                     Estimate Std. Error    t value     Pr(>|t|)
-# Diagnosis_AlgASD  -0.5075624   1.709197 -0.2969596 7.681582e-01
-# PlatformHiSeq4000  1.6908438   2.136496  0.7914097 4.337493e-01
 
 # Plot Gestational Age by Cell Populations
 gaCells <- samples_cov[,c("Sequencing_ID", "Diagnosis_Alg", "ga_w", "Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC")]
@@ -353,6 +495,211 @@ samples_cov_females <- subset(samples_cov, Sex == "F")
 covStats_females <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
                             contVars = contVars, sampleData = samples_cov_females, adj = "Platform",
                             file = "Tables/Estimated Cell Populations by Covariate Stats Females Only.txt")
+
+# Covariate Association, Discovery Samples --------------------------------
+# All Discovery Samples ####
+# Data
+samples_cov_disc <- subset(samples_cov, Platform == "HiSeqX10")
+catVars <- c("Study", "Platform", "Sex", "Site", "Diagnosis_Alg", "MomEdu_detail", "DM1or2", "GDM", "PE", 
+             "home_ownership", "marital_status", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", 
+             "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", 
+             "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9")
+catVars <- catVars[!catVars == "Platform"]
+
+# Get Stats
+covStats_disc <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
+                            contVars = contVars, sampleData = samples_cov_disc, adj = NULL,
+                            file = "Tables/Estimated Cell Populations by Covariate Stats Discovery.txt")
+
+# Discovery Males Only ####
+# Data
+samples_cov_disc_males <- subset(samples_cov_disc, Sex == "M")
+catVars <- catVars[!catVars == "Sex"]
+
+# Get Stats
+covStats_disc_males <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
+                                 contVars = contVars, sampleData = samples_cov_disc_males, adj = NULL,
+                                 file = "Tables/Estimated Cell Populations by Covariate Stats Discovery Males Only.txt")
+# Error with Bcell and PE
+# Error with CD4T and PE
+# Error with CD8T and PE
+# Error with Gran and PE
+# Error with Mono and PE
+# Error with NK and PE
+# Error with nRBC and PE
+
+# Discovery Females Only ####
+# Data
+samples_cov_disc_females <- subset(samples_cov_disc, Sex == "F")
+
+# Get Stats
+covStats_disc_females <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
+                                 contVars = contVars, sampleData = samples_cov_disc_females, adj = NULL,
+                                 file = "Tables/Estimated Cell Populations by Covariate Stats Discovery Females Only.txt")
+
+# Plots ####
+# Plot nRBCs by Diagnosis and Sex
+ggBoxPlot(data = samples_cov_disc, x = samples_cov_disc$Diagnosis_Alg, y = samples_cov_disc$nRBC, 
+          fill = samples_cov_disc$Diagnosis_Alg, ylab = "Estimated nRBCs (%)", legend.name = NULL, 
+          legend.position = "none", facet = vars(Sex), file = "Figures/Estimated nRBCs by Diagnosis and Sex Discovery.png", 
+          width = 8, height = 7, nrow = NULL, ncol = 2, axis.ticks.x = element_line(size = 1.25), 
+          axis.text.x = element_text(size = 16, color = "black"), ylim = c(0, 40), outlier.size = 1.5)
+
+# Plot nRBCs by Global mCG
+ggScatterPlot(x = samples_cov_disc$nRBC, y = samples_cov_disc$percent_cpg_meth, groupVar = samples_cov_disc$Diagnosis_Alg,
+              fileName = "Figures/Estimated nRBCs by Global mCpG Discovery.png", xlab = "Estimated nRBCs (%)",
+              ylab = "Global CpG Methylation (%)", legendPos = c(0.9, 1.03))
+
+# Plot nRBCs by Global mCG and Sex
+g <- ggplot(samples_cov_disc, aes(x = nRBC, y = percent_cpg_meth))
+g + 
+        geom_smooth(method = "lm") +
+        geom_point(aes(color = Diagnosis_Alg), size = 3) +
+        facet_grid(cols = vars(Sex)) +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.92, 1.05), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 22), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
+              strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(0, "lines"), 
+              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              axis.text = element_text(size = 17, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("Estimated nRBCs (%)") +
+        ylab("Global CpG Methylation (%)") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Estimated nRBCs by Global mCpG and Sex Discovery.png", dpi = 600, width = 10, height = 6, units = "in")
+
+# Plot Gestational Age by Cell Populations
+gaCells <- samples_cov_disc[,c("Sequencing_ID", "Diagnosis_Alg", "ga_w", "Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC")]
+colnames(gaCells) <- c("Sample", "Diagnosis", "Gestational Age", "B cells", "CD4 T cells", "CD8 T cells",
+                       "Granulocytes", "Monocytes", "NK cells", "nRBCs")
+gaCells <- melt(gaCells, id.vars = c("Sample", "Diagnosis", "Gestational Age"))
+colnames(gaCells) <- c("Sample", "Diagnosis", "GestationalAge", "CellType", "Percent")
+
+g <- ggplot(gaCells, aes(x = GestationalAge, y = Percent))
+g + 
+        geom_smooth(method="lm") +
+        geom_point(aes(color = Diagnosis), size = 2) +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.83, 0.34), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 19), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_text(size = 22),
+              strip.background = element_blank(), legend.direction = "vertical", panel.spacing.y = unit(0, "lines"), 
+              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              axis.text = element_text(size = 16, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("Gestational Age (weeks)") +
+        ylab("Cell Populations (%)") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366")) +
+        facet_wrap(vars(CellType), nrow = 2, scales = "free")
+ggsave("Figures/Estimated Cell Populations by Gestational Age Scatterplots Discovery.png", dpi = 600, width = 10, height = 7, units = "in")
+
+# Covariate Association, Replication Samples --------------------------------
+# All Replication Samples ####
+# Data
+samples_cov_rep <- subset(samples_cov, Platform == "HiSeq4000")
+catVars <- c("Study", "Platform", "Sex", "Site", "Diagnosis_Alg", "MomEdu_detail", "DM1or2", "GDM", "PE", 
+             "home_ownership", "marital_status", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", 
+             "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", 
+             "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9")
+catVars <- catVars[!catVars %in% c("Platform", "Study", "Site")]
+
+# Get Stats
+covStats_rep <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
+                           contVars = contVars, sampleData = samples_cov_rep, adj = NULL,
+                           file = "Tables/Estimated Cell Populations by Covariate Stats Replication.txt")
+
+# Replication Males Only ####
+# Data
+samples_cov_rep_males <- subset(samples_cov_rep, Sex == "M")
+catVars <- catVars[!catVars == "Sex"]
+
+# Get Stats
+covStats_rep_males <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
+                                 contVars = contVars, sampleData = samples_cov_rep_males, adj = NULL,
+                                 file = "Tables/Estimated Cell Populations by Covariate Stats Replication Males Only.txt")
+# Error with DM1or2 for all
+
+# Replication Females Only ####
+# Data
+samples_cov_rep_females <- subset(samples_cov_rep, Sex == "F")
+
+# Get Stats
+covStats_rep_females <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
+                                   contVars = contVars, sampleData = samples_cov_rep_females, adj = NULL,
+                                   file = "Tables/Estimated Cell Populations by Covariate Stats Replication Females Only.txt")
+# Error with PE, SmokeYN_Pregnancy, AllEQ_PV_YN_Mo_3, AllEQ_PV_YN_Mo_2, AllEQ_PV_YN_Mo_1, AllEQ_PV_YN_Mo1 for all
+
+# Plots ####
+# Plot nRBCs by Diagnosis and Sex
+ggBoxPlot(data = samples_cov_rep, x = samples_cov_rep$Diagnosis_Alg, y = samples_cov_rep$nRBC, 
+          fill = samples_cov_rep$Diagnosis_Alg, ylab = "Estimated nRBCs (%)", legend.name = NULL, 
+          legend.position = "none", facet = vars(Sex), file = "Figures/Estimated nRBCs by Diagnosis and Sex Replication.png", 
+          width = 8, height = 7, nrow = NULL, ncol = 2, axis.ticks.x = element_line(size = 1.25), 
+          axis.text.x = element_text(size = 16, color = "black"), ylim = c(0, 40), outlier.size = 1.5)
+
+# Plot nRBCs by Global mCG
+ggScatterPlot(x = samples_cov_rep$nRBC, y = samples_cov_rep$percent_cpg_meth, groupVar = samples_cov_rep$Diagnosis_Alg,
+              fileName = "Figures/Estimated nRBCs by Global mCpG Replication.png", xlab = "Estimated nRBCs (%)",
+              ylab = "Global CpG Methylation (%)", legendPos = c(0.9, 1.03))
+
+# Plot nRBCs by Global mCG and Sex
+g <- ggplot(samples_cov_rep, aes(x = nRBC, y = percent_cpg_meth))
+g + 
+        geom_smooth(method = "lm") +
+        geom_point(aes(color = Diagnosis_Alg), size = 3) +
+        facet_grid(cols = vars(Sex)) +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.92, 1.05), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 22), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
+              strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(0, "lines"), 
+              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              axis.text = element_text(size = 17, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("Estimated nRBCs (%)") +
+        ylab("Global CpG Methylation (%)") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Estimated nRBCs by Global mCpG and Sex Replication.png", dpi = 600, width = 10, height = 6, units = "in")
+
+# Plot Gestational Age by Cell Populations
+gaCells <- samples_cov_rep[,c("Sequencing_ID", "Diagnosis_Alg", "ga_w", "Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC")]
+colnames(gaCells) <- c("Sample", "Diagnosis", "Gestational Age", "B cells", "CD4 T cells", "CD8 T cells",
+                       "Granulocytes", "Monocytes", "NK cells", "nRBCs")
+gaCells <- melt(gaCells, id.vars = c("Sample", "Diagnosis", "Gestational Age"))
+colnames(gaCells) <- c("Sample", "Diagnosis", "GestationalAge", "CellType", "Percent")
+
+g <- ggplot(gaCells, aes(x = GestationalAge, y = Percent))
+g + 
+        geom_smooth(method="lm") +
+        geom_point(aes(color = Diagnosis), size = 2) +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.83, 0.34), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 19), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_text(size = 22),
+              strip.background = element_blank(), legend.direction = "vertical", panel.spacing.y = unit(0, "lines"), 
+              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              axis.text = element_text(size = 16, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 3)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("Gestational Age (weeks)") +
+        ylab("Cell Populations (%)") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366")) +
+        facet_wrap(vars(CellType), nrow = 2, scales = "free")
+ggsave("Figures/Estimated Cell Populations by Gestational Age Scatterplots Replication.png", dpi = 600, width = 10, height = 7, units = "in")
+
+
 
 
 
