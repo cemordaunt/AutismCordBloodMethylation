@@ -301,7 +301,6 @@ colnames(reducedMales) <- c("Estimate", "StdError", "tvalue", "pvalue")
 p <- 2 * ecdf(as.numeric(unlist(reducedMales$Estimate)))(-0.5075624) # 0.01
 p <- 2 * (1-ecdf(as.numeric(unlist(reducedMales$pvalue)))(0.7681582)) # 0.1
 
-
 # Plot Reduced Males Estimate
 gg <- ggplot()
 gg +
@@ -347,7 +346,6 @@ gg +
         scale_y_continuous(breaks = pretty_breaks(n = 6), expand = c(0.002, 0)) +
         coord_cartesian(xlim = c(0,1), ylim = c(0, 130))
 ggsave("Figures/Reduced Males nRBC Difference pvalue Histogram.png", dpi = 600, width = 8, height = 8, units = "in")
-
 
 # Plot nRBCs by Global mCG
 ggScatterPlot(x = samples_cov$nRBC, y = samples_cov$percent_cpg_meth, groupVar = samples_cov$Diagnosis_Alg,

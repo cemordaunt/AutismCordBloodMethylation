@@ -20,8 +20,6 @@ perGroup <- (as.numeric(50)/100)
 minCpGs <- as.numeric(3)
 maxPerms <- as.numeric(10)
 testCovariate <- as.character("Diagnosis")
-#adjustCovariate <- NULL
-#matchCovariate <- NULL
 cores <- 10
 set.seed(5)
 register(MulticoreParam(1))
@@ -360,6 +358,38 @@ sigRegions <- read.csv("DMRs_DxNoXY_Discovery50_EARLI.csv", header = TRUE, strin
 raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = data.frame2GRanges(sigRegions), type = "raw", what = "perRegion"))
 raw <- cbind(sigRegions, raw)
 write.table(raw, "DMR_raw_methylation_DxNoXY_Discovery50_EARLI.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+# DMRs with Reduced Number of Males ####
+# Reduce number of males (laptop)
+set.seed(5)
+meta <- read.xlsx("DMRs/Discovery/Diagnosis Males 50/sample_info_males.xlsx", colNames = TRUE) 
+# Ctrl_TD Exp_ASD 
+#      39      37 
+metaRep <- read.xlsx("DMRs/Replication/Diagnosis Males 50/sample_info_males.xlsx", colNames = TRUE)
+# Ctrl_TD Exp_ASD 
+#      17      21
+reducedTD <- sample(meta$Name[meta$Diagnosis == "Ctrl_TD"], size = table(metaRep$Diagnosis)["Ctrl_TD"]) %>% sort
+reducedASD <- sample(meta$Name[meta$Diagnosis == "Exp_ASD"], size = table(metaRep$Diagnosis)["Exp_ASD"]) %>% sort
+metaReduced <- subset(meta, Name %in% reducedTD | Name %in% reducedASD)
+write.xlsx(metaReduced, file = "DMRs/Discovery/Diagnosis Males 50/sample_info_reduced_males.xlsx")
+
+# Load and Process Samples (Complete)
+bs.filtered <- processBismark(files = list.files(path = getwd(), pattern = "*.txt.gz"),
+                              meta = read.xlsx("sample_info_reduced_males.xlsx", colNames = TRUE) %>% 
+                                      mutate_if(is.character, as.factor), groups = testCovariate, Cov = coverage, 
+                              mc.cores = cores, per.Group = perGroup)
+saveRDS(bs.filtered, "Filtered_BSseq_Discovery50_reduced_males.rds")
+
+# Background Regions (Complete)
+background <- getBackground(bs.filtered, minNumRegion = minCpGs)
+write.csv(background, file = "bsseq_background_Discovery50_reduced_males.csv", quote = FALSE, row.names = FALSE)
+
+# Meth ~ Diagnosis DMRs (Complete)
+regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms, testCovariate = testCovariate)
+regions$percentDifference <- round(regions$beta/pi * 100)
+sigRegions <- regions[regions$pval < 0.05,]
+gr2csv(regions, "CandidateRegions_Dx_Discovery50_reduced_males.csv")
+gr2csv(sigRegions, "DMRs_Dx_Discovery50_reduced_males.csv")
 
 # DMR Comparison ####
 samples <- read.xlsx("DMRs/Discovery/Diagnosis 50/sample_info.xlsx", colNames = TRUE)

@@ -610,30 +610,33 @@ plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.w
         ggsave(file, plot = gg, dpi = 600, width = width, height = height, units = "in")
 }
 
-getRegionStats <- function(regionData, TD = c(56, 56, 39, 17), ASD = c(52, 52, 37, 15)){
-        regionStats <- sapply(regionData, function(x){
-                c("Number" = nrow(x), "Width" = sum(x$width), "CpGs" = sum(x[,colnames(x) %in% c("n", "L")]))
-        })
-        regionStats <- regionStats %>% t %>% as.data.frame
-        regionStats$Regions <- row.names(regionStats)
+getRegionStats <- function(DMRs, background, n){
+        DMRstats <- sapply(DMRs, function(x){
+                c("DMR_Number" = nrow(x), "DMR_Width_KB" = sum(x$width) / 1000, "DMR_CpGs" = sum(x[,colnames(x) %in% c("L", "CpGs")]))
+        }) %>% t %>% as.data.frame
+        backgroundStats <- sapply(background, function(x){
+                c("Background_Number_K" = nrow(x) / 1000, "Background_Width_GB" = sum(x$width) / 1e9, "Background_CpGs_M" = sum(x$n) / 1e6)
+        }) %>% t %>% as.data.frame
+        regionStats <- cbind(DMRstats, backgroundStats)
+        regionStats$Comparison <- row.names(DMRstats)
         row.names(regionStats) <- 1:nrow(regionStats)
-        regionStats$TD <- rep(TD, each = 3)
-        regionStats$ASD <- rep(ASD, each = 3)
-        regionStats$All <- regionStats$TD + regionStats$ASD
-        regionStats$NumberPerBack <- round(regionStats$Number * 100 / rep(regionStats$Number[grepl("Back", regionStats$Regions)], each = 3), 3)
-        regionStats$WidthPerBack <- round(regionStats$Width * 100 / rep(regionStats$Width[grepl("Back", regionStats$Regions)], each = 3), 3)
-        regionStats$CpGsPerBack <- round(regionStats$CpGs * 100 / rep(regionStats$CpGs[grepl("Back", regionStats$Regions)], each = 3), 3)
-        regionStats <- regionStats[,c("Regions", "TD", "ASD", "All", "Number", "NumberPerBack", "Width", "WidthPerBack", "CpGs", "CpGsPerBack")]
+        regionStats$n <- n
+        regionStats <- regionStats[,c("Comparison", "n", "DMR_Number", "DMR_Width_KB", "DMR_CpGs", "Background_Number_K", 
+                                      "Background_Width_GB", "Background_CpGs_M")]
         return(regionStats)
 }
 
-DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, rotation.degree = 0, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03)){
+DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, rotation.degree = 0, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03),
+                           fill = c("lightblue", "lightpink"), ext.text = TRUE, totalTest = NULL){
         pdf(file = file, width = 10, height = 8, onefile = FALSE)
         venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, maxgap = -1, minoverlap = 1, 
                                                  by = "region", connectedPeaks = "min", rotation.degree = rotation.degree, 
-                                                 margin = 0.04, cat.cex = 2, cex = 2.5, fill = c("lightblue", "lightpink"),
-                                                 cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans", 
-                                                 cat.fontfamily = "sans", ext.dist = -0.4, ext.length = 0.85))
+                                                 margin = 0.04, cat.cex = 2, cex = 2.5, fill = fill, totalTest = totalTest,
+                                                 cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans", method = "hyperG",
+                                                 cat.fontfamily = "sans", ext.dist = -0.2, ext.length = 0.85, ext.text = ext.text))
+        if(!is.null(totalTest)){
+                cat("Hypergeometric Test p =", venn$p.value[3], "\n")
+        }
         dev.off()
 }
 
