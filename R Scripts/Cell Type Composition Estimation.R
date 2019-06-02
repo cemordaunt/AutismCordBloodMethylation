@@ -1,14 +1,13 @@
 # Cell Type Composition Estimation ----------------------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 3/5/19
+# 6/1/19
+# Excluded JLCM032B and JLCM050B
 
 # Packages ####
-packages <- c("Biostrings", "AnnotationDbi", "openssl", "FlowSorted.CordBlood.450k", "minfi", 
-              "IlluminaHumanMethylation450kmanifest", "IlluminaHumanMethylation450kanno.ilmn12.hg19", "data.table", "tidyverse",
-              "reshape2", "scales", "wesanderson", "RColorBrewer", "rlist")
-sapply(packages, require, character.only = TRUE)
-rm(packages)
+sapply(c("Biostrings", "AnnotationDbi", "openssl", "FlowSorted.CordBlood.450k", "minfi",
+         "IlluminaHumanMethylation450kmanifest", "IlluminaHumanMethylation450kanno.ilmn12.hg19", "data.table", "tidyverse",
+         "reshape2", "scales", "wesanderson", "RColorBrewer", "rlist"), require, character.only = TRUE)
 
 # Functions ####
 source("R Scripts/DMR Analysis Functions.R")
@@ -18,6 +17,7 @@ source("R Scripts/DMR Analysis Functions.R")
 samples <- read.delim(file = "Merged Database/MARBLES EARLI WGBS Sample Merged Covariate Database with Demo.txt", 
                       sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 samples <- subset(samples, !(Cord_Blood_IBC == 101470 & Platform %in% c("HiSeq2500", "HiSeq4000")))
+samples <- subset(samples, !Sequencing_ID %in% c("JLCM032B", "JLCM050B")) # Remove mislabeled females
 probes <- read.delim(file = "UCSC Tracks/HM450_hg38.bed", sep = "\t", header = FALSE, stringsAsFactors = FALSE)
 probes_dup <- probes[duplicated(probes[,1:3]),] # 16 locations map 2 probes
 probes <- probes[!duplicated(probes[,1:3]),]
@@ -33,17 +33,19 @@ rm(FlowSorted.CordBlood.450k.ModelPars)
 methCounts <- read.delim(file = "Tables/probe_450k_methylation_ASD_CordBlood.txt.2col", sep = "\t", header = TRUE, 
                          stringsAsFactors = FALSE) # 447978 probes
 methCounts <- subset(methCounts, Name %in% rownames(ModelPars)) # 668 / 700 probes covered in >= 1 sample
+methCounts <- methCounts[,!grepl("JLCM032B", colnames(methCounts), fixed = TRUE) & 
+                                 !grepl("JLCM050B", colnames(methCounts), fixed = TRUE)] # Remove mislabeled females
 meth <- methCounts[,grepl("meth", colnames(methCounts), fixed = TRUE)]
 cov <- methCounts[,grepl("total", colnames(methCounts), fixed = TRUE)]
 naCount <- apply(cov, 1, function(x) sum(is.na(x)))
-table(naCount < nrow(samples) / 4) # 636 probes with na in < 25% of samples
-table(naCount < nrow(samples) / 10) # 560 probes with na in < 10% of samples
-table(naCount == 0) # 127 probes covered in all samples
+table(naCount < nrow(samples) / 4) # 635 probes with na in < 25% of samples
+table(naCount < nrow(samples) / 10) # 562 probes with na in < 10% of samples
+table(naCount == 0) # 128 probes covered in all samples
 
 cov <- subset(cov, naCount < nrow(samples) / 10) %>% as.matrix # Subset for probes covered in 90% of samples
 meth <- subset(meth, naCount < nrow(samples) / 10) %>% as.matrix
 permeth <- meth / cov
-table(is.na(permeth)) # 2062
+table(is.na(permeth)) # 2086
 for(i in 1:nrow(permeth)){
         temp <- permeth[i,]
         temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with probe mean value
@@ -58,12 +60,13 @@ table(duplicated(rbind(methCounts[,1:3], probes_dup[,1:3]))) # probes used for c
 table(methCounts$Chromosome) # No probes on chrX or chrY
 quantile(as.matrix(methCounts[,grepl("total", colnames(methCounts), fixed = TRUE)]), probes = c(0,0.25, 0.5, 0.75, 1), na.rm = TRUE)
 # 0%  25%  50%  75% 100% 
-# 1    4    6    9   32 probe coverage by sample
+# 1    3    6    9   32 probe coverage by sample
 cellprobes <- data.frame("probe" = rownames(ModelPars), 
                          "cellType" = rep(c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), each = 100))
 cellprobes <- subset(cellprobes, probe %in% methCounts$Name)
 table(cellprobes$cellType)
-
+# Bcell  CD4T  CD8T  Gran  Mono    NK  nRBC 
+#    84    80    76    78    80    79    85
 rm(meth, cov, naCount, temp, i, probes_dup)
 
 # Get Estimated Cell Counts ####
@@ -89,7 +92,7 @@ cellCounts$Sex <- factor(cellCounts$Sex, levels = c("M", "F"))
 cellCounts$Platform <- factor(cellCounts$Platform, levels = c("HiSeqX10", "HiSeq4000"))
 sapply(cellCounts[,grepl("scaled", colnames(cellCounts), fixed = TRUE)], mean)
 # Bcell_scaled  CD4T_scaled  CD8T_scaled  Gran_scaled  Mono_scaled    NK_scaled  nRBC_scaled   Sum_scaled 
-#     6.322674    20.521061     7.258283    47.597714    10.039982     1.180118     7.080168   100.000000 
+#     6.343706    20.605626     7.236536    47.518511    10.028071     1.171758     7.095792   100.000000 
 # Mean Proportion Gran > CD4T > Mono > CD8T > nRBC > Bcell > NK
 
 cellCounts_m <- cellCounts[,c("Sample", "Diagnosis_Alg", "Sex", "Platform", "Bcell_scaled", "CD4T_scaled", "CD8T_scaled",
@@ -143,6 +146,32 @@ gg +
         scale_y_continuous(expand = c(0.003, 0)) +
         facet_grid(cols = vars(Diagnosis), scales = "free")
 ggsave("Figures/Cell composition by diagnosis and sex stacked barplot.png", dpi = 600, width = 8, height = 7, units = "in")
+
+# Composition by Diagnosis, Sex, and Platform Stacked Bar Plot
+cellCounts_agg <- aggregate(Percent ~ CellType + Diagnosis + Sex + Platform, data = cellCounts_m, FUN = mean)
+cellCounts_agg$SampleSet <- ifelse(cellCounts_agg$Platform == "HiSeqX10", yes = "Discovery", no = "Replication") %>%
+        factor(levels = c("Discovery", "Replication"))
+gg <- ggplot(cellCounts_agg, aes(x = Diagnosis, y = Percent, fill = CellType, color = CellType))
+gg + 
+        geom_bar(stat="identity") +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(1.175, 0.748), legend.background = element_blank(), 
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 19), 
+              axis.ticks = element_line(size = 1.25, color = "black"), 
+              legend.text = element_text(size = 16, margin = unit(c(0, 0, 0, 0.5), "lines")),
+              strip.background = element_blank(), legend.direction = "vertical", 
+              panel.spacing.y = unit(0, "lines"), axis.title.y = element_text(size = 21),
+              plot.margin = unit(c(0.5, 10, 1, 1), "lines"), axis.title.x = element_blank(), 
+              axis.text = element_text(size = 17, color = "black"), legend.title = element_blank()) +
+        ylab("Mean Cell Populations (%)") +
+        scale_fill_manual(values = wes_palette(n = 7, name = "FantasticFox1", type = "continuous")) +
+        scale_color_manual(values = wes_palette(n = 7, name = "FantasticFox1", type = "continuous")) +
+        coord_cartesian(ylim = c(0, 100)) +
+        scale_y_continuous(expand = c(0.004, 0)) +
+        facet_grid(cols = vars(SampleSet, Sex), scales = "free")
+ggsave("Figures/Cell composition by diagnosis, sex, and platform stacked barplot.png", dpi = 600, width = 9, height = 6, units = "in")
 
 # Cell Type by Diagnosis Box Plot
 ggBoxPlot(data = cellCounts_m, x = cellCounts_m$Diagnosis, y = cellCounts_m$Percent, 
@@ -219,12 +248,12 @@ variables<-c("Diagnosis_Alg", "Sex", "Study", "Site_Drexel", "Site_Johns_Hopkins
              "AllEQ_tot_All_FA_mcg_Mo5", "AllEQ_tot_All_FA_mcg_Mo6", "AllEQ_tot_All_FA_mcg_Mo7", 
              "AllEQ_tot_All_FA_mcg_Mo8","AllEQ_tot_All_FA_mcg_Mo9")
 covHeatmap(covStats, variableOrdering = "manual", regionOrdering = "variable", variables = variables,
-           sortVariable = "Diagnosis_Alg", probs = 0.997, axis.ticks.y = element_line(size = 1.25),
+           sortVariable = "Diagnosis_Alg", probs = 0.997, axis.ticks = element_line(size = 0.9),
            axis.text.y = element_text(size = 11, color = "Black"), width = 11, height = 6, 
            legend.position = c(1.06, 0.835),
            file = "Figures/Estimated Cell Populations by Covariate Heatmap Sorted by Diagnosis.png")
 covHeatmap(covStats, variableOrdering = "hierarchical", regionOrdering = "hierarchical", variables = variables,
-           sortVariable = "Diagnosis_Alg", probs = 0.997, axis.ticks.y = element_line(size = 1.25),
+           sortVariable = "Diagnosis_Alg", probs = 0.997, axis.ticks = element_line(size = 0.9),
            axis.text.y = element_text(size = 11, color = "Black"), width = 11, height = 6, 
            legend.position = c(1.06, 0.835),
            file = "Figures/Estimated Cell Populations by Covariate Heatmap Clustered.png")
@@ -245,46 +274,112 @@ ggBoxPlot(data = samples_cov, x = samples_cov$Sex, y = samples_cov$nRBC, fill = 
           ncol = 4, axis.ticks.x = element_line(size = 1.25), axis.text.x = element_text(size = 16, color = "black"),
           ylim = c(0, 40), outlier.size = 1.5, legend.direction = "horizontal")
 
-# nRBCs Stats
+# nRBC Dot Plot by Diagnosis, Sex, and Platform
+samples_cov_dot <- samples_cov
+samples_cov_dot$Sex <- ifelse(samples_cov_dot$Sex == "M", yes = "Males", no = "Females") %>% factor(levels = c("Males", "Females"))
+g <- ggplot(data = samples_cov_dot)
+g + 
+        stat_summary(aes(x = Sex, y = nRBC, group = Diagnosis_Alg), fun.data = "mean_cl_boot", 
+                     geom = "crossbar", color = "black", size = 0.7, position = "dodge2") +
+        geom_dotplot(aes(x = Sex, y = nRBC, fill = Diagnosis_Alg, color = Diagnosis_Alg), binwidth = 0.6,
+                     binaxis = "y", stackdir = "center", position = "dodge", stackratio = 1.15, dotsize = 0.8) + 
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.895, 0.96), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title = element_blank(),
+              axis.text = element_text(color = "black"), legend.background = element_blank(), 
+              strip.text = element_text(size = 22), plot.margin = unit(c(0.3, 1, 1, 1), "lines"), 
+              axis.title.x = element_blank(), strip.background = element_blank()) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        ylab("Estimated nRBCs (%)") +
+        facet_wrap(vars(SampleSet)) +
+        scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD" = "#3366CC", "ASD" = "#FF3366")) +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("TD" = "#3366CC", "ASD" = "#FF3366"))
+ggsave("Figures/Estimated nRBCs by Diagnosis, Sex, and Platform Dotplot Mean CL.png", dpi = 600, width = 10, 
+       height = 7, units = "in")
+
+# nRBCs Stats ####
 # nRBCs by Diagnosis + Platform, stratified by sex
-summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = samples_cov))$coefficients
-#                   Estimate Std. Error  t value     Pr(>|t|)
-# Diagnosis_AlgASD  1.675600  0.7866926 2.129930 3.479822e-02
-# PlatformHiSeq4000 1.199557  0.8593466 1.395894 1.647955e-01
+summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = samples_cov))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# 1.83214635 0.79026086 2.31840705 0.02178725 
 
-summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = subset(samples_cov, Sex == "M")))$coefficients
-#                   Estimate Std. Error  t value     Pr(>|t|)
-# Diagnosis_AlgASD  2.429736  0.8800973 2.760758 6.749086e-03
-# PlatformHiSeq4000 1.029075  0.9333405 1.102572 2.725981e-01
+summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = subset(samples_cov, Sex == "M")))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# 2.65037728 0.88237500 3.00368584 0.00330901 
 
-summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = subset(samples_cov, Sex == "F")))$coefficients
-#                     Estimate Std. Error    t value     Pr(>|t|)
-# Diagnosis_AlgASD  -0.5075624   1.709197 -0.2969596 7.681582e-01
-# PlatformHiSeq4000  1.6908438   2.136496  0.7914097 4.337493e-01
+summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = subset(samples_cov, Sex == "F")))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# -0.4697397  1.7077322 -0.2750664  0.7847955 
 
 # nRBCs by Diagnosis + Platform + Gestational Age, stratified by sex
-summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = samples_cov))$coefficients
-#                   Estimate Std. Error  t value     Pr(>|t|)
-# Diagnosis_AlgASD   1.735402  0.7739739  2.242197 0.026415383
-# PlatformHiSeq4000  1.076842  0.8464896  1.272127 0.205296487
-# ga_w              -0.743033  0.2994980 -2.480928 0.014208358
+summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = samples_cov))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# 1.90374119 0.77768218 2.44796814 0.01553586 
 
-summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = subset(samples_cov, Sex == "M")))$coefficients
-#                   Estimate Std. Error  t value     Pr(>|t|)
-# Diagnosis_AlgASD   2.4607665  0.8575232  2.8696211 0.004929108
-# PlatformHiSeq4000  0.8688506  0.9113457  0.9533709 0.342492469
-# ga_w              -0.8122895  0.3082723 -2.6349746 0.009628334
+summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = subset(samples_cov, Sex == "M")))$coefficients["Diagnosis_AlgASD",]
+#    Estimate  Std. Error     t value    Pr(>|t|) 
+# 2.697778253 0.858955773 3.140765027 0.002174226 
 
-summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = subset(samples_cov, Sex == "F")))$coefficients
-#                     Estimate Std. Error    t value     Pr(>|t|)
-# Diagnosis_AlgASD  -0.4780684  1.7408529 -0.2746173 0.7851801
-# PlatformHiSeq4000  1.7034877  2.1663993  0.7863221 0.4368244
-# ga_w              -0.1577352  0.9331823 -0.1690293 0.8667198
+summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = subset(samples_cov, Sex == "F")))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# -0.4520351  1.7398020 -0.2598199  0.7964829 
 
-# Test for reduced males
+# Discovery nRBCs by Diagnosis + Platform + Gestational Age, stratified by sex
+summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
+#  Estimate Std. Error    t value   Pr(>|t|) 
+# 1.2508803  0.9987756  1.2524138  0.2132554 
+
+summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
+#  Estimate Std. Error    t value   Pr(>|t|) 
+# 2.0346600  1.1317106  1.7978625  0.0764503 
+
+summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# -0.8730100  2.0130092 -0.4336840  0.6677271 
+
+# Replication nRBCs by Diagnosis + Platform + Gestational Age, stratified by sex
+summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# 2.53141123 1.23816124 2.04449239 0.04705814 
+
+summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# 2.61224030 1.34297553 1.94511386 0.05982975 
+
+summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
+#  Estimate Std. Error    t value   Pr(>|t|) 
+# 4.6633969  3.1198813  1.4947353  0.1952191 
+
+# nRBC ~ Global Methylation Stats ####
+# Pooled
+summary(lm(nRBC ~ percent_cpg_meth + Platform + ga_w, 
+           data = samples_cov))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 9.960125e-23
+summary(lm(nRBC ~ percent_cpg_meth + Platform + ga_w, 
+           data = subset(samples_cov, Sex == "M")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 4.966483e-19
+summary(lm(nRBC ~ percent_cpg_meth + Platform + ga_w, 
+           data = subset(samples_cov, Sex == "F")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 1.060191e-05
+
+# Discovery
+summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
+           data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 9.143926e-19
+summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
+           data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 9.3761e-17
+summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
+           data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 0.0001023162
+
+# Replication
+summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
+           data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 7.73261e-06
+summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
+           data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 0.0001814852
+summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
+           data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 0.07680145
+
+# Test for reduced males ####
 table(samples_cov$Sex)
 #   M   F 
-# 114  40 
+# 112  40 
 samples_cov_males <- subset(samples_cov, Sex == "M")
 
 reducedMales <- NULL
@@ -298,15 +393,15 @@ reducedMales <- as.data.frame(reducedMales)
 rownames(reducedMales) <- 1:nrow(reducedMales)
 colnames(reducedMales) <- c("Estimate", "StdError", "tvalue", "pvalue")
 
-p <- 2 * ecdf(as.numeric(unlist(reducedMales$Estimate)))(-0.5075624) # 0.01
-p <- 2 * (1-ecdf(as.numeric(unlist(reducedMales$pvalue)))(0.7681582)) # 0.1
+p <- 2 * ecdf(as.numeric(unlist(reducedMales$Estimate)))(-0.4697397) # 0.004
+p <- 2 * (1-ecdf(as.numeric(unlist(reducedMales$pvalue)))(0.7847955)) # 0.034
 
 # Plot Reduced Males Estimate
 gg <- ggplot()
 gg +
         geom_histogram(data = reducedMales, aes(x = Estimate), fill = "#3366CC", bins = 50) +
-        geom_vline(xintercept = c(2.43, -0.51), color = "#FF3366", size = 1.25) +
-        annotate("text", x = c(2.53, -0.41), y = 58, label = c("True Males", "True Females"), size = 6, hjust = 0) +
+        geom_vline(xintercept = c(2.65, -0.47), color = "#FF3366", size = 1.25) +
+        annotate("text", x = c(2.7, -0.41), y = 58, label = c("True Males", "True Females"), size = 6, hjust = 0) +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
               legend.key = element_blank(), legend.key.size = unit(1, "lines"),
@@ -328,8 +423,8 @@ ggsave("Figures/Reduced Males nRBC Difference Estimate Histogram.png", dpi = 600
 gg <- ggplot()
 gg +
         geom_histogram(data = reducedMales, aes(x = pvalue), fill = "#3366CC", bins = 50) +
-        geom_vline(xintercept = c(0.007, 0.768), color = "#FF3366", size = 1.25) +
-        annotate("text", x = c(0.02, 0.79), y = 125, label = c("True Males", "True Females"), size = 6, hjust = 0) +
+        geom_vline(xintercept = c(0.003, 0.785), color = "#FF3366", size = 1.25) +
+        annotate("text", x = c(0.04, 0.8), y = 125, label = c("True Males", "True Females"), size = 6, hjust = 0) +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
               legend.key = element_blank(), legend.key.size = unit(1, "lines"),

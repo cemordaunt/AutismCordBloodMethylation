@@ -333,6 +333,16 @@ rm(DisDxBackGenes, RepDxBackGenes)
 # Gene Overlap Stats ####
 DisRegions_genes <- lapply(DisRegions, function(x) getDMRgeneList(x, regDomains = regDomains, direction = "all", type = "gene_name"))
 RepRegions_genes <- lapply(RepRegions, function(x) getDMRgeneList(x, regDomains = regDomains, direction = "all", type = "gene_name"))
+int_genes <- mapply(intersect, x = DisRegions_genes, y = RepRegions_genes)
+write.table(int_genes$DisDxAll, file = "Tables/Discovery and Replication All DMR Genes.txt", sep = "\t", quote = FALSE, 
+            row.names = FALSE, col.names = FALSE)
+write.table(int_genes$DisDxMales, file = "Tables/Discovery and Replication Males DMR Genes.txt", sep = "\t", quote = FALSE, 
+            row.names = FALSE, col.names = FALSE)
+write.table(int_genes$DisDxFemales, file = "Tables/Discovery and Replication Females DMR Genes.txt", sep = "\t", quote = FALSE, 
+            row.names = FALSE, col.names = FALSE)
+write.table(intersect(int_genes$DisDxMales, int_genes$DisDxFemales), file = "Tables/Discovery and Replication Males and Females DMR Genes.txt", sep = "\t", quote = FALSE, 
+            row.names = FALSE, col.names = FALSE)
+
 gom <- newGOM(gsetA = DisRegions_genes, gsetB = RepRegions_genes, genome.size = length(intersectBack)) # 25088
 gomResults <- getMatrix(gom, "intersection") %>% melt
 colnames(gomResults) <- c("DiscoveryList", "ReplicationList", "Intersection")
@@ -418,6 +428,39 @@ venn.diagram(list("Discovery" = DisRegions_genes$DisDxFemalesHypo, "Replication"
              units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
              lwd = 4, cat.cex = 3, cat.pos = c(155, 180), cat.dist = c(0.04, 0.03), rotation.degree = 180, margin = 0.04,
              ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
+
+# Replicated DMR Gene DAVID ####
+DisRegions_IDs <- lapply(DisRegions[c("DisDxAll", "DisDxMales", "DisDxFemales")], function(x){
+        getDMRgeneList(x, regDomains = regDomains, direction = "all", type = "gene_entrezID")})
+RepRegions_IDs <- lapply(RepRegions[c("RepDxAll", "RepDxMales", "RepDxFemales")], function(x){
+        getDMRgeneList(x, regDomains = regDomains, direction = "all", type = "gene_entrezID")})
+intRegions_IDs <- mapply(intersect, x = DisRegions_IDs, y = RepRegions_IDs)
+mapply(function(x, y) write.table(x, file = y, sep = "\t", quote = FALSE, col.names = FALSE, row.names = FALSE),
+       x = intRegions_IDs, y = c("Tables/Overlapping DMR Gene entrezIDs All Discovery vs Replication.txt",
+                             "Tables/Overlapping DMR Gene entrezIDs Males Discovery vs Replication.txt",
+                             "Tables/Overlapping DMR Gene entrezIDs Females Discovery vs Replication.txt"))
+MFintRegions_IDs <- intersect(intRegions_IDs$DisDxMales, intRegions_IDs$DisDxFemales)
+write.table(MFintRegions_IDs, file = "Tables/Overlapping DMR Gene entrezIDs Males and Females Discovery vs Replication.txt", 
+            sep = "\t", quote = FALSE, col.names = FALSE, row.names = FALSE)
+MonlyIntRegions_IDs <- intRegions_IDs$DisDxMales[!intRegions_IDs$DisDxMales %in% intRegions_IDs$DisDxFemales]
+write.table(MonlyIntRegions_IDs, file = "Tables/Overlapping DMR Gene entrezIDs Males Only Discovery vs Replication.txt", 
+            sep = "\t", quote = FALSE, col.names = FALSE, row.names = FALSE)
+FonlyIntRegions_IDs <- intRegions_IDs$DisDxFemales[!intRegions_IDs$DisDxFemales %in% intRegions_IDs$DisDxMales]
+write.table(FonlyIntRegions_IDs, file = "Tables/Overlapping DMR Gene entrezIDs Females Only Discovery vs Replication.txt", 
+            sep = "\t", quote = FALSE, col.names = FALSE, row.names = FALSE)
+
+DisBack_IDs <- lapply(DisDxBackRegions[c("DisDxAllBack", "DisDxMalesBack", "DisDxFemalesBack")], function(x){
+        getDMRgeneList(x, regDomains = regDomains, direction = "all", type = "gene_entrezID")})
+RepBack_IDs <- lapply(RepDxBackRegions[c("RepDxAllBack", "RepDxMalesBack", "RepDxFemalesBack")], function(x){
+        getDMRgeneList(x, regDomains = regDomains, direction = "all", type = "gene_entrezID")})
+intBack_IDs <- mapply(intersect, x = DisBack_IDs, y = RepBack_IDs)
+mapply(function(x, y) write.table(x, file = y, sep = "\t", quote = FALSE, col.names = FALSE, row.names = FALSE),
+       x = intBack_IDs, y = c("Tables/Overlapping DMR Background Gene entrezIDs All Discovery vs Replication.txt",
+                                 "Tables/Overlapping DMR Background Gene entrezIDs Males Discovery vs Replication.txt",
+                                 "Tables/Overlapping DMR Background Gene entrezIDs Females Discovery vs Replication.txt"))
+MFintBack_IDs <- intersect(intBack_IDs$DisDxMalesBack, intBack_IDs$DisDxFemalesBack)
+write.table(MFintBack_IDs, file = "Tables/Overlapping DMR Background Gene entrezIDs Males and Females Discovery vs Replication.txt", 
+            sep = "\t", quote = FALSE, col.names = FALSE, row.names = FALSE)
 
 # Overlap Replicated Genes ####
 # Compare all
@@ -519,6 +562,37 @@ venn.diagram(list("All" = intersectGenes$DxAll, "Males" = intersectGenes$DxMales
              lwd = 4, cat.cex = 3, cat.pos = c(323, 0, 45), cat.dist = c(0.063, 0.05, 0.05), rotation.degree = 60, reverse = TRUE, margin = 0.04,
              ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
 
+# Dx Males Females chrX Venn Diagram
+chrX_regions <- list(DisDxMales = subset(DisDxMales, chr == "chrX"), DisDxFemales = subset(DisDxFemales, chr == "chrX"),
+                     RepDxMales = subset(RepDxMales, chr == "chrX"), RepDxFemales = subset(RepDxFemales, chr == "chrX"))
+
+chrX_genes <- lapply(chrX_regions, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_name")
+chrX_int <- list(DxMales = intersect(chrX_genes$DisDxMales, chrX_genes$RepDxMales), # 101 genes in males
+                 DxFemales = intersect(chrX_genes$DisDxFemales, chrX_genes$RepDxFemales)) # 173 genes in females
+venn.diagram(list("Males" = chrX_int$DxMales, "Females" = chrX_int$DxFemales),
+             file = "Figures/Replicated Male vs Female chrX DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
+             lwd = 4, cat.cex = 3, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), rotation.degree = 180, margin = 0.02,
+             ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
+
+chrX_genes <- lapply(chrX_regions, getDMRgeneList, regDomains = regDomains, direction = "hyper", type = "gene_name")
+chrX_int <- list(DxMales = intersect(chrX_genes$DisDxMales, chrX_genes$RepDxMales), # 13 genes in males
+                 DxFemales = intersect(chrX_genes$DisDxFemales, chrX_genes$RepDxFemales)) # 65 genes in females
+venn.diagram(list("Males" = chrX_int$DxMales, "Females" = chrX_int$DxFemales),
+             file = "Figures/Replicated Male vs Female chrX Hyper DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
+             lwd = 4, cat.cex = 3, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03), rotation.degree = 180, margin = 0.02,
+             ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
+
+chrX_genes <- lapply(chrX_regions, getDMRgeneList, regDomains = regDomains, direction = "hypo", type = "gene_name")
+chrX_int <- list(DxMales = intersect(chrX_genes$DisDxMales, chrX_genes$RepDxMales), # 68 genes in males
+                 DxFemales = intersect(chrX_genes$DisDxFemales, chrX_genes$RepDxFemales)) # 81 genes in females
+venn.diagram(list("Males" = chrX_int$DxMales, "Females" = chrX_int$DxFemales),
+             file = "Figures/Replicated Male vs Female chrX Hypo DMR Gene Overlap Venn.png", height = 8, width = 10, imagetype = "png", 
+             units = "in", fontfamily = "sans", cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 3, 
+             lwd = 4, cat.cex = 3, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), rotation.degree = 180, margin = 0.02,
+             ext.text = TRUE, ext.dist = -0.1, ext.length = 0.9, ext.line.lwd = 2, ext.percent = 0.01)
+
 # Overlap Plots ####
 # All, Hyper, Hypo DMR Gene Heatmaps
 plotGOMheatmap(intersect_gomResults, type = "log_qValue", 
@@ -586,6 +660,18 @@ pdf(file = "Figures/Dis vs Rep Overlapping All DMR Gene Overlap Upset Plot by de
 upset(fromList(intersectGenes_all), nsets = 4, nintersects = NA, order.by = "degree", sets.x.label = "Genes", 
       mainbar.y.label = "Genes", text.scale = c(2.5, 2.5, 2, 2, 2.25, 2.5), point.size = 3.5, line.size = 1.5) 
 dev.off()
+
+# All Upset Plot without AdjSex
+intersectGenes_all <- intersectGenes[names(intersectGenes) %in% c("DxAll", "DxMales", "DxFemales")]
+names(intersectGenes_all) <- c("All", "Males", "Females")
+pdf(file = "Figures/Dis vs Rep Overlapping All DMR Gene Overlap Upset Plot by degree no adjsex.pdf", 
+    width = 12, height = 8, onefile = FALSE)
+upset(fromList(intersectGenes_all), nsets = 3, nintersects = NA, order.by = "degree", 
+      sets.x.label = "Total Genes", mainbar.y.label = "Genes", text.scale = c(3, 3, 2.5, 2.5, 3, 3), 
+      point.size = 3.75, line.size = 1.75) 
+dev.off()
+
+intersect(intersectGenes_all$All, intersectGenes_all$Males) %>% intersect(intersectGenes_all$Females)
 
 # Hyper Upset Plot
 intersectGenes_hyper <- intersectGenes[names(intersectGenes) %in% c("DxAllHyper", "DxSexAllHyper", "DxMalesHyper", "DxFemalesHyper")]

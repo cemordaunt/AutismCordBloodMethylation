@@ -33,7 +33,8 @@ CMplotDMR <- function(candidates, prefix, plot.type, bin.max = 450, m.cex = 0.3)
         }
 }
 
-loadRegions <- function(file, chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"), sort = TRUE){
+loadRegions <- function(file, chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"), sort = TRUE, 
+                        DMRid = FALSE, DMBid = FALSE){
         if(grepl("txt", file, fixed = TRUE)){
                 regions <- read.delim(file, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
         }
@@ -48,7 +49,33 @@ loadRegions <- function(file, chroms = c(paste("chr", 1:22, sep = ""), "chrX", "
         if(sort){
                 regions <- regions[order(regions$chr, regions$start),]
         }
+        if(DMRid){
+                regions$DMRid <- paste("DMR", 1:nrow(regions), sep = "_")
+        }
+        if(DMBid){
+                regions$DMBid <- paste("DMB", 1:nrow(regions), sep = "_")
+        }
         return(regions)
+}
+
+writeBED <- function(regions, file){
+        if("DMRid" %in% colnames(regions)){
+                bed <- data.frame("chr" = regions$chr, "start" = regions$start, "end" = regions$end, "name" = regions$DMRid, 
+                                  "score" = 0, "strand" = ".", "thickStart" = 0, "thickEnd" = 0, 
+                                  "RGB" = ifelse(regions$percentDifference > 0, "255,0,0", "0,0,255"))
+        } else {
+                if("DMBid" %in% colnames(regions)){
+                        bed <- data.frame("chr" = regions$chr, "start" = regions$start, "end" = regions$end, "name" = regions$DMBid, 
+                                          "score" = 0, "strand" = ".", "thickStart" = 0, "thickEnd" = 0, 
+                                          "RGB" = ifelse(regions$percentDifference > 0, "255,0,0", "0,0,255"))
+                } else {
+                        bed <- data.frame("chr" = regions$chr, "start" = regions$start, "end" = regions$end, 
+                                          "name" = paste("region", 1:nrow(regions), sep = "_"), 
+                                          "score" = 0, "strand" = ".", "thickStart" = 0, "thickEnd" = 0, 
+                                          "RGB" = ifelse(regions$percentDifference > 0, "255,0,0", "0,0,255"))
+                }
+        }
+        write.table(bed, file = file, sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
 }
 
 .plotDendro <- function(ddata, row = !col, col = !row, labels = col) {
@@ -275,7 +302,6 @@ DMRmethLm <- function(DMRs, catVars, contVars, sampleData, file, adj = NULL){
         else {
                 message("[DMRmethLm] Getting DMR methylation by covariate stats")
         }
-        start_time <- Sys.time()
         covStats <- lapply(DMRs, function(x){
                 .methLm(catVars = catVars, contVars = contVars, sampleData = sampleData, meth = x, adj = adj) 
         }) %>% list.rbind
@@ -291,8 +317,7 @@ DMRmethLm <- function(DMRs, catVars, contVars, sampleData, file, adj = NULL){
         covStats$qvalue <- p.adjust(covStats$pvalue, method = "fdr")
         covStats <- covStats[,c("Region", "Variable", "Term", "Estimate", "StdError", "tvalue", "pvalue", "log_pvalue", 
                                 "qvalue")]
-        end_time <- Sys.time()
-        message("[DMRmethLm] Complete, writing file. Time difference of ", round(end_time - start_time, 2), " minutes")
+        message("[DMRmethLm] Complete, writing file")
         write.table(covStats, file = file, sep = "\t", quote = FALSE, row.names = FALSE)
         return(covStats)
 }
@@ -314,7 +339,7 @@ DMRmethLmSum <- function(covStats, file){
 
 covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hierarchical"), 
                        regionOrdering = c("unsorted", "variable", "hierarchical"), variables = NULL,
-                       sortVariable = "Diagnosis_Alg", file, probs = 0.999, axis.ticks.y = element_blank(),
+                       sortVariable = "Diagnosis_Alg", file, probs = 0.999, axis.ticks = element_blank(),
                        axis.text.y = element_blank(), legend.position = c(1.07, 0.835), width = 10, height = 6){
         # Replace NA/Inf/NaN Values with 0
         covStats$log_pvalue[is.na(covStats$log_pvalue) | is.infinite(covStats$log_pvalue) | 
@@ -356,8 +381,8 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
                 theme_bw(base_size = 24) +
                 theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
                       panel.border = element_rect(color = "black", size = 1.25), 
-                      plot.margin = unit(c(1, 5.5, 1, 1), "lines"), axis.ticks.x = element_line(size = 1.25), 
-                      axis.ticks.y = axis.ticks.y, panel.background = element_rect(fill = "black"),
+                      plot.margin = unit(c(1, 5.5, 1, 1), "lines"),
+                      axis.ticks = axis.ticks, panel.background = element_rect(fill = "black"),
                       axis.text.x = element_text(size = 9, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
                       axis.text.y = axis.text.y, axis.title = element_blank(), legend.key = element_blank(),  
                       legend.position = legend.position, legend.background = element_blank(), 
@@ -367,12 +392,14 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
 }
 
 getDMRanno <- function(DMRstats, regDomains, file){
-        start_time <- Sys.time()
         message("[getDMRanno] Adding genes to DMRs by regulatory domains")
         GR_regDomains <- GRanges(seqnames = regDomains$gene_chr, ranges = IRanges(start = regDomains$distal_start, end = regDomains$distal_end))
         GR_DMRstats <- GRanges(seqnames = DMRstats$chr, ranges = IRanges(start = DMRstats$start, end = DMRstats$end))
         overlaps <- as.data.frame(findOverlaps(GR_DMRstats, GR_regDomains))
         rm(GR_regDomains, GR_DMRstats)
+        if("DMBid" %in% colnames(DMRstats)){
+                colnames(DMRstats)[colnames(DMRstats) == "DMBid"] <- "DMRid"
+        }
         DMRstats_genes <- cbind("DMRid" = DMRstats$DMRid[overlaps$queryHits], regDomains[overlaps$subjectHits,], row.names=NULL)
         rm(overlaps)
         DMRstats_genes <- merge(DMRstats, DMRstats_genes, by = "DMRid", all = TRUE, sort = FALSE)
@@ -436,9 +463,11 @@ getDMRanno <- function(DMRstats, regDomains, file){
         DMRs_GeneReg$GeneReg_Anno <- gsub(pattern = "hg38_", replacement = "", x = DMRs_GeneReg$GeneReg_Anno, fixed = TRUE)
         DMRs_GeneReg <- aggregate(formula = GeneReg_Anno ~ DMRid, data = DMRs_GeneReg, FUN = function(x) paste(unique(x), collapse = ", "), simplify = TRUE)
         DMRstats_annotated <- merge(x = DMRstats_annotated, y = DMRs_GeneReg, by = "DMRid", all.x = TRUE, all.y = FALSE, sort = FALSE)
+        if(sum(grepl(pattern = "DMB", x = DMRstats_annotated$DMRid, fixed = TRUE)) > 0){
+                colnames(DMRstats_annotated)[colnames(DMRstats_annotated) == "DMRid"] <- "DMBid"
+        }
         write.table(DMRstats_annotated, file, sep = "\t", quote = FALSE, row.names = FALSE)
-        end_time <- Sys.time()
-        message("[getDMRanno] Complete! Time difference of ", round(end_time - start_time, 2), " minutes")
+        message("[getDMRanno] Complete!")
         return(DMRstats_annotated)
 }
 
@@ -463,7 +492,6 @@ makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
 
 prepGREAT <- function(DMRs, Background, fileName, writeBack = FALSE, backName, 
                       chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")){
-        start_time <- Sys.time()
         chain <- import.chain("Tables/hg38ToHg19.over.chain")
         
         message("[prepGREAT] Lifting over DMRs to hg19 and removing duplicates")
@@ -527,8 +555,7 @@ prepGREAT <- function(DMRs, Background, fileName, writeBack = FALSE, backName,
                 message("[prepGREAT] Writing zipped background file to ", backName)
                 gzip(backName, overwrite=TRUE)
         }
-        end_time <- Sys.time()
-        message("[prepGREAT] Complete! Time difference of ", round(end_time - start_time, 2), " minutes")
+        message("[prepGREAT] Complete!")
 }
 
 getGREATenrichments <- function(BEDfile_DMR, BEDfile_Back, species = "hg19", rule = "basalPlusExt", minGenes = 10, maxGenes = 2000,
@@ -536,7 +563,6 @@ getGREATenrichments <- function(BEDfile_DMR, BEDfile_Back, species = "hg19", rul
                                             "MSigDB Cancer Neighborhood", "MSigDB Perturbation", 
                                             "MSigDB Predicted Promoter Motifs")){
         # Gets enrichments with FDR q < 0.05 from a DMR and Background bed.gz file, Fails with "MGI Expression: Detected"
-        start_time <- Sys.time()
         message("[getGREATenrichments] Submitting Regions to GREAT")
         job <- submitGreatJob(gr = BEDfile_DMR, bg = BEDfile_Back, species = species, includeCuratedRegDoms = FALSE, 
                               rule = rule, request_interval = 30, version = "3.0.0")
@@ -559,8 +585,7 @@ getGREATenrichments <- function(BEDfile_DMR, BEDfile_Back, species = "hg19", rul
                                                         "Hyper_Term_Region_Coverage", "Hyper_Foreground_Gene_Hits",
                                                         "Hyper_Background_Gene_Hits", "Total_Genes_Annotated", 
                                                         "Hyper_Fold_Enrichment", "Hyper_Raw_PValue", "qvalue", "log_qvalue")]
-        end_time <- Sys.time()
-        message("[getGREATenrichments] Complete! Time difference of ", round(end_time - start_time, 2), " minutes")
+        message("[getGREATenrichments] Complete!")
         return(results)
 }
 
@@ -569,7 +594,7 @@ plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.w
         gg <- ggplot()
         gg <- gg +
                 geom_tile(data = greatCombined, aes(y = name, x = Direction, fill = log_qvalue)) +
-                scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1)) +
+                scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000") +
                 scale_x_discrete(expand = c(0,0), drop = FALSE) +
                 theme_bw(base_size = 24) +
                 theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
@@ -591,7 +616,9 @@ plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.w
                           "Vaccinee" = "Vaccine", "Il4" = "IL4", "Ii" = "II", "NFat" = "NFAT", "Gnrh" = "GnRH",
                           "Er" = "ER", "Mtor" = "mTOR", "CDk" = "CDK", "Tgf" = "TGF", "Arf" = "ARF", "Mirna" = "miRNA",
                           "Il1" = "IL1", "ERythropoiesis" = "Erythropoiesis", "Hiv" = "HIV", "Hdac" = "HDAC", 
-                          "Gaba" = "GABA", "Cns" = "CNS")
+                          "Gaba" = "GABA", "Cns" = "CNS", "Hdl" = "HDL", "Microrna" = "MicroRNA", "Mir" = "MIR", 
+                          "Cagtatt" = "CAGTATT", "Udp" = "UDP", "Hs-Gag" = "HS-GAG", "IIi" = "III", "Ch-Nh2" = "CH-NH2",
+                          "androgen" = "Androgen", "ERrors" = "Errors")
         if(wrap){
                 gg <- gg +
                         scale_y_discrete(expand = c(0,0), drop = FALSE, labels = function(x){
@@ -627,17 +654,27 @@ getRegionStats <- function(DMRs, background, n){
 }
 
 DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, rotation.degree = 0, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03),
-                           fill = c("lightblue", "lightpink"), ext.text = TRUE, totalTest = NULL){
+                           fill = c("lightblue", "lightpink"), ext.text = TRUE, ext.dist = -0.2, totalTest = NULL, method = NULL){
         pdf(file = file, width = 10, height = 8, onefile = FALSE)
         venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, maxgap = -1, minoverlap = 1, 
                                                  by = "region", connectedPeaks = "min", rotation.degree = rotation.degree, 
                                                  margin = 0.04, cat.cex = 2, cex = 2.5, fill = fill, totalTest = totalTest,
-                                                 cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans", method = "hyperG",
-                                                 cat.fontfamily = "sans", ext.dist = -0.2, ext.length = 0.85, ext.text = ext.text))
+                                                 cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans", method = method,
+                                                 cat.fontfamily = "sans", ext.dist = ext.dist, ext.length = 0.85, ext.text = ext.text))
         if(!is.null(totalTest)){
                 cat("Hypergeometric Test p =", venn$p.value[3], "\n")
         }
         dev.off()
+}
+
+geneOverlapVenn <- function(x, file, cat.pos = c(150, 180), cat.dist = c(0.04, 0.03), rotation.degree = 180,
+                            ext.dist = -0.1, margin = 0.05){
+        futile.logger::flog.threshold(futile.logger::ERROR, name = "VennDiagramLogger") # Suppress log file
+        venn.diagram(x = x, file = file, height = 8, width = 10, imagetype = "png", units = "in", fontfamily = "sans", 
+                     cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 2.75, lwd = 4, cat.cex = 2.5, 
+                     cat.pos = cat.pos, cat.dist = cat.dist, rotation.degree = rotation.degree, margin = margin, 
+                     ext.text = TRUE, ext.dist = ext.dist, ext.length = 0.85, ext.line.lwd = 2, 
+                     ext.percent = c(0.01, 0.01, 0.01))
 }
 
 plotGOMheatmap <- function(data, type = c("log_OddsRatio", "log_qValue"), file, expand = c(0.04, 0),

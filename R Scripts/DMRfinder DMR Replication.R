@@ -337,5 +337,49 @@ DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Disc_Females, GR_DMRfinder_DMRs_Hypo$Di
                rotation.degree = 180, cat.pos = c(200, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
 # Hypergeometric Test p = 1.725105e-203 
 
+# Replication All
+DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Rep_All, GR_DMRfinder_DMRs_Hyper$Rep_All),
+               NameOfPeaks = c("DMRichR_Rep_All_Hyper", "DMRfinder_Rep_All_Hyper"), 
+               totalTest = length(GR_background$Rep_All),
+               file = "Figures/Replication All Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
+               rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
+# Hypergeometric Test p = 9.841473e-95 
+
+DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Rep_All, GR_DMRfinder_DMRs_Hypo$Rep_All),
+               NameOfPeaks = c("DMRichR_Rep_All_Hypo", "DMRfinder_Rep_All_Hypo"), 
+               totalTest = length(GR_background$Rep_All),
+               file = "Figures/Replication All Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
+               rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
+# Hypergeometric Test p = 9.735604e-74 
+
+# Replication Males
+DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Rep_Males, GR_DMRfinder_DMRs_Hyper$Rep_Males),
+               NameOfPeaks = c("DMRichR_Rep_Males_Hyper", "DMRfinder_Rep_Males_Hyper"), 
+               totalTest = length(GR_background$Rep_Males),
+               file = "Figures/Replication Males Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
+               rotation.degree = 180, cat.pos = c(190, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
+# Hypergeometric Test p = 3.690528e-125 
+
+DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Rep_Males, GR_DMRfinder_DMRs_Hypo$Rep_Males),
+               NameOfPeaks = c("DMRichR_Rep_Males_Hypo", "DMRfinder_Rep_Males_Hypo"), 
+               totalTest = length(GR_background$Rep_Males),
+               file = "Figures/Replication Males Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
+               rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
+# Hypergeometric Test p = 1.032171e-100 
+
+# Replication Females
+DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Rep_Females, GR_DMRfinder_DMRs_Hyper$Rep_Females),
+               NameOfPeaks = c("DMRichR_Rep_Females_Hyper", "DMRfinder_Rep_Females_Hyper"), 
+               totalTest = length(GR_background$Rep_Females),
+               file = "Figures/Replication Females Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
+               rotation.degree = 180, cat.pos = c(205, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
+# Hypergeometric Test p = 1.3363e-267 
+
+DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Rep_Females, GR_DMRfinder_DMRs_Hypo$Rep_Females),
+               NameOfPeaks = c("DMRichR_Rep_Females_Hypo", "DMRfinder_Rep_Females_Hypo"), 
+               totalTest = length(GR_background$Rep_Females),
+               file = "Figures/Replication Females Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
+               rotation.degree = 180, cat.pos = c(200, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
+# Hypergeometric Test p = 0 
 
 
