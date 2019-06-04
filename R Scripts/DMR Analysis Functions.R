@@ -654,16 +654,13 @@ getRegionStats <- function(DMRs, background, n){
 }
 
 DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, rotation.degree = 0, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03),
-                           fill = c("lightblue", "lightpink"), ext.text = TRUE, ext.dist = -0.2, totalTest = NULL, method = NULL){
+                           fill = c("lightblue", "lightpink"), ext.text = TRUE, ext.dist = -0.2){
         pdf(file = file, width = 10, height = 8, onefile = FALSE)
         venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, maxgap = -1, minoverlap = 1, 
                                                  by = "region", connectedPeaks = "min", rotation.degree = rotation.degree, 
-                                                 margin = 0.04, cat.cex = 2, cex = 2.5, fill = fill, totalTest = totalTest,
-                                                 cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans", method = method,
+                                                 margin = 0.04, cat.cex = 2, cex = 2.5, fill = fill,
+                                                 cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans",
                                                  cat.fontfamily = "sans", ext.dist = ext.dist, ext.length = 0.85, ext.text = ext.text))
-        if(!is.null(totalTest)){
-                cat("Hypergeometric Test p =", venn$p.value[3], "\n")
-        }
         dev.off()
 }
 
