@@ -2,7 +2,8 @@
 # Diagnosis and Sex
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 2/14/19
+# 6/5/19
+# Updated Background without Coordinate Shifting
 
 # Packages ####
 sapply(c("tidyverse", "ggdendro", "scales", "ggplot2", "ggbiplot", "reshape", "grid", "RColorBrewer", "CMplot", "rlist",
@@ -182,22 +183,25 @@ greatCombined$Direction <- factor(c(rep("All", nrow(greatAll)), rep("Hyper", nro
 write.table(greatCombined, "Tables/Replication Diagnosis NoXY DMRs GREAT Combined Results.txt", sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 # Plot All Enrichments
-greatPlotData <- greatCombined
+greatPlotData <- subset(greatCombined, ID %in% # Get top 10 from each direction
+                                unique(c(greatCombined$ID[greatCombined$Direction == "All"][1:10], 
+                                         greatCombined$ID[greatCombined$Direction == "Hyper"][1:10],
+                                         greatCombined$ID[greatCombined$Direction == "Hypo"][1:10])))
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
-plotGREAT(greatPlotData, file = "Figures/Replication Diagnosis NoXY DMRs GREAT Plot.png", axis.text.y.size = 9, 
-          axis.text.y.width = 35, legend.position = c(1.28, 0.87))
+plotGREAT(greatPlotData, file = "Figures/Replication Diagnosis NoXY DMRs GREAT Plot.png", axis.text.y.size = 10, 
+          axis.text.y.width = 35, legend.position = c(1.35, 0.87))
 
 # Plot Immune Enrichments
 greatPlotData <- subset(greatCombined, Ontology == "MSigDB Immunologic Signatures")
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
 plotGREAT(greatPlotData, file = "Figures/Replication Diagnosis NoXY DMRs GREAT Immune Plot.png", axis.text.y.size = 9, 
-          axis.text.y.width = 60, legend.position = c(1.28, 0.87)) # wrapping is on
+          axis.text.y.width = 60, legend.position = c(1.28, 0.87), wrap = TRUE)
 
 # Plot Not Immune Enrichments
 greatPlotData <- subset(greatCombined, !Ontology == "MSigDB Immunologic Signatures")
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
 plotGREAT(greatPlotData, file = "Figures/Replication Diagnosis NoXY DMRs GREAT Not Immune Plot.png", 
-          axis.text.y.size = 10, axis.text.y.width = 35, legend.position = c(1.24, 0.87)) # wrapping is off
+          axis.text.y.size = 10, axis.text.y.width = 35, legend.position = c(1.24, 0.87), wrap = FALSE)
 
 rm(greatAll, greatCombined, greatHyper, greatHypo, background, DMRs, BEDfile_Back, samples, greatPlotData)
 
@@ -624,8 +628,8 @@ greatPlotData <- subset(greatCombined, ID %in% # Get top 10 from each direction
                                 greatCombined$ID[greatCombined$Direction == "Hyper"][1:10],
                                 greatCombined$ID[greatCombined$Direction == "Hypo"][1:10])))
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
-plotGREAT(greatPlotData, file = "Figures/Replication Males Diagnosis DMRs GREAT Plot.png", axis.text.y.size = 9, 
-          axis.text.y.width = 35, legend.position = c(1.28, 0.87))
+plotGREAT(greatPlotData, file = "Figures/Replication Males Diagnosis DMRs GREAT Plot.png", axis.text.y.size = 10, 
+          axis.text.y.width = 35, legend.position = c(1.35, 0.87))
 
 # Plot Immune Enrichments
 greatPlotData <- subset(greatCombined, Ontology == "MSigDB Immunologic Signatures")
@@ -635,7 +639,7 @@ greatPlotData <- subset(greatPlotData, ID %in% # Get top 10 from each direction
                                          greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:10])))
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
 plotGREAT(greatPlotData, file = "Figures/Replication Males Diagnosis DMRs GREAT Immune Plot.png", axis.text.y.size = 9, 
-          axis.text.y.width = 60, legend.position = c(1.28, 0.87)) # wrapping is on
+          axis.text.y.width = 60, legend.position = c(1.28, 0.87), wrap = TRUE)
 
 # Plot GO Terms
 greatPlotData <- subset(greatCombined, Ontology %in% c("GO Biological Process", "GO Cellular Component", "GO Molecular Function"))
@@ -644,18 +648,18 @@ greatPlotData <- subset(greatPlotData, ID %in% # Get top 20 from each direction
                                          greatPlotData$ID[greatPlotData$Direction == "Hyper"][1:20],
                                          greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:20])))
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
-plotGREAT(greatPlotData, file = "Figures/Replication Males Diagnosis DMRs GREAT GO Term Plot.png", axis.text.y.size = 9, 
-          axis.text.y.width = 35, legend.position = c(1.28, 0.87)) # wrapping is off
+plotGREAT(greatPlotData, file = "Figures/Replication Males Diagnosis DMRs GREAT GO Term Plot.png", axis.text.y.size = 10, 
+          axis.text.y.width = 35, legend.position = c(1.33, 0.87))
 
 # Plot Mouse Phenotype
 greatPlotData <- subset(greatCombined, Ontology == "Mouse Phenotype")
-greatPlotData <- subset(greatPlotData, ID %in% # Get top 20 from each direction
-                                unique(c(greatPlotData$ID[greatPlotData$Direction == "All"][1:20], 
-                                         greatPlotData$ID[greatPlotData$Direction == "Hyper"][1:20],
-                                         greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:20])))
+greatPlotData <- subset(greatPlotData, ID %in% # Get top 10 from each direction
+                                unique(c(greatPlotData$ID[greatPlotData$Direction == "All"][1:10], 
+                                         greatPlotData$ID[greatPlotData$Direction == "Hyper"][1:10],
+                                         greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:10])))
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
-plotGREAT(greatPlotData, file = "Figures/Replication Males Diagnosis DMRs GREAT Mouse Pheno Plot.png", axis.text.y.size = 9, 
-          axis.text.y.width = 35, legend.position = c(1.2, 0.87)) # wrapping is off
+plotGREAT(greatPlotData, file = "Figures/Replication Males Diagnosis DMRs GREAT Mouse Pheno Plot.png", axis.text.y.size = 10, 
+          axis.text.y.width = 35, legend.position = c(1.21, 0.87))
 
 rm(greatAll, greatCombined, greatHyper, greatHypo, BEDfile_Back, greatPlotData)
 
@@ -676,7 +680,7 @@ candidates <- loadRegions("DMRs/Replication/Diagnosis Females 50/CandidateRegion
                           chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), sort = TRUE)
 candidates <- candidates[,c("chr", "start", "end", "width", "L", "percentDifference", "stat", "pval", "qval")]
 
-# Background
+# Background, not updated without shifting coordinates
 background <- loadRegions("DMRs/Replication/Diagnosis Females 50/bsseq_background_Replication50_females.csv",
                           chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), sort = TRUE)
 
@@ -1105,7 +1109,7 @@ greatPlotData <- subset(greatPlotData, ID %in% # Get top 10 from each direction
                                          greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:10])))
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
 plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis 100 DMRs GREAT GO Term Plot.png", 
-          axis.text.y.size = 9, axis.text.y.width = 35, legend.position = c(1.2, 0.87), wrap = FALSE) 
+          axis.text.y.size = 10, axis.text.y.width = 35, legend.position = c(1.22, 0.87), wrap = FALSE) 
 
 # Plot Mouse Phenotype
 greatPlotData <- subset(greatCombined, Ontology == "Mouse Phenotype")
@@ -1115,7 +1119,7 @@ greatPlotData <- subset(greatPlotData, ID %in% # Get top 15 from each direction
                                          greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:15])))
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
 plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis 100 DMRs GREAT Mouse Pheno Plot.png", 
-          axis.text.y.size = 9, axis.text.y.width = 35, legend.position = c(1.18, 0.87), wrap = FALSE) 
+          axis.text.y.size = 10, axis.text.y.width = 35, legend.position = c(1.2, 0.87), wrap = FALSE) 
 
 # Plot MSigDB Pathway
 greatPlotData <- subset(greatCombined, Ontology == "MSigDB Pathway")
@@ -1125,7 +1129,7 @@ greatPlotData <- subset(greatPlotData, ID %in% # Get top 15 from each direction
                                          greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:15])))
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
 plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis 100 DMRs GREAT MSigDB Pathway Plot.png", 
-          axis.text.y.size = 9, axis.text.y.width = 35, legend.position = c(1.23, 0.87), wrap = FALSE) 
+          axis.text.y.size = 10, axis.text.y.width = 35, legend.position = c(1.26, 0.87), wrap = FALSE) 
 
 # Plot Human Phenotype
 greatPlotData <- subset(greatCombined, Ontology == "Human Phenotype")
@@ -1135,7 +1139,7 @@ greatPlotData <- subset(greatPlotData, ID %in% # Get top 15 from each direction
                                          greatPlotData$ID[greatPlotData$Direction == "Hypo"][1:15])))
 greatPlotData$name <- factor(greatPlotData$name, levels = rev(unique(greatPlotData$name)))
 plotGREAT(greatPlotData, file = "Figures/Replication Females Diagnosis 100 DMRs GREAT Human Pheno Plot.png", 
-          axis.text.y.size = 10, axis.text.y.width = 35, legend.position = c(1.16, 0.87), wrap = FALSE) 
+          axis.text.y.size = 11, axis.text.y.width = 35, legend.position = c(1.16, 0.87), wrap = FALSE) 
 
 rm(greatAll, greatCombined, greatHyper, greatHypo, BEDfile_Back, greatPlotData)
 

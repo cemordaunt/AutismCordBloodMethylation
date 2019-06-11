@@ -297,7 +297,7 @@ raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = data.frame2GRanges(s
 raw <- cbind(sigRegions, raw)
 write.table(raw, "DMR_raw_methylation_DxNoXY_Discovery50_EARLI.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
-# DMRs with Reduced Number of Males (Rerun without JLCM032B and JLCM050B) ####
+# DMRs with Reduced Number of Males (Rerun without JLCM032B and JLCM050B, Complete) ####
 # Reduce number of males (laptop)
 set.seed(5)
 meta <- read.xlsx("DMRs/Discovery/Diagnosis Males 50/sample_info_males.xlsx", colNames = TRUE) 
@@ -311,25 +311,25 @@ reducedASD <- sample(meta$Name[meta$Diagnosis == "Exp_ASD"], size = table(metaRe
 metaReduced <- subset(meta, Name %in% reducedTD | Name %in% reducedASD)
 write.xlsx(metaReduced, file = "DMRs/Discovery/Diagnosis Males 50/sample_info_reduced_males.xlsx") # Excluded JLCM032B and JLCM050B from this
 
-# Load and Process Samples (Rerun without JLCM032B and JLCM050B, Running on Barbera 6/3)
+# Load and Process Samples (Rerun without JLCM032B and JLCM050B, Complete)
 bs.filtered <- processBismark(files = list.files(path = getwd(), pattern = "*.txt.gz"),
                               meta = read.xlsx("sample_info_reduced_males.xlsx", colNames = TRUE) %>% 
                                       mutate_if(is.character, as.factor), groups = testCovariate, Cov = coverage, 
                               mc.cores = cores, per.Group = perGroup)
-saveRDS(bs.filtered, "Dx_Males/Filtered_BSseq_Discovery50_reduced_males.rds")
+saveRDS(bs.filtered, "Dx_Reduced_Males/Filtered_BSseq_Discovery50_reduced_males.rds")
 
-# Background Regions (Rerun without JLCM032B and JLCM050B, Running on Barbera 6/3)
+# Background Regions (Rerun without JLCM032B and JLCM050B, Complete)
 background <- getBackground(bs.filtered, minNumRegion = minCpGs)
-write.csv(background, file = "Dx_Males/bsseq_background_Discovery50_reduced_males.csv", quote = FALSE, row.names = FALSE)
+write.csv(background, file = "Dx_Reduced_Males/bsseq_background_Discovery50_reduced_males.csv", quote = FALSE, row.names = FALSE)
 
-# Meth ~ Diagnosis DMRs (Rerun without JLCM032B and JLCM050B, Running on Barbera 6/3)
+# Meth ~ Diagnosis DMRs (Rerun without JLCM032B and JLCM050B, Complete)
 regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms, testCovariate = testCovariate)
 regions$percentDifference <- round(regions$beta/pi * 100)
 sigRegions <- regions[regions$pval < 0.05,]
-gr2csv(regions, "Dx_Males/CandidateRegions_Dx_Discovery50_reduced_males.csv")
-gr2csv(sigRegions, "Dx_Males/DMRs_Dx_Discovery50_reduced_males.csv")
+gr2csv(regions, "Dx_Reduced_Males/CandidateRegions_Dx_Discovery50_reduced_males.csv")
+gr2csv(sigRegions, "Dx_Reduced_Males/DMRs_Dx_Discovery50_reduced_males.csv")
 
-# DMR Comparison (Rerun without JLCM032B and JLCM050B) ####
+# DMR Comparison (Rerun without JLCM032B and JLCM050B, Complete) ####
 library(ChIPpeakAnno)
 source("R Scripts/DMR Analysis Functions.R")
 samples <- read.xlsx("DMRs/Discovery/Diagnosis 50/sample_info.xlsx", colNames = TRUE) # JLCM032B and JLCM050B excluded

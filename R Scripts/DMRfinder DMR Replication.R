@@ -1,7 +1,8 @@
 # DMRfinder DMR Replication -----------------------------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 5/11/19
+# 6/6/19
+# Excluded JLCM032B and JLCM050B
 
 # Packages ####
 .libPaths("/share/lasallelab/programs/DMRfinder/R_3.5")
@@ -13,12 +14,12 @@ mc.cores <- 20
 set.seed(5)
 
 # Discovery DMR Comparisons -----------------------------------------------
-# Discovery Diagnosis All DMRs (Complete) ####
+# Discovery Diagnosis All DMRs (Rerun without JLCM032B and JLCM050B, Complete) ####
 # Setup Comparison
 setwd("/share/lasallelab/Charles/CM_WGBS_ASD_CordBlood/Bismark_Reports/Discovery/Dx_All/")
 chroms <- c(paste("chr", 1:22, sep = ""), "chrM") # Excluded chrX, chrY
 numCtrl <- 56
-numExp <- 52
+numExp <- 50
 CTRLgroup <- paste("C", 1:numCtrl, sep = "")
 EXPgroup <- paste("E", 1:numExp, sep = "")
 cutoff <- qt(1 - 0.05 / 2, numCtrl + numExp - 2)
@@ -27,6 +28,7 @@ outprefix <- "DMRfinder_Dx_All"
 # Load Methylation Data
 BSobj <- readRDS("Filtered_Smoothed_BSseq_Discovery50.rds")
 BSobj <- chrSelectBSseq(BSobj, seqnames = chroms)
+c("JLCM032B", "JLCM050B") %in% sampleNames(BSobj)
 pData <- pData(BSobj) # check that all control samples are first
 sampleNames(BSobj) <- c(CTRLgroup, EXPgroup)
 
@@ -46,12 +48,12 @@ write.csv(DMRs, paste(outprefix, "DMRs.csv", sep = "_"), quote = FALSE, row.name
 
 rm(chroms, numCtrl, numExp, CTRLgroup, EXPgroup, cutoff, outprefix, BSobj, pData, tstat, DMRs)
 
-# Discovery Diagnosis Males DMRs (Complete) ####
+# Discovery Diagnosis Males DMRs (Rerun without JLCM032B and JLCM050B, Complete) ####
 # Setup Comparison
 setwd("/share/lasallelab/Charles/CM_WGBS_ASD_CordBlood/Bismark_Reports/Discovery/Dx_Males/")
 chroms <- c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")
 numCtrl <- 39
-numExp <- 37
+numExp <- 35
 CTRLgroup <- paste("C", 1:numCtrl, sep = "")
 EXPgroup <- paste("E", 1:numExp, sep = "")
 cutoff <- qt(1 - 0.05 / 2, numCtrl + numExp - 2)
@@ -60,6 +62,7 @@ outprefix <- "DMRfinder_Dx_Males"
 # Load Methylation Data
 BSobj <- readRDS("Filtered_Smoothed_BSseq_Discovery50_males.rds")
 BSobj <- chrSelectBSseq(BSobj, seqnames = chroms)
+c("JLCM032B", "JLCM050B") %in% sampleNames(BSobj)
 pData <- pData(BSobj) # check that all control samples are first
 sampleNames(BSobj) <- c(CTRLgroup, EXPgroup)
 
@@ -209,7 +212,7 @@ colnames(DMRs) <- c("chr", "start", "end", "CpGs", "width", "invdensity", "areaS
 write.csv(DMRs, paste(outprefix, "DMRs.csv", sep = "_"), quote = FALSE, row.names = FALSE)
 rm(chroms, numCtrl, numExp, CTRLgroup, EXPgroup, cutoff, outprefix, BSobj, pData, tstat, DMRs)
 
-# DMRfinder vs DMRichR Comparison -----------------------------------------
+# DMRfinder vs DMRichR Comparison (Rerun without JLCM032B and JLCM050B) -----------------------------------------
 source("R Scripts/DMR Analysis Functions.R")
 # Data ####
 # Load Regions

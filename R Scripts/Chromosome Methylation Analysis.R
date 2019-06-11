@@ -282,15 +282,26 @@ gg +
 ggsave("Figures/Chromosome Methylation Males Discovery and Replication Boxplot.png", dpi = 600, width = 10, height = 9, units = "in")
 
 # All Chromosomes, Males Mean CL
-gg <- ggplot(data = all_chroms_males)
+sig <- rbind(stats_chrom_males[, c("Region", "pvalue")], stats_chrom_males_rep[, c("Region", "pvalue")])
+colnames(sig) <- c("Chromosome", "pvalue")
+sig <- subset(sig, !Chromosome %in% c("chrY", "chrM"))
+sig$Set <- rep(c("Discovery", "Replication"), each = 23) %>% factor(levels = c("Discovery", "Replication"))
+sig$Sig <- (sig$pvalue < 0.05) %>% factor(levels = c("TRUE", "FALSE"))
+sig$Methylation <- c(colMeans(permeth[permeth$Sex == "M" & permeth$Diagnosis == "TD", 
+                                      colnames(permeth) %in% c(paste("chr", 1:22, sep = ""), "chrX")]),
+                     colMeans(permeth_rep[permeth_rep$Sex == "M" & permeth_rep$Diagnosis == "TD", 
+                                          colnames(permeth_rep) %in% c(paste("chr", 1:22, sep = ""), "chrX")]))
+gg <- ggplot()
 gg +
-        stat_summary(aes(x = Chromosome, y = Methylation, color = Diagnosis), fun.data = "mean_cl_boot",
+        stat_summary(data = all_chroms_males, aes(x = Chromosome, y = Methylation, color = Diagnosis), fun.data = "mean_cl_boot",
                      geom = "crossbar", size = 0.8, position = position_dodge2(width = 0.75, padding = 0.2)) +
+        geom_text(data = sig, aes(x = Chromosome, y = Methylation, alpha = Sig), label = "*", size = 10, nudge_x = 0.05, 
+                  nudge_y = 0.4) +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
               panel.border = element_rect(color = "black", size = 1.25), 
               axis.ticks = element_line(size = 1.25), legend.direction = "horizontal",
-              legend.key = element_blank(), legend.position = c(0.92, 1.025), legend.text = element_text(size = 22),
+              legend.key = element_blank(), legend.position = c(0.975, 1.1), legend.text = element_text(size = 22),
               legend.background = element_blank(), legend.title = element_blank(), 
               plot.margin = unit(c(2, 0.5, 0.5, 0.5), "lines"), strip.text = element_text(size = 24), 
               axis.text.x = element_text(size = 20, color = "black", angle = 90, hjust = 1, vjust = 0.5),
@@ -298,6 +309,7 @@ gg +
               axis.title = element_text(size = 24, color = "black"),
               strip.background = element_blank()) +
         scale_color_manual(breaks = c("TD", "ASD"), values  = c("TD" = "#3366CC", "ASD" = "#FF3366")) +
+        scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c("TRUE" = 1, "FALSE" = 0)) +
         scale_y_continuous(breaks = pretty_breaks(6)) +
         ylab("Methylation (%)") +
         facet_grid(rows = vars(Set), scales = "free")

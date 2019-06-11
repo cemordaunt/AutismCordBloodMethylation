@@ -1,37 +1,11 @@
 # DMR Analysis Functions ####
 # Charles Mordaunt
-# 2/7/19
+# 6/7/19
 
 #sapply(c("tidyverse", "ggdendro", "scales", "ggplot2", "ggbiplot", "reshape", "grid", "RColorBrewer", "CMplot", "rlist",
 #         "annotatr", "GenomicRanges", "LOLA", "rtracklayer", "R.utils", "rGREAT", "DMRichR"), require, character.only = TRUE)
 
-CMplotDMR <- function(candidates, prefix, plot.type, bin.max = 450, m.cex = 0.3){
-        candidates <- cbind("region" = "region", candidates[,c("chr", "start", "pval")], stringsAsFactors = FALSE)
-        candidates$chr <- substring(candidates$chr, 4)
-        colnames(candidates)[colnames(candidates) == "pval"] <- "pvalue"
-        if(plot.type == "m"){
-                message("Creating Manhattan plot")
-                pdf(paste(prefix, "Manhattan Plot.pdf", sep = " "), height = 5, width = 12)
-                par(mar = c(5, 5.5, 1, 3.5), xaxs = "i")
-                CMplot(candidates, col = suppressMessages(gg_color_hue(2)), bin.size = 1e7, bin.max = bin.max, cex.axis = 1.2, 
-                       plot.type = "m", threshold = 0.05, threshold.lwd = 2, threshold.col = "black", cex = m.cex, 
-                       amplify = FALSE, chr.den.col = brewer.pal(9, "YlOrRd"), file.output = FALSE, verbose = FALSE)
-                dev.off()
-        }
-        else{
-                if(plot.type == "q"){
-                        message("Creating QQ plot")
-                        pdf(paste(prefix, "QQ Plot.pdf", sep = " "), height = 5.5, width = 5.5)
-                        par(mar = c(4, 4.5, 2.5, 1.5), xaxs = "i", yaxs = "i", mgp = c(2.5, 1, 0))
-                        CMplot(candidates, col = "black", cex.axis = 1.2, plot.type = "q", cex = 0.3, file.output = FALSE, 
-                               verbose = FALSE, box = TRUE)
-                        dev.off()
-                }
-                else{
-                        print("plot.type must be either m or q.")
-                }
-        }
-}
+# Region Helper Functions -------------------------------------------------
 
 loadRegions <- function(file, chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"), sort = TRUE, 
                         DMRid = FALSE, DMBid = FALSE){
@@ -76,6 +50,109 @@ writeBED <- function(regions, file){
                 }
         }
         write.table(bed, file = file, sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+}
+
+makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
+        if(direction == "hyper"){DMRs <- subset(DMRs, percentDifference > 0)}
+        if(direction == "hypo"){DMRs <- subset(DMRs, percentDifference < 0)}
+        GR <- GRanges(seqnames = DMRs$chr, ranges = IRanges(start = DMRs$start, end = DMRs$end))
+}
+
+GRangeExtend <- function(x, extend){
+        ranges(x) <- IRanges(start(x) - extend, end(x) + extend)
+        x <- trim(x)
+        return(x)
+}
+
+getRegionStats <- function(DMRs, background, n){
+        DMRstats <- sapply(DMRs, function(x){
+                c("DMR_Number" = nrow(x), "DMR_Width_KB" = sum(x$width) / 1000, "DMR_CpGs" = sum(x[,colnames(x) %in% c("L", "CpGs")]))
+        }) %>% t %>% as.data.frame
+        backgroundStats <- sapply(background, function(x){
+                c("Background_Number_K" = nrow(x) / 1000, "Background_Width_GB" = sum(x$width) / 1e9, "Background_CpGs_M" = sum(x$n) / 1e6)
+        }) %>% t %>% as.data.frame
+        regionStats <- cbind(DMRstats, backgroundStats)
+        regionStats$Comparison <- row.names(DMRstats)
+        row.names(regionStats) <- 1:nrow(regionStats)
+        regionStats$n <- n
+        regionStats <- regionStats[,c("Comparison", "n", "DMR_Number", "DMR_Width_KB", "DMR_CpGs", "Background_Number_K", 
+                                      "Background_Width_GB", "Background_CpGs_M")]
+        return(regionStats)
+}
+
+# Visualization Functions -------------------------------------------------
+
+CMplotDMR <- function(candidates, prefix, plot.type, bin.max = 450, m.cex = 0.3){
+        candidates <- cbind("region" = "region", candidates[,c("chr", "start", "pval")], stringsAsFactors = FALSE)
+        candidates$chr <- substring(candidates$chr, 4)
+        colnames(candidates)[colnames(candidates) == "pval"] <- "pvalue"
+        if(plot.type == "m"){
+                message("Creating Manhattan plot")
+                pdf(paste(prefix, "Manhattan Plot.pdf", sep = " "), height = 5, width = 12)
+                par(mar = c(5, 5.5, 1, 3.5), xaxs = "i")
+                CMplot(candidates, col = suppressMessages(gg_color_hue(2)), bin.size = 1e7, bin.max = bin.max, cex.axis = 1.2, 
+                       plot.type = "m", threshold = 0.05, threshold.lwd = 2, threshold.col = "black", cex = m.cex, 
+                       amplify = FALSE, chr.den.col = brewer.pal(9, "YlOrRd"), file.output = FALSE, verbose = FALSE)
+                dev.off()
+        }
+        else{
+                if(plot.type == "q"){
+                        message("Creating QQ plot")
+                        pdf(paste(prefix, "QQ Plot.pdf", sep = " "), height = 5.5, width = 5.5)
+                        par(mar = c(4, 4.5, 2.5, 1.5), xaxs = "i", yaxs = "i", mgp = c(2.5, 1, 0))
+                        CMplot(candidates, col = "black", cex.axis = 1.2, plot.type = "q", cex = 0.3, file.output = FALSE, 
+                               verbose = FALSE, box = TRUE)
+                        dev.off()
+                }
+                else{
+                        print("plot.type must be either m or q.")
+                }
+        }
+}
+
+ggBoxPlot <- function(data, x, y, fill, ylab, legend.name, facet, file, width = 10, height = 7, 
+                      legend.position = c(0.85, 0.38), legend.direction = "vertical", 
+                      axis.ticks.x = element_blank(), outlier.size = 0.8,
+                      axis.text.x = element_blank(), nrow = 2, ncol = NULL, ylim = c(0,100)){
+        gg <- ggplot(data = data)
+        gg <- gg +
+                geom_boxplot(aes(x = x, y = y, fill = fill), size = 0.8, outlier.size = outlier.size) +
+                theme_bw(base_size = 24) +
+                theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+                      axis.ticks.x = axis.ticks.x, legend.key = element_blank(), panel.grid.minor = element_blank(),
+                      legend.position = legend.position, legend.background = element_blank(), axis.text.x = axis.text.x, 
+                      legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 19), 
+                      axis.ticks.y = element_line(size = 1.25), legend.title = element_text(size = 22),
+                      strip.background = element_blank(), legend.direction = legend.direction, panel.spacing.y = unit(0, "lines"), 
+                      plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title.x = element_blank(), 
+                      axis.text.y = element_text(size = 16, color = "black")) +
+                ylab(ylab) +
+                scale_fill_manual(name = legend.name, values = c("#3366CC", "#FF3366")) +
+                scale_color_manual(name = legend.name, values = c("#3366CC", "#FF3366")) +
+                coord_cartesian(ylim = ylim) +
+                facet_wrap(facets = facet, nrow = nrow, ncol = ncol)
+        ggsave(filename = file, plot = gg, dpi = 600, width = width, height = height, units = "in")
+}
+
+ggScatterPlot <- function(x, y, groupVar, fileName, xlab, ylab, xlim = NULL, ylim = NULL, legendPos = c(0.87,1.03)){
+        # Plots 2 continuous variables colored by a grouping variable and writes the file
+        g <- ggplot()
+        g + 
+                geom_smooth(aes(x=x, y=y), method="lm") +
+                geom_point(aes(x=x, y=y, color=groupVar), size=3) +
+                theme_bw(base_size = 25) +
+                theme(legend.direction = 'horizontal', legend.position = legendPos, panel.grid.major = element_blank(), 
+                      panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+                      legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
+                      axis.text = element_text(color = "black"), legend.background = element_blank(), 
+                      plot.margin = unit(c(2,1,1,1), "lines")) +
+                coord_cartesian(xlim = xlim, ylim = ylim) +
+                scale_x_continuous(breaks=pretty_breaks(n=5)) +
+                scale_y_continuous(breaks=pretty_breaks(n=5)) +
+                xlab(xlab) +
+                ylab(ylab) +
+                scale_color_manual(breaks = c(levels(groupVar)[1], levels(groupVar)[2]), values = c("#3366CC", "#FF3366"))
+        ggsave(fileName, dpi = 600, width = 8, height = 7, units = "in")
 }
 
 .plotDendro <- function(ddata, row = !col, col = !row, labels = col) {
@@ -238,6 +315,8 @@ ggbiplotPCA <- function(data.pca, groups, pc = 1:2, file, xlim = NULL, ylim = NU
         ggsave(file, dpi = 600, width = 8, height = 8, units = "in")
 }
 
+# Covariate Association Functions -----------------------------------------
+
 .methLm <- function(catVars, contVars, sampleData, meth, adj = NULL){
         # Analyzes categorical and continuous variables for association with methylation, 
         # using linear regression with an optional adjustment variable
@@ -391,6 +470,8 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
         ggsave(file, dpi = 600, width = width, height = height, units = "in")
 }
 
+# Annotation Functions ----------------------------------------------------
+
 getDMRanno <- function(DMRstats, regDomains, file){
         message("[getDMRanno] Adding genes to DMRs by regulatory domains")
         GR_regDomains <- GRanges(seqnames = regDomains$gene_chr, ranges = IRanges(start = regDomains$distal_start, end = regDomains$distal_end))
@@ -463,6 +544,7 @@ getDMRanno <- function(DMRstats, regDomains, file){
         DMRs_GeneReg$GeneReg_Anno <- gsub(pattern = "hg38_", replacement = "", x = DMRs_GeneReg$GeneReg_Anno, fixed = TRUE)
         DMRs_GeneReg <- aggregate(formula = GeneReg_Anno ~ DMRid, data = DMRs_GeneReg, FUN = function(x) paste(unique(x), collapse = ", "), simplify = TRUE)
         DMRstats_annotated <- merge(x = DMRstats_annotated, y = DMRs_GeneReg, by = "DMRid", all.x = TRUE, all.y = FALSE, sort = FALSE)
+        DMRstats_annotated <- DMRstats_annotated[order(DMRstats_annotated$chr, DMRstats_annotated$start),]
         if(sum(grepl(pattern = "DMB", x = DMRstats_annotated$DMRid, fixed = TRUE)) > 0){
                 colnames(DMRstats_annotated)[colnames(DMRstats_annotated) == "DMRid"] <- "DMBid"
         }
@@ -484,10 +566,27 @@ getDMRgeneList <- function(DMRstats, regDomains, direction = c("all", "hyper", "
         return(geneList)
 }
 
-makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
-        if(direction == "hyper"){DMRs <- subset(DMRs, percentDifference > 0)}
-        if(direction == "hypo"){DMRs <- subset(DMRs, percentDifference < 0)}
-        GR <- GRanges(seqnames = DMRs$chr, ranges = IRanges(start = DMRs$start, end = DMRs$end))
+# Enrichment Functions ----------------------------------------------------
+
+getDAVID <- function(genes, background, file, categories, benjamini = 0.05){
+        message("[getDAVID] Uploading gene and background lists")
+        david <- DAVIDWebService$new(url = "https://david.abcc.ncifcrf.gov/webservice/services/DAVIDWebService.DAVIDWebServiceHttpSoap12Endpoint/",
+                                     email = "cemordaunt@ucdavis.edu")
+        setTimeOut(david, milliSeconds = 10^6)
+        setAnnotationCategories(david, categories = categories)
+        addList(david, inputIds = genes, idType = "ENTREZ_GENE_ID", listName = "genes", listType = "Gene")[[1]]
+        addList(david, inputIds = background, idType = "ENTREZ_GENE_ID", listName = "background", listType = "Background")[[1]]
+        message("[getDAVID] Downloading enrichment results")
+        results <- getFunctionalAnnotationChart(david) %>% subset(Benjamini < benjamini, select = -c(Bonferroni, FDR))
+        results <- results[,c("Category", "Term", "Count", "Genes", "X.", "List.Total", "Pop.Hits", "Pop.Total", 
+                              "Fold.Enrichment", "PValue", "Benjamini")]
+        colnames(results) <- c("Category", "Term", "GeneListHits", "GeneIDs", "Percent", "GeneListTotal", "BackgroundHits",
+                               "BackgroundTotal", "FoldEnrichment", "Pvalue", "BenjaminiPvalue")
+        results$log10Benjamini <- -log10(results$BenjaminiPvalue)
+        results <- results[order(results$BenjaminiPvalue, results$Pvalue),]
+        message("[getDAVID] Complete! Writing file to ", file, "\n")
+        write.table(results, file = file, sep = "\t", quote = FALSE, row.names = FALSE)
+        return(results)
 }
 
 prepGREAT <- function(DMRs, Background, fileName, writeBack = FALSE, backName, 
@@ -594,7 +693,8 @@ plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.w
         gg <- ggplot()
         gg <- gg +
                 geom_tile(data = greatCombined, aes(y = name, x = Direction, fill = log_qvalue)) +
-                scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000") +
+                scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000",
+                                     breaks = pretty_breaks(n = 3)) +
                 scale_x_discrete(expand = c(0,0), drop = FALSE) +
                 theme_bw(base_size = 24) +
                 theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
@@ -605,7 +705,7 @@ plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.w
                       axis.title = element_blank(), legend.key = element_blank(),  
                       legend.position = legend.position, legend.background = element_blank(), 
                       legend.key.size = unit(1, "lines"), legend.title = element_text(size = 11), 
-                      legend.text = element_text(size = 10), panel.background = element_rect(fill = "black"))
+                      legend.text = element_text(size = 11), panel.background = element_rect(fill = "black"))
         replacements <- c("Dna" = "DNA", "Of" = "of", "The" = "the", "Ensg" = "ENSG", "Ng" = "ng",
                           "Ml" = "ml", "Lps" = "LPS", "Pbmc" = "PBMC", "Tlr4" = "TLR4", 
                           "Trem1" = "TREM1", "With" = "with", " *\\(.*?\\)" = "", " *\\[.*?\\]" = "",
@@ -618,7 +718,7 @@ plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.w
                           "Il1" = "IL1", "ERythropoiesis" = "Erythropoiesis", "Hiv" = "HIV", "Hdac" = "HDAC", 
                           "Gaba" = "GABA", "Cns" = "CNS", "Hdl" = "HDL", "Microrna" = "MicroRNA", "Mir" = "MIR", 
                           "Cagtatt" = "CAGTATT", "Udp" = "UDP", "Hs-Gag" = "HS-GAG", "IIi" = "III", "Ch-Nh2" = "CH-NH2",
-                          "androgen" = "Androgen", "ERrors" = "Errors")
+                          "androgen" = "Androgen", "ERrors" = "Errors", "Transcription Factor" = "TF")
         if(wrap){
                 gg <- gg +
                         scale_y_discrete(expand = c(0,0), drop = FALSE, labels = function(x){
@@ -635,242 +735,6 @@ plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.w
                         })
         }
         ggsave(file, plot = gg, dpi = 600, width = width, height = height, units = "in")
-}
-
-getRegionStats <- function(DMRs, background, n){
-        DMRstats <- sapply(DMRs, function(x){
-                c("DMR_Number" = nrow(x), "DMR_Width_KB" = sum(x$width) / 1000, "DMR_CpGs" = sum(x[,colnames(x) %in% c("L", "CpGs")]))
-        }) %>% t %>% as.data.frame
-        backgroundStats <- sapply(background, function(x){
-                c("Background_Number_K" = nrow(x) / 1000, "Background_Width_GB" = sum(x$width) / 1e9, "Background_CpGs_M" = sum(x$n) / 1e6)
-        }) %>% t %>% as.data.frame
-        regionStats <- cbind(DMRstats, backgroundStats)
-        regionStats$Comparison <- row.names(DMRstats)
-        row.names(regionStats) <- 1:nrow(regionStats)
-        regionStats$n <- n
-        regionStats <- regionStats[,c("Comparison", "n", "DMR_Number", "DMR_Width_KB", "DMR_CpGs", "Background_Number_K", 
-                                      "Background_Width_GB", "Background_CpGs_M")]
-        return(regionStats)
-}
-
-DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, rotation.degree = 0, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03),
-                           fill = c("lightblue", "lightpink"), ext.text = TRUE, ext.dist = -0.2){
-        pdf(file = file, width = 10, height = 8, onefile = FALSE)
-        venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, maxgap = -1, minoverlap = 1, 
-                                                 by = "region", connectedPeaks = "min", rotation.degree = rotation.degree, 
-                                                 margin = 0.04, cat.cex = 2, cex = 2.5, fill = fill,
-                                                 cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans",
-                                                 cat.fontfamily = "sans", ext.dist = ext.dist, ext.length = 0.85, ext.text = ext.text))
-        dev.off()
-}
-
-geneOverlapVenn <- function(x, file, cat.pos = c(150, 180), cat.dist = c(0.04, 0.03), rotation.degree = 180,
-                            ext.dist = -0.1, margin = 0.05){
-        futile.logger::flog.threshold(futile.logger::ERROR, name = "VennDiagramLogger") # Suppress log file
-        venn.diagram(x = x, file = file, height = 8, width = 10, imagetype = "png", units = "in", fontfamily = "sans", 
-                     cat.fontfamily = "sans", fill = c("lightblue", "lightpink"), cex = 2.75, lwd = 4, cat.cex = 2.5, 
-                     cat.pos = cat.pos, cat.dist = cat.dist, rotation.degree = rotation.degree, margin = margin, 
-                     ext.text = TRUE, ext.dist = ext.dist, ext.length = 0.85, ext.line.lwd = 2, 
-                     ext.percent = c(0.01, 0.01, 0.01))
-}
-
-plotGOMheatmap <- function(data, type = c("log_OddsRatio", "log_qValue"), file, expand = c(0.04, 0),
-                           intersect.size = 5, sig.size = 9, axis.text.size = 14){
-        if(type == "log_OddsRatio"){
-                gg <- ggplot(data = data)
-                gg +
-                        geom_tile(aes(x = ListA, y = ListB, fill = log10(OddsRatio))) +
-                        geom_text(aes(x = ListA, y = ListB, label = Intersection), color = "white", size = intersect.size, nudge_y = -0.15) +
-                        geom_text(aes(x = ListA, y = ListB, label = "*", alpha = Significant), color = "white", size = sig.size, nudge_y = 0.05) +
-                        scale_fill_gradientn("log(OR)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "black") +
-                        scale_alpha_manual(values=c("TRUE" = 1, "FALSE" = 0), guide = "none") +
-                        theme_bw(base_size = 24) +
-                        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25), 
-                              axis.ticks = element_line(size = 1), legend.key = element_blank(), legend.text=element_text(size=14),
-                              panel.grid.minor = element_blank(), legend.position = c(1.09, 0.87), 
-                              legend.background = element_blank(), panel.background = element_rect(fill = "#333333"),
-                              plot.margin = unit(c(1,8,1,1), "lines"), 
-                              axis.text.x = element_text(size = axis.text.size, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
-                              axis.text.y = element_text(size = axis.text.size, color = "Black", angle = 0, hjust = 1, vjust = 0.5),
-                              axis.title = element_blank(), legend.title = element_text(size = 16)) +
-                        scale_x_discrete(expand = expand, drop = FALSE) +
-                        scale_y_discrete(expand = expand, drop = FALSE)
-                ggsave(file = file, dpi = 600, width = 10, height = 8, units = "in")
-        }
-        else {
-                gg <- ggplot(data = data)
-                gg +
-                        geom_tile(aes(x = ListA, y = ListB, fill = log_qValue)) +
-                        geom_text(aes(x = ListA, y = ListB, label = Intersection), color = "white", size = intersect.size, nudge_y = -0.15) +
-                        geom_text(aes(x = ListA, y = ListB, label = "*", alpha = Significant), color = "white", size = sig.size, nudge_y = 0.05) +
-                        scale_fill_gradientn("log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "black") +
-                        scale_alpha_manual(values=c("TRUE" = 1, "FALSE" = 0), guide = "none") +
-                        theme_bw(base_size = 24) +
-                        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25), 
-                              axis.ticks = element_line(size = 1), legend.key = element_blank(), legend.text=element_text(size=14),
-                              panel.grid.minor = element_blank(), legend.position = c(1.12, 0.87), 
-                              legend.background = element_blank(), panel.background = element_rect(fill = "#333333"),
-                              plot.margin = unit(c(1,8,1,1), "lines"), 
-                              axis.text.x = element_text(size = axis.text.size, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
-                              axis.text.y = element_text(size = axis.text.size, color = "Black", angle = 0, hjust = 1, vjust = 0.5),
-                              axis.title = element_blank(), legend.title = element_text(size = 16)) +
-                        scale_x_discrete(expand = expand, drop = FALSE) +
-                        scale_y_discrete(expand = expand, drop = FALSE)
-                ggsave(file = file, dpi = 600, width = 10, height = 8, units = "in")
-        }
-}
-
-DMRpermTest <- function(A, B, genome, universe, Comparison, file){
-        message("[DMRpermTest] Performing permutation test of regions using regioneR.")
-        pt <- permTest(A = A, B = B, genome = genome, ntimes = 10000, universe = universe, 
-                       evaluate.function = c(numOverlaps, meanDistance), randomize.function = resampleRegions, 
-                       mc.set.seed = FALSE, force.parallel = TRUE)
-        stats <- data.frame("Comparison" = Comparison, "Overlap_observed" = pt$Function1$observed, 
-                            "Overlap_zscore" = pt$Function1$zscore, "Overlap_pvalue" = pt$Function1$pval, 
-                            "Distance_observed" = pt$Function2$observed, "Distance_zscore" = pt$Function2$zscore, 
-                            "Distance_pvalue" = pt$Function2$pval)
-        message("[DMRpermTest] Complete! Writing plot and returning stats.")
-        pdf(file = file, width = 10, height = 5)
-        plot(x = pt, ncol = 2)
-        dev.off()
-        return(stats)
-}
-
-GRangeExtend <- function(x, extend){
-        ranges(x) <- IRanges(start(x) - extend, end(x) + extend)
-        x <- trim(x)
-        return(x)
-}
-
-DMRrandomForest <- function(discDMRmeth, repDMRmeth, samples){
-        # Prepare Data
-        message("Preparing Discovery Methylation Data")
-        discMeth <- discDMRmeth[,grepl("JLCM", colnames(discDMRmeth), fixed = TRUE)] %>% t %>% as.data.frame
-        colnames(discMeth) <- discDMRmeth$DMRid
-        if(table(is.na(discMeth))["TRUE"] > 0){
-                message("Replacing NA values with DMR mean methylation")
-                for(i in 1:ncol(discMeth)){
-                        temp <- as.numeric(discMeth[,i])
-                        temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with mean meth of that DMR
-                        discMeth[,i] <- temp
-                }
-        }
-        discMeth$Diagnosis <- factor(samples$Diagnosis_Alg[match(rownames(discMeth), samples$Sequencing_ID)], 
-                                     levels = c("TD", "ASD"))
-        
-        message("Preparing Replication Discovery Methylation Data")
-        repMeth <- repDMRmeth[,grepl("JLCM", colnames(repDMRmeth), fixed = TRUE)] %>% t %>% as.data.frame
-        colnames(repMeth) <- repDMRmeth$DMRid
-        if(table(is.na(repMeth))["TRUE"] > 0){
-                message("Replacing NA values with DMR mean methylation")
-                for(i in 1:ncol(repMeth)){
-                        temp <- as.numeric(repMeth[,i])
-                        temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with mean meth of that DMR
-                        repMeth[,i] <- temp
-                }
-        }
-        repMeth$Diagnosis <- factor(samples$Diagnosis_Alg[match(rownames(repMeth), samples$Sequencing_ID)], 
-                                    levels = c("TD", "ASD"))
-        
-        # Initial Model
-        message("\nMaking initial random forest model", appendLF = FALSE)
-        set.seed(5)
-        model1 <- randomForest(Diagnosis ~ ., data = discMeth, localImp = TRUE, ntree = 500)
-        print(model1)
-        
-        message("Predicting discovery group diagnosis with initial model")
-        discInitialPredict <- predict(model1, discMeth, type = "class")
-        message("Classifications", appendLF = FALSE)
-        print(table(discInitialPredict, discMeth$Diagnosis))  
-        message("Accuracy: ", mean(discInitialPredict == discMeth$Diagnosis))
-        
-        message("\nPredicting replication group diagnosis with initial model")
-        repInitialPredict <- predict(model1, repMeth, type = "class")
-        message("Classifications", appendLF = FALSE)
-        print(table(repInitialPredict,repMeth$Diagnosis))
-        message("Accuracy: ", mean(repInitialPredict == repMeth$Diagnosis))
-        
-        # Optimize parameters
-        message("\nOptimizing parameters")
-        message("mtry =\t", appendLF = FALSE)
-        def <- nrow(discDMRmeth) %>% sqrt %>% round
-        mtryOpt <- NULL
-        for(mtry in round(def/4):(def*4)){
-                if(mtry %% 10 == 0){message(mtry, "\t", appendLF = FALSE)}
-                set.seed(5)
-                model <- randomForest(Diagnosis ~ ., data = discMeth, mtry = mtry, ntree = 500, localImp = TRUE)
-                error <- tail(model$err.rate[,"OOB"], 1) * 100
-                temp <- c(mtry, 500, error)
-                mtryOpt <- rbind(mtryOpt, temp)
-        }
-        mtryOpt <- as.data.frame(mtryOpt)
-        rownames(mtryOpt) <- 1:nrow(mtryOpt)
-        colnames(mtryOpt) <- c("mtry", "ntree", "OOBerror")
-        message("\nLowest OOB Error: ", min(mtryOpt$OOBerror))
-        mtryOpt <- subset(mtryOpt, OOBerror == min(mtryOpt$OOBerror))
-        print(mtryOpt)
-        mtryOpt <- min(mtryOpt$mtry)
-        message("Optimized mtry value: ", mtryOpt)
-        
-        message("ntree =\t", appendLF = FALSE)
-        ntreeOpt <- NULL
-        for(ntree in seq(100, 2500, 50)){
-                if(ntree %% 500 == 0){message(ntree, "\t", appendLF = FALSE)}
-                set.seed(5)
-                model <- randomForest(Diagnosis ~ ., data = discMeth, mtry = mtryOpt, ntree = ntree, localImp = TRUE)
-                error <- tail(model$err.rate[,"OOB"], 1) * 100
-                temp <- c(mtryOpt, ntree, error)
-                ntreeOpt <- rbind(ntreeOpt, temp)
-        }
-        ntreeOpt <- as.data.frame(ntreeOpt)
-        rownames(ntreeOpt) <- 1:nrow(ntreeOpt)
-        colnames(ntreeOpt) <- c("mtry", "ntree", "OOBerror")
-        message("\nLowest OOB Error: ", min(ntreeOpt$OOBerror))
-        ntreeOpt <- subset(ntreeOpt, OOBerror == min(ntreeOpt$OOBerror))
-        print(ntreeOpt)
-        ntreeOpt <- min(ntreeOpt$ntree)
-        message("Optimized ntree value: ", ntreeOpt)
-        
-        # Optimized Model
-        message("\nMaking optimized random forest model")
-        set.seed(5)
-        model2 <- randomForest(Diagnosis ~ ., data = discMeth, localImp = TRUE, mtry = mtryOpt, ntree = ntreeOpt)
-        print(model2)
-        
-        message("Predicting discovery group diagnosis with optimized model")
-        discOptimizedPredict <- predict(model2, discMeth, type = "class")
-        message("Classifications", appendLF = FALSE)
-        print(table(discOptimizedPredict, discMeth$Diagnosis))
-        message("Accuracy: ", mean(discOptimizedPredict == discMeth$Diagnosis))
-        
-        message("\nPredicting replication group diagnosis with optimized model")
-        repOptimizedPredict <- predict(model2, repMeth, type = "class")
-        message("Classifications", appendLF = FALSE)
-        print(table(repOptimizedPredict,repMeth$Diagnosis))
-        message("Accuracy: ", mean(repOptimizedPredict == repMeth$Diagnosis))
-        
-        discPredict <- data.frame("InitialModelPredict" = discInitialPredict, "OptimizedModelPredict" = discOptimizedPredict, 
-                                  "Diagnosis" = discMeth$Diagnosis)
-        repPredict <- data.frame("InitialModelPredict" = repInitialPredict, "OptimizedModelPredict" = repOptimizedPredict,
-                                 "Diagnosis" = repMeth$Diagnosis)
-        
-        # Results
-        message("\n Returning model information")
-        modelInfo <- list("discMeth" = discMeth, "repMeth" = repMeth, "InitialModel" = model1, "OptimizedModel" = model2,
-                          "discPredict" = discPredict, "repPredict" = repPredict)
-        
-        message("Initial Model Summary")
-        print(modelInfo$InitialModel)
-        message("Classifications")
-        print(table(modelInfo$repPredict$InitialModelPredict, modelInfo$repPredict$Diagnosis))
-        message("Accuracy = ", mean(modelInfo$repPredict$InitialModelPredict == modelInfo$repPredict$Diagnosis))
-        
-        message("\nOptimized Model Summary")
-        print(modelInfo$OptimizedModel)
-        message("Classifications")
-        print(table(modelInfo$repPredict$OptimizedModelPredict, modelInfo$repPredict$Diagnosis))
-        message("Accuracy = ", mean(modelInfo$repPredict$OptimizedModelPredict == modelInfo$repPredict$Diagnosis))
-        return(modelInfo)
 }
 
 prepLOLAhistone <- function(histone, index, regions, file){
@@ -1094,47 +958,221 @@ plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog",
         }
 }
 
-ggBoxPlot <- function(data, x, y, fill, ylab, legend.name, facet, file, width = 10, height = 7, 
-                      legend.position = c(0.85, 0.38), legend.direction = "vertical", 
-                      axis.ticks.x = element_blank(), outlier.size = 0.8,
-                      axis.text.x = element_blank(), nrow = 2, ncol = NULL, ylim = c(0,100)){
-        gg <- ggplot(data = data)
-        gg <- gg +
-                geom_boxplot(aes(x = x, y = y, fill = fill), size = 0.8, outlier.size = outlier.size) +
-                theme_bw(base_size = 24) +
-                theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
-                      axis.ticks.x = axis.ticks.x, legend.key = element_blank(), panel.grid.minor = element_blank(),
-                      legend.position = legend.position, legend.background = element_blank(), axis.text.x = axis.text.x, 
-                      legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 19), 
-                      axis.ticks.y = element_line(size = 1.25), legend.title = element_text(size = 22),
-                      strip.background = element_blank(), legend.direction = legend.direction, panel.spacing.y = unit(0, "lines"), 
-                      plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title.x = element_blank(), 
-                      axis.text.y = element_text(size = 16, color = "black")) +
-                ylab(ylab) +
-                scale_fill_manual(name = legend.name, values = c("#3366CC", "#FF3366")) +
-                scale_color_manual(name = legend.name, values = c("#3366CC", "#FF3366")) +
-                coord_cartesian(ylim = ylim) +
-                facet_wrap(facets = facet, nrow = nrow, ncol = ncol)
-        ggsave(filename = file, plot = gg, dpi = 600, width = width, height = height, units = "in")
+# Replication Functions ---------------------------------------------------
+
+DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, rotation.degree = 0, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03),
+                           fill = c("lightblue", "lightpink"), ext.text = TRUE, ext.dist = -0.2){
+        pdf(file = file, width = 10, height = 8, onefile = FALSE)
+        venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, maxgap = -1, minoverlap = 1, 
+                                                 by = "region", connectedPeaks = "min", rotation.degree = rotation.degree, 
+                                                 margin = 0.04, cat.cex = 2, cex = 2.5, fill = fill,
+                                                 cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans",
+                                                 cat.fontfamily = "sans", ext.dist = ext.dist, ext.length = 0.85, ext.text = ext.text))
+        dev.off()
 }
 
-ggScatterPlot <- function(x, y, groupVar, fileName, xlab, ylab, xlim = NULL, ylim = NULL, legendPos = c(0.87,1.03)){
-        # Plots 2 continuous variables colored by a grouping variable and writes the file
-        g <- ggplot()
-        g + 
-                geom_smooth(aes(x=x, y=y), method="lm") +
-                geom_point(aes(x=x, y=y, color=groupVar), size=3) +
-                theme_bw(base_size = 25) +
-                theme(legend.direction = 'horizontal', legend.position = legendPos, panel.grid.major = element_blank(), 
-                      panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
-                      legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title=element_blank(),
-                      axis.text = element_text(color = "black"), legend.background = element_blank(), 
-                      plot.margin = unit(c(2,1,1,1), "lines")) +
-                coord_cartesian(xlim = xlim, ylim = ylim) +
-                scale_x_continuous(breaks=pretty_breaks(n=5)) +
-                scale_y_continuous(breaks=pretty_breaks(n=5)) +
-                xlab(xlab) +
-                ylab(ylab) +
-                scale_color_manual(breaks = c(levels(groupVar)[1], levels(groupVar)[2]), values = c("#3366CC", "#FF3366"))
-        ggsave(fileName, dpi = 600, width = 8, height = 7, units = "in")
+geneOverlapVenn <- function(x, file, cat.pos = c(150, 180), cat.dist = c(0.04, 0.03), rotation.degree = 180,
+                            ext.dist = -0.1, margin = 0.05, cat.cex = 2.5, fill = c("lightblue", "lightpink"), reverse = FALSE){
+        futile.logger::flog.threshold(futile.logger::ERROR, name = "VennDiagramLogger") # Suppress log file
+        venn.diagram(x = x, file = file, height = 8, width = 10, imagetype = "png", units = "in", fontfamily = "sans", 
+                     cat.fontfamily = "sans", fill = fill, cex = 2.75, lwd = 4, cat.cex = cat.cex, 
+                     cat.pos = cat.pos, cat.dist = cat.dist, rotation.degree = rotation.degree, margin = margin, 
+                     ext.text = TRUE, ext.dist = ext.dist, ext.length = 0.85, ext.line.lwd = 2, 
+                     ext.percent = 0.01, reverse = reverse)
 }
+
+plotGOMheatmap <- function(data, type = c("log_OddsRatio", "log_qValue"), file, expand = c(0.04, 0), limits = NULL,
+                           intersect.size = 5, sig.size = 9, axis.text.size = 14, legend.text.size = 14, legend.title.size = 16,
+                           plot.margin = c(1, 8, 1, 1), legend.position = c(1.09, 0.87), width = 10, height = 8){
+        if(type == "log_OddsRatio"){
+                gg <- ggplot(data = data)
+                gg +
+                        geom_tile(aes(x = ListA, y = ListB, fill = log10(OddsRatio))) +
+                        geom_text(aes(x = ListA, y = ListB, label = Intersection), color = "white", size = intersect.size, nudge_y = -0.15) +
+                        geom_text(aes(x = ListA, y = ListB, label = "*", alpha = Significant), color = "white", size = sig.size, nudge_y = 0.05) +
+                        scale_fill_gradientn("log(OR)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "black", limits = limits) +
+                        scale_alpha_manual(values = c("TRUE" = 1, "FALSE" = 0), guide = "none") +
+                        theme_bw(base_size = 24) +
+                        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25), 
+                              axis.ticks = element_line(size = 1), legend.key = element_blank(), 
+                              legend.text = element_text(size = legend.text.size),
+                              panel.grid.minor = element_blank(), legend.position = legend.position, 
+                              legend.background = element_blank(), panel.background = element_rect(fill = "#333333"),
+                              plot.margin = unit(plot.margin, "lines"), 
+                              axis.text.x = element_text(size = axis.text.size, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
+                              axis.text.y = element_text(size = axis.text.size, color = "Black", angle = 0, hjust = 1, vjust = 0.5),
+                              axis.title = element_blank(), legend.title = element_text(size = legend.title.size)) +
+                        scale_x_discrete(expand = expand, drop = FALSE) +
+                        scale_y_discrete(expand = expand, drop = FALSE)
+                ggsave(file = file, dpi = 600, width = width, height = height, units = "in")
+        }
+        else {
+                gg <- ggplot(data = data)
+                gg +
+                        geom_tile(aes(x = ListA, y = ListB, fill = log_qValue)) +
+                        geom_text(aes(x = ListA, y = ListB, label = Intersection), color = "white", size = intersect.size, nudge_y = -0.15) +
+                        geom_text(aes(x = ListA, y = ListB, label = "*", alpha = Significant), color = "white", size = sig.size, nudge_y = 0.05) +
+                        scale_fill_gradientn("log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "black", limits = limits) +
+                        scale_alpha_manual(values = c("TRUE" = 1, "FALSE" = 0), guide = "none") +
+                        theme_bw(base_size = 24) +
+                        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25), 
+                              axis.ticks = element_line(size = 1), legend.key = element_blank(), legend.text = element_text(size = legend.text.size),
+                              panel.grid.minor = element_blank(), legend.position = legend.position, 
+                              legend.background = element_blank(), panel.background = element_rect(fill = "#333333"),
+                              plot.margin = unit(plot.margin, "lines"), 
+                              axis.text.x = element_text(size = axis.text.size, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
+                              axis.text.y = element_text(size = axis.text.size, color = "Black", angle = 0, hjust = 1, vjust = 0.5),
+                              axis.title = element_blank(), legend.title = element_text(size = legend.title.size)) +
+                        scale_x_discrete(expand = expand, drop = FALSE) +
+                        scale_y_discrete(expand = expand, drop = FALSE)
+                ggsave(file = file, dpi = 600, width = width, height = height, units = "in")
+        }
+}
+
+DMRpermTest <- function(A, B, genome, universe, Comparison, file){
+        message("[DMRpermTest] Performing permutation test of regions using regioneR.")
+        pt <- permTest(A = A, B = B, genome = genome, ntimes = 10000, universe = universe, 
+                       evaluate.function = c(numOverlaps, meanDistance), randomize.function = resampleRegions, 
+                       mc.set.seed = FALSE, force.parallel = TRUE)
+        stats <- data.frame("Comparison" = Comparison, "Overlap_observed" = pt$Function1$observed, 
+                            "Overlap_zscore" = pt$Function1$zscore, "Overlap_pvalue" = pt$Function1$pval, 
+                            "Distance_observed" = pt$Function2$observed, "Distance_zscore" = pt$Function2$zscore, 
+                            "Distance_pvalue" = pt$Function2$pval)
+        message("[DMRpermTest] Complete! Writing plot and returning stats.")
+        pdf(file = file, width = 10, height = 5)
+        plot(x = pt, ncol = 2)
+        dev.off()
+        return(stats)
+}
+
+DMRrandomForest <- function(discDMRmeth, repDMRmeth, samples){
+        # Prepare Data
+        message("Preparing Discovery Methylation Data")
+        discMeth <- discDMRmeth[,grepl("JLCM", colnames(discDMRmeth), fixed = TRUE)] %>% t %>% as.data.frame
+        colnames(discMeth) <- discDMRmeth$DMRid
+        if(table(is.na(discMeth))["TRUE"] > 0){
+                message("Replacing NA values with DMR mean methylation")
+                for(i in 1:ncol(discMeth)){
+                        temp <- as.numeric(discMeth[,i])
+                        temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with mean meth of that DMR
+                        discMeth[,i] <- temp
+                }
+        }
+        discMeth$Diagnosis <- factor(samples$Diagnosis_Alg[match(rownames(discMeth), samples$Sequencing_ID)], 
+                                     levels = c("TD", "ASD"))
+        
+        message("Preparing Replication Discovery Methylation Data")
+        repMeth <- repDMRmeth[,grepl("JLCM", colnames(repDMRmeth), fixed = TRUE)] %>% t %>% as.data.frame
+        colnames(repMeth) <- repDMRmeth$DMRid
+        if(table(is.na(repMeth))["TRUE"] > 0){
+                message("Replacing NA values with DMR mean methylation")
+                for(i in 1:ncol(repMeth)){
+                        temp <- as.numeric(repMeth[,i])
+                        temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with mean meth of that DMR
+                        repMeth[,i] <- temp
+                }
+        }
+        repMeth$Diagnosis <- factor(samples$Diagnosis_Alg[match(rownames(repMeth), samples$Sequencing_ID)], 
+                                    levels = c("TD", "ASD"))
+        
+        # Initial Model
+        message("\nMaking initial random forest model", appendLF = FALSE)
+        set.seed(5)
+        model1 <- randomForest(Diagnosis ~ ., data = discMeth, localImp = TRUE, ntree = 500)
+        print(model1)
+        
+        message("Predicting discovery group diagnosis with initial model")
+        discInitialPredict <- predict(model1, discMeth, type = "class")
+        message("Classifications", appendLF = FALSE)
+        print(table(discInitialPredict, discMeth$Diagnosis))  
+        message("Accuracy: ", mean(discInitialPredict == discMeth$Diagnosis))
+        
+        message("\nPredicting replication group diagnosis with initial model")
+        repInitialPredict <- predict(model1, repMeth, type = "class")
+        message("Classifications", appendLF = FALSE)
+        print(table(repInitialPredict,repMeth$Diagnosis))
+        message("Accuracy: ", mean(repInitialPredict == repMeth$Diagnosis))
+        
+        # Optimize parameters
+        message("\nOptimizing parameters")
+        message("mtry =\t", appendLF = FALSE)
+        def <- nrow(discDMRmeth) %>% sqrt %>% round
+        mtryOpt <- NULL
+        for(mtry in round(def/4):(def*4)){
+                if(mtry %% 10 == 0){message(mtry, "\t", appendLF = FALSE)}
+                set.seed(5)
+                model <- randomForest(Diagnosis ~ ., data = discMeth, mtry = mtry, ntree = 500, localImp = TRUE)
+                error <- tail(model$err.rate[,"OOB"], 1) * 100
+                temp <- c(mtry, 500, error)
+                mtryOpt <- rbind(mtryOpt, temp)
+        }
+        mtryOpt <- as.data.frame(mtryOpt)
+        rownames(mtryOpt) <- 1:nrow(mtryOpt)
+        colnames(mtryOpt) <- c("mtry", "ntree", "OOBerror")
+        message("\nLowest OOB Error: ", min(mtryOpt$OOBerror))
+        mtryOpt <- subset(mtryOpt, OOBerror == min(mtryOpt$OOBerror))
+        print(mtryOpt)
+        mtryOpt <- min(mtryOpt$mtry)
+        message("Optimized mtry value: ", mtryOpt)
+        
+        message("ntree =\t", appendLF = FALSE)
+        ntreeOpt <- NULL
+        for(ntree in seq(100, 2500, 50)){
+                if(ntree %% 500 == 0){message(ntree, "\t", appendLF = FALSE)}
+                set.seed(5)
+                model <- randomForest(Diagnosis ~ ., data = discMeth, mtry = mtryOpt, ntree = ntree, localImp = TRUE)
+                error <- tail(model$err.rate[,"OOB"], 1) * 100
+                temp <- c(mtryOpt, ntree, error)
+                ntreeOpt <- rbind(ntreeOpt, temp)
+        }
+        ntreeOpt <- as.data.frame(ntreeOpt)
+        rownames(ntreeOpt) <- 1:nrow(ntreeOpt)
+        colnames(ntreeOpt) <- c("mtry", "ntree", "OOBerror")
+        message("\nLowest OOB Error: ", min(ntreeOpt$OOBerror))
+        ntreeOpt <- subset(ntreeOpt, OOBerror == min(ntreeOpt$OOBerror))
+        print(ntreeOpt)
+        ntreeOpt <- min(ntreeOpt$ntree)
+        message("Optimized ntree value: ", ntreeOpt)
+        
+        # Optimized Model
+        message("\nMaking optimized random forest model")
+        set.seed(5)
+        model2 <- randomForest(Diagnosis ~ ., data = discMeth, localImp = TRUE, mtry = mtryOpt, ntree = ntreeOpt)
+        print(model2)
+        
+        message("Predicting discovery group diagnosis with optimized model")
+        discOptimizedPredict <- predict(model2, discMeth, type = "class")
+        message("Classifications", appendLF = FALSE)
+        print(table(discOptimizedPredict, discMeth$Diagnosis))
+        message("Accuracy: ", mean(discOptimizedPredict == discMeth$Diagnosis))
+        
+        message("\nPredicting replication group diagnosis with optimized model")
+        repOptimizedPredict <- predict(model2, repMeth, type = "class")
+        message("Classifications", appendLF = FALSE)
+        print(table(repOptimizedPredict,repMeth$Diagnosis))
+        message("Accuracy: ", mean(repOptimizedPredict == repMeth$Diagnosis))
+        
+        discPredict <- data.frame("InitialModelPredict" = discInitialPredict, "OptimizedModelPredict" = discOptimizedPredict, 
+                                  "Diagnosis" = discMeth$Diagnosis)
+        repPredict <- data.frame("InitialModelPredict" = repInitialPredict, "OptimizedModelPredict" = repOptimizedPredict,
+                                 "Diagnosis" = repMeth$Diagnosis)
+        
+        # Results
+        message("\n Returning model information")
+        modelInfo <- list("discMeth" = discMeth, "repMeth" = repMeth, "InitialModel" = model1, "OptimizedModel" = model2,
+                          "discPredict" = discPredict, "repPredict" = repPredict)
+        
+        message("Initial Model Summary")
+        print(modelInfo$InitialModel)
+        message("Classifications")
+        print(table(modelInfo$repPredict$InitialModelPredict, modelInfo$repPredict$Diagnosis))
+        message("Accuracy = ", mean(modelInfo$repPredict$InitialModelPredict == modelInfo$repPredict$Diagnosis))
+        
+        message("\nOptimized Model Summary")
+        print(modelInfo$OptimizedModel)
+        message("Classifications")
+        print(table(modelInfo$repPredict$OptimizedModelPredict, modelInfo$repPredict$Diagnosis))
+        message("Accuracy = ", mean(modelInfo$repPredict$OptimizedModelPredict == modelInfo$repPredict$Diagnosis))
+        return(modelInfo)
+}
+
