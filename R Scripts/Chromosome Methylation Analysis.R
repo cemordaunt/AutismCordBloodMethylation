@@ -230,7 +230,8 @@ heatStats$Set <- rep(c("Discovery", "Replication", "Pooled", "Discovery", "Repli
         factor(levels = c("Discovery", "Replication", "Pooled"))
 heatStats$Sex <- rep(c("Males", "Females"), each = 75) %>% factor(levels = c("Males", "Females"))
 heatStats <- subset(heatStats, !Region %in% c("chrY", "chrM"))
-heatStats$Significant <- (heatStats$pvalue < 0.05) %>% factor(levels = c("TRUE", "FALSE"))
+heatStats$qvalue <- p.adjust(heatStats$pvalue, method = "fdr")
+heatStats$Significant <- (heatStats$qvalue < 0.1) %>% factor(levels = c("TRUE", "FALSE"))
 heatStats$Region <- factor(heatStats$Region, levels = rev(unique(heatStats$Region)))
 
 g <- ggplot(data = heatStats)
@@ -246,7 +247,7 @@ g +
         scale_x_discrete(expand = c(0,0)) +
         scale_y_discrete(expand = c(0,0)) +
         theme_bw(base_size = 25) +
-        theme(legend.direction = 'vertical', legend.position = c(1.11, 0.902), panel.grid.major = element_blank(), 
+        theme(legend.direction = 'vertical', legend.position = c(1.12, 0.902), panel.grid.major = element_blank(), 
               panel.border = element_rect(color = "Black", size = 1.25), axis.ticks = element_line(size = 1.25), 
               legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size = 24),
               axis.text.x = element_text(color = "Black", angle = 30, hjust = 1), 
@@ -254,7 +255,7 @@ g +
               legend.background = element_blank(), 
               strip.text = element_text(size = 26), plot.margin = unit(c(1, 8, 1, 1), "lines"), 
               axis.title = element_blank(), strip.background = element_blank())
-ggsave("Figures/Chromosome Methylation by Diagnosis Heatmap.png", dpi = 600, width = 10, height = 10.25, units = "in")
+ggsave("Figures/Chromosome Methylation by Diagnosis Heatmap.png", dpi = 600, width = 9.5, height = 10.25, units = "in")
 
 # All Chromosomes, Males Boxplot
 all_chroms_males <- rbind(subset(permeth_m, Sex == "M"), subset(permeth_rep_m, Sex == "M"))

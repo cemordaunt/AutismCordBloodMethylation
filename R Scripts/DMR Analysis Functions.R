@@ -432,7 +432,7 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
         }
         if(variableOrdering == "hierarchical"){
                 pvals <- reshape::cast(covStats[,c("Region", "Variable", "log_pvalue")], formula = Variable ~ Region, 
-                              fun.aggregate = mean, value = "log_pvalue", add.missing = TRUE, fill = 0)
+                              fun.aggregate = mean, value = "log_pvalue", add.missing = TRUE, fill = 0) # Cast sorts variables
                 variableOrder <- hclust(dist(pvals[,2:ncol(pvals)], method = "euclidean"), method = "ward.D")$order
         }
         covStats$Variable <- factor(covStats$Variable, levels = unique(covStats$Variable)[variableOrder], 

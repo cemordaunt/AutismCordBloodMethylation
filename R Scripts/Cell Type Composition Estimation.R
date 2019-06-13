@@ -325,7 +325,20 @@ summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = subset(samples_cov, Se
 #   Estimate Std. Error    t value   Pr(>|t|) 
 # -0.4520351  1.7398020 -0.2598199  0.7964829 
 
-# Discovery nRBCs by Diagnosis + Platform + Gestational Age, stratified by sex
+# Discovery nRBCs by Diagnosis, stratified by sex
+summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
+#  Estimate Std. Error    t value   Pr(>|t|) 
+# 1.5730246  1.0241679  1.5359049  0.1275985 
+
+summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# 2.62017782 1.18498970 2.21113974 0.03020234 
+
+summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# -0.8599870  1.9788178 -0.4345964  0.6669656 
+
+# Discovery nRBCs by Diagnosis + Gestational Age, stratified by sex
 summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
 #  Estimate Std. Error    t value   Pr(>|t|) 
 # 1.2508803  0.9987756  1.2524138  0.2132554 
@@ -338,7 +351,20 @@ summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Sex == "F" & 
 #   Estimate Std. Error    t value   Pr(>|t|) 
 # -0.8730100  2.0130092 -0.4336840  0.6677271 
 
-# Replication nRBCs by Diagnosis + Platform + Gestational Age, stratified by sex
+# Replication nRBCs by Diagnosis, stratified by sex
+summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# 2.43764141 1.11863019 2.17913071 0.03471946 
+
+summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
+#   Estimate Std. Error    t value   Pr(>|t|) 
+# 2.70967192 1.21313434 2.23361242 0.03181311 
+
+summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
+#  Estimate Std. Error    t value   Pr(>|t|) 
+# 1.1888114  3.2621177  0.3644293  0.7280365 
+
+# Replication nRBCs by Diagnosis + Gestational Age, stratified by sex
 summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
 #   Estimate Std. Error    t value   Pr(>|t|) 
 # 2.53141123 1.23816124 2.04449239 0.04705814 
@@ -353,28 +379,78 @@ summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Sex == "F" & 
 
 # nRBC ~ Global Methylation Stats ####
 # Pooled
-summary(lm(nRBC ~ percent_cpg_meth + Platform + ga_w, 
-           data = samples_cov))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 9.960125e-23
-summary(lm(nRBC ~ percent_cpg_meth + Platform + ga_w, 
-           data = subset(samples_cov, Sex == "M")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 4.966483e-19
-summary(lm(nRBC ~ percent_cpg_meth + Platform + ga_w, 
-           data = subset(samples_cov, Sex == "F")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 1.060191e-05
+summary(lm(nRBC ~ percent_cpg_meth + Platform,
+           data = samples_cov))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 1.813856e-21
+summary(lm(nRBC ~ percent_cpg_meth + Platform, 
+           data = subset(samples_cov, Sex == "M")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 1.261959e-18
+summary(lm(nRBC ~ percent_cpg_meth + Platform, 
+           data = subset(samples_cov, Sex == "F")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 2.962901e-05
 
 # Discovery
-summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
-           data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 9.143926e-19
-summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
-           data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 9.3761e-17
-summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
-           data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 0.0001023162
+summary(lm(nRBC ~ percent_cpg_meth, 
+           data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 3.35061e-18
+summary(lm(nRBC ~ percent_cpg_meth, 
+           data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 6.793444e-18
+summary(lm(nRBC ~ percent_cpg_meth, 
+           data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 0.000315383
 
 # Replication
-summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
-           data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 7.73261e-06
-summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
-           data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 0.0001814852
-summary(lm(nRBC ~ percent_cpg_meth + ga_w, 
-           data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 0.07680145
+summary(lm(nRBC ~ percent_cpg_meth, 
+           data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 4.927082e-06
+summary(lm(nRBC ~ percent_cpg_meth, 
+           data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 8.626476e-05
+summary(lm(nRBC ~ percent_cpg_meth, 
+           data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 0.02711881
+
+# nRBC ~ Mullen Composite Stats ####
+# Pooled
+summary(lm(nRBC ~ MSLelcStandard36 + Platform,
+           data = samples_cov))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.005435093
+summary(lm(nRBC ~ MSLelcStandard36 + Platform, 
+           data = subset(samples_cov, Sex == "M")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.003061058
+summary(lm(nRBC ~ MSLelcStandard36 + Platform, 
+           data = subset(samples_cov, Sex == "F")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.7108429
+
+# Discovery
+summary(lm(nRBC ~ MSLelcStandard36, 
+           data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.06479838
+summary(lm(nRBC ~ MSLelcStandard36, 
+           data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.0336292
+summary(lm(nRBC ~ MSLelcStandard36, 
+           data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.9219254
+
+# Replication
+summary(lm(nRBC ~ MSLelcStandard36, 
+           data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.01365184
+summary(lm(nRBC ~ MSLelcStandard36, 
+           data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.03148084
+summary(lm(nRBC ~ MSLelcStandard36, 
+           data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.2319066
+
+# Global Methylation ~ Diagnosis + PCR Duplicates + nRBCs Stats ####
+# Pooled
+summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + Platform + nRBC, 
+           data = samples_cov))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.3343483
+summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + Platform + nRBC, 
+           data = subset(samples_cov, Sex == "M")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.1922716
+summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + Platform + nRBC, 
+           data = subset(samples_cov, Sex == "F")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.8061634
+
+# Discovery
+summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
+           data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.9643772
+summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
+           data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.8533547
+summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
+           data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.8073536
+
+# Replication
+summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
+           data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.1832475
+summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
+           data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.1406058
+summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
+           data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.8195298
 
 # Test for reduced males ####
 table(samples_cov$Sex)
@@ -442,6 +518,7 @@ gg +
         coord_cartesian(xlim = c(0,1), ylim = c(0, 130))
 ggsave("Figures/Reduced Males nRBC Difference pvalue Histogram.png", dpi = 600, width = 8, height = 8, units = "in")
 
+# Covariate Plots ####
 # Plot nRBCs by Global mCG
 ggScatterPlot(x = samples_cov$nRBC, y = samples_cov$percent_cpg_meth, groupVar = samples_cov$Diagnosis_Alg,
               fileName = "Figures/Estimated nRBCs by Global mCpG.png", xlab = "Estimated nRBCs (%)",
@@ -490,6 +567,28 @@ g +
         ylab("Global CpG Methylation (%)") +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
 ggsave("Figures/Estimated nRBCs by Global mCpG and Platform.png", dpi = 600, width = 10, height = 6, units = "in")
+
+# Plot nRBCs by Global mCG and Platform, Males Only
+g <- ggplot(subset(samples_cov, Sex == "M"), aes(x = nRBC, y = percent_cpg_meth))
+g + 
+        geom_smooth(method = "lm") +
+        geom_point(aes(color = Diagnosis_Alg), size = 3) +
+        facet_grid(cols = vars(SampleSet)) +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.92, 1.05), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 22), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
+              strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(0, "lines"), 
+              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              axis.text = element_text(size = 17, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("Estimated nRBCs (%)") +
+        ylab("Global CpG Methylation (%)") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Estimated nRBCs by Global mCpG and Platform, Males.png", dpi = 600, width = 10, height = 6, units = "in")
 
 # Plot nRBCs by Global mCG, Sex, and Platform
 g <- ggplot(samples_cov, aes(x = nRBC, y = percent_cpg_meth))
@@ -540,6 +639,28 @@ g +
         ylab("Mullen Composite Score") +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
 ggsave("Figures/Estimated nRBCs by Mullen Composite and Sex.png", dpi = 600, width = 10, height = 6, units = "in")
+
+# Plot nRBCs by Mullen ELC and Platform, Males Only
+g <- ggplot(subset(samples_cov, Sex == "M"), aes(x = nRBC, y = MSLelcStandard36))
+g + 
+        geom_smooth(method = "lm") +
+        geom_point(aes(color = Diagnosis_Alg), size = 3) +
+        facet_grid(cols = vars(SampleSet)) +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.92, 1.05), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 22), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
+              strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(0, "lines"), 
+              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              axis.text = element_text(size = 17, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("Estimated nRBCs (%)") +
+        ylab("Mullen Composite Score") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Estimated nRBCs by Mullen Composite and Platform, Males.png", dpi = 600, width = 10, height = 6, units = "in")
 
 # Plot Gestational Age by Cell Populations
 gaCells <- samples_cov[,c("Sequencing_ID", "Diagnosis_Alg", "ga_w", "Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC")]

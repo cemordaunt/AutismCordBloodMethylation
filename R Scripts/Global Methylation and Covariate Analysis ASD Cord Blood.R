@@ -735,7 +735,7 @@ heatStats$Variable <- factor(varNames,
                                             "Gestational Diabetes", "Parity", "Urine Cotinine", "Married", "Own Home",
                                             "Bases Trimmed", "Aligned Reads", "Unique Reads", "C Coverage", 
                                             "CpG Coverage", "CHG Methylation", "CHH Methylation")))
-heatStats$Significant <- (heatStats$pvalue < 0.05) %>% factor(levels = c("TRUE", "FALSE"))
+heatStats$Significant <- (heatStats$qvalue < 0.1) %>% factor(levels = c("TRUE", "FALSE"))
 
 g <- ggplot(data = heatStats)
 g + 
@@ -750,7 +750,7 @@ g +
         scale_x_discrete(expand = c(0,0)) +
         scale_y_discrete(expand = c(0,0)) +
         theme_bw(base_size = 25) +
-        theme(legend.direction = 'vertical', legend.position = c(1.15, 0.902), panel.grid.major = element_blank(), 
+        theme(legend.direction = 'vertical', legend.position = c(1.13, 0.902), panel.grid.major = element_blank(), 
               panel.border = element_rect(color = "Black", size = 1.25), axis.ticks = element_line(size = 1.25), 
               legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size = 24),
               axis.text.x = element_text(color = "Black", angle = 30, hjust = 1), 
@@ -758,5 +758,5 @@ g +
               legend.background = element_blank(), 
               strip.text = element_text(size = 26), plot.margin = unit(c(1, 8, 1, 1), "lines"), 
               axis.title = element_blank(), strip.background = element_blank())
-ggsave("Figures/Global Methylation by Covariates Heatmap.png", dpi = 600, width = 11, height = 10.25, units = "in")
+ggsave("Figures/Global Methylation by Covariates Heatmap.png", dpi = 600, width = 12, height = 10.25, units = "in")
 

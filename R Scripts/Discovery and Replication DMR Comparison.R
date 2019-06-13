@@ -7,7 +7,7 @@
 
 # Packages ####
 sapply(c("reshape2", "tidyverse", "ChIPpeakAnno", "annotatr", "GeneOverlap", "UpSetR", "parallel", "regioneR", "LOLA",
-         "rJava", "RDAVIDWebService"), require, character.only = TRUE)
+         "rJava", "RDAVIDWebService", "scales"), require, character.only = TRUE)
 
 # Functions ####
 source("R Scripts/DMR Analysis Functions.R")
@@ -246,15 +246,15 @@ write.table(gomResults, file = "Tables/Dis vs Rep DMR Gene Overlap Stats.txt", s
 # All
 geneOverlapVenn(list("Discovery" = DisRegions_genes$DisDxAll, "Replication" = RepRegions_genes$RepDxAll),
                 file = "Figures/Dis vs Rep DxAll DMR Gene Overlap Venn.png", cat.pos = c(150, 180), cat.dist = c(0.04, 0.03),
-                rotation.degree = 180, ext.dist = -0.1, margin = 0.06, cat.cex = 2.3)
+                rotation.degree = 180, ext.dist = -0.1, margin = 0.03, cat.cex = 3)
 # Males
 geneOverlapVenn(list("Discovery" = DisRegions_genes$DisDxMales, "Replication" = RepRegions_genes$RepDxMales),
                 file = "Figures/Dis vs Rep DxMales DMR Gene Overlap Venn.png", cat.pos = c(155, 180), cat.dist = c(0.04, 0.03),
-                rotation.degree = 180, ext.dist = -0.1, margin = 0.06, cat.cex = 2.3)
+                rotation.degree = 180, ext.dist = -0.1, margin = 0.03, cat.cex = 3)
 # Females
 geneOverlapVenn(list("Discovery" = DisRegions_genes$DisDxFemales, "Replication" = RepRegions_genes$RepDxFemales),
                 file = "Figures/Dis vs Rep DxFemales DMR Gene Overlap Venn.png", cat.pos = c(160, 180), cat.dist = c(0.04, 0.03),
-                rotation.degree = 180, ext.dist = -0.1, margin = 0.06, cat.cex = 2.3)
+                rotation.degree = 180, ext.dist = -0.1, margin = 0.03, cat.cex = 3)
 
 # Replicated DMR Gene DAVID ####
 # Get Replicated DMR Gene IDs
@@ -386,7 +386,7 @@ intersect(int_genes$IntDxMales, int_genes$IntDxFemales) %>% sort
 # Dx Males vs Females Venn Diagram
 geneOverlapVenn(list("Males" = int_genes$IntDxMales, "Females" = int_genes$IntDxFemales), 
                 file = "Figures/Replicated Male vs Female DMR Gene Overlap Venn.png", cat.pos = c(175, 180), 
-                cat.dist = c(0.03, 0.03), rotation.degree = 180, ext.dist = -0.1, margin = 0.02, cat.cex = 3)
+                cat.dist = c(0.03, 0.03), rotation.degree = 180, ext.dist = -0.1, margin = 0.03, cat.cex = 3)
 
 # Dx All, Males, Females Venn Diagram
 geneOverlapVenn(list("All" = int_genes$IntDxAll, "Males" = int_genes$IntDxMales, "Females" = int_genes$IntDxFemales),
@@ -406,7 +406,24 @@ chrX_int <- list(DxMales = intersect(chrX_genes$DisDxMales, chrX_genes$RepDxMale
                  DxFemales = intersect(chrX_genes$DisDxFemales, chrX_genes$RepDxFemales)) # 173 genes in females
 geneOverlapVenn(list("Males" = chrX_int$DxMales, "Females" = chrX_int$DxFemales),
              file = "Figures/Replicated Male vs Female chrX DMR Gene Overlap Venn.png", cat.cex = 3,
-             cat.pos = c(175, 180), cat.dist = c(0.03, 0.03), rotation.degree = 180, margin = 0.02)
+             cat.pos = c(175, 180), cat.dist = c(0.03, 0.03), rotation.degree = 180, margin = 0.04)
+
+# Start here, stats for chrX intersect, need background for chrX
+chrX_Back <- list(DisDxMalesBack = subset(DisDxBackRegions$DisDxMalesBack, chr == "chrX"),
+                  DisDxFemalesBack = subset(DisDxBackRegions$DisDxFemalesBack, chr == "chrX"),
+                  RepDxMalesBack = subset(RepDxBackRegions$RepDxMalesBack, chr == "chrX"),
+                  RepDxFemalesBack = subset(RepDxBackRegions$RepDxFemalesBack, chr == "chrX"))
+chrX_Back_genes <- lapply(chrX_Back, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_name")
+chrX_intersectBack <- intersect(chrX_Back_genes$DisDxMalesBack, chrX_Back_genes$DisDxFemalesBack) %>%
+        intersect(chrX_Back_genes$RepDxMalesBack) %>% intersect(chrX_Back_genes$RepDxFemalesBack) %>% unique %>% sort #1064 genes
+
+chrX_intersect_gom <- newGOM(chrX_int, genome.size = length(chrX_intersectBack))
+chrX_intersect_gomResults <- getMatrix(chrX_intersect_gom, "intersection") %>% melt
+colnames(chrX_intersect_gomResults) <- "intersection"
+chrX_intersect_gomResults$OddsRatio <- getMatrix(chrX_intersect_gom, "odds.ratio") %>% melt %>% .[,"value"]
+chrX_intersect_gomResults$pValue <- getMatrix(chrX_intersect_gom, "pval") %>% melt %>% .[,"value"]
+#                   intersection OddsRatio      pValue
+# DxFemales.DxMales           21  3.476742 4.60506e-05
 
 # Overlap Plots ####
 
@@ -438,6 +455,19 @@ dev.off()
 
 intersect(intersectGenes_all$All, intersectGenes_all$Males) %>% intersect(intersectGenes_all$Females)
 
+# Male Female Discovery Replication Upset Plot
+DisRep_MF_genes <- list("Males Discovery" = DisRegions_genes$DisDxMales, 
+                        "Males Replication" = RepRegions_genes$RepDxMales,
+                        "Females Discovery" = DisRegions_genes$DisDxFemales,
+                        "Females Replication" = RepRegions_genes$RepDxFemales)
+pdf(file = "Figures/Dis vs Rep Males and Females DMR Gene Overlap Upset Plot by degree.pdf", 
+    width = 12, height = 8, onefile = FALSE)
+upset(fromList(DisRep_MF_genes), nsets = 4, nintersects = NA, order.by = "degree", 
+      sets = rev(c("Males Discovery","Males Replication", "Females Discovery", "Females Replication")), keep.order = TRUE,
+      sets.x.label = "Total Genes", mainbar.y.label = "Genes", text.scale = c(3, 3, 2.5, 2.5, 3, 2.5), 
+      point.size = 3.75, line.size = 1.75) 
+dev.off()
+
 # Overlap by GREAT --------------------------------------------------------
 # Term Intersect ####
 # No enriched terms for Discovery DxAll, DxMales, so can't overlap these
@@ -468,7 +498,7 @@ write.table(FemalesGreatStats_int, file = "Tables/Discovery vs Replication Overl
             row.names = FALSE, quote = FALSE, sep = "\t")
 
 # Overlap by DAVID --------------------------------------------------------
-# DAVID Results
+# DAVID Results ####
 DisDAVID <- list("All" = read.delim("Tables/Discovery All DMR Genes DAVID Results.txt", sep = "\t", stringsAsFactors = FALSE), 
                  "Males" = read.delim("Tables/Discovery Males DMR Genes DAVID Results.txt", sep = "\t", stringsAsFactors = FALSE),
                  "Females" = read.delim("Tables/Discovery Females DMR Genes DAVID Results.txt", sep = "\t", stringsAsFactors = FALSE))
@@ -499,3 +529,182 @@ sapply(RepDAVID, nrow)
 sapply(IntDAVID, nrow)
 # All   Males Females 
 #   9      36      78 
+
+# Overlapping Terms Plots ####
+plotDAVID <- read.delim("Tables/Discovery and Replication Males Females DAVID Results for Plot.txt", sep = "\t",
+                        header = TRUE, stringsAsFactors = FALSE)
+plotDAVID$Comparison[plotDAVID$Comparison == "Males Discovery"] <- "Males\nDiscovery"
+plotDAVID$Comparison[plotDAVID$Comparison == "Males Replication"] <- "Males\nReplication"
+plotDAVID$Comparison[plotDAVID$Comparison == "Females Discovery"] <- "Females\nDiscovery"
+plotDAVID$Comparison[plotDAVID$Comparison == "Females Replication"] <- "Females\nReplication"
+plotDAVID$Comparison <- factor(plotDAVID$Comparison, levels = c("Males\nDiscovery", "Males\nReplication",
+                                                                "Females\nDiscovery", "Females\nReplication"))
+plotDAVIDexp <- subset(plotDAVID, grepl("expression", plotDAVID$Term, fixed = TRUE))
+plotDAVID <- subset(plotDAVID, !grepl("expression", plotDAVID$Term, fixed = TRUE))
+
+# Terms, exclude expression
+plotDAVID <- plotDAVID[order(plotDAVID$Term),]
+pvals <- reshape::cast(plotDAVID[,c("Term", "Comparison", "log10Benjamini")], formula = Term ~ Comparison, 
+                       fun.aggregate = mean, value = "log10Benjamini", add.missing = TRUE, fill = 0)
+TermOrder <- hclust(dist(pvals[,2:ncol(pvals)], method = "euclidean"), method = "ward.D")$order
+plotDAVID$Term <- factor(plotDAVID$Term, levels = unique(plotDAVID$Term)[rev(TermOrder)], ordered = TRUE)
+gg <- ggplot()
+gg <- gg +
+        geom_tile(data = plotDAVID, aes(y = Term, x = Comparison, fill = log10Benjamini)) +
+        scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000",
+                             breaks = pretty_breaks(n = 4), limits = c(0, 9)) +
+        scale_x_discrete(expand = c(0,0), drop = FALSE) +
+        scale_y_discrete(expand = c(0,0), drop = FALSE) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 6.5, 0.5, 0.5), "lines"), axis.ticks = element_line(size = 0.7), 
+              axis.text.x = element_text(size = 12, color = "black"), 
+              axis.text.y = element_text(size = 12, color = "black"),
+              axis.title = element_blank(), legend.key = element_blank(),  
+              legend.position = c(1.2, 0.88), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 14), 
+              legend.text = element_text(size = 13), panel.background = element_rect(fill = "black"))
+ggsave("Figures/Discovery and Replication Males Females DAVID logp Heatmap.png", plot = gg, dpi = 600, width = 8, 
+       height = 6, units = "in")
+
+# Expression Terms Only
+plotDAVIDexp$Term <- gsub(" expression", replacement = "", plotDAVIDexp$Term, fixed = TRUE)
+plotDAVIDexp <- plotDAVIDexp[order(plotDAVIDexp$Term),]
+pvals <- reshape::cast(plotDAVIDexp[,c("Term", "Comparison", "log10Benjamini")], formula = Term ~ Comparison, 
+                       fun.aggregate = mean, value = "log10Benjamini", add.missing = TRUE, fill = 0)
+TermOrder <- hclust(dist(pvals[,2:ncol(pvals)], method = "euclidean"), method = "ward.D")$order
+plotDAVIDexp$Term <- factor(plotDAVIDexp$Term, levels = unique(plotDAVIDexp$Term)[TermOrder], ordered = TRUE)
+gg <- ggplot()
+gg <- gg +
+        geom_tile(data = plotDAVIDexp, aes(y = Term, x = Comparison, fill = log10Benjamini)) +
+        scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000",
+                             breaks = pretty_breaks(n = 4), limits = c(0, 9)) +
+        scale_x_discrete(expand = c(0,0), drop = FALSE) +
+        scale_y_discrete(expand = c(0,0), drop = FALSE) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 6.5, 0.5, 4.6), "lines"), axis.ticks = element_line(size = 0.7), 
+              axis.text.x = element_text(size = 12, color = "black"), 
+              axis.text.y = element_text(size = 12, color = "black"),
+              axis.title = element_blank(), legend.key = element_blank(),  
+              legend.position = c(1.2, 0.88), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 14), 
+              legend.text = element_text(size = 13), panel.background = element_rect(fill = "black"))
+ggsave("Figures/Discovery and Replication Males Females DAVID Expression logp Heatmap.png", plot = gg, dpi = 600, width = 8, 
+       height = 6, units = "in")
+
+# DMR Percent of Background by Direction Stacked Barplots -----------------
+# DMR Percent of Background Hyper and Hypomethylated All Chroms
+DiscDMRs <- list(DisRegions$DisDxAll, DisRegions$DisDxMales, DisRegions$DisDxFemales)
+RepDMRs <- list(RepRegions$RepDxAll, RepRegions$RepDxMales, RepRegions$RepDxFemales)
+
+DMRbackPercent <- mapply(function(x, y){c("Hyper  " = sum(x$width[x$percentDifference > 0]) * 100 / sum(y$width), 
+                                          "Hypo" = sum(x$width[x$percentDifference < 0]) * 100 / sum(y$width))},
+                         x = append(DiscDMRs, RepDMRs), y = append(DisDxBackRegions, RepDxBackRegions))
+colnames(DMRbackPercent) <- c("Discovery All", "Discovery Males", "Discovery Females", 
+                              "Replication All", "Replication Males", "Replication Females")
+DMRbackPercent <- melt(DMRbackPercent)
+colnames(DMRbackPercent) <- c("Direction", "Comparison", "Percent")
+DMRbackPercent$Comparison <- factor(DMRbackPercent$Comparison, levels = c("Discovery All", "Discovery Males", "Discovery Females", 
+                                                                          "Replication All", "Replication Males", "Replication Females"))
+gg <- ggplot(DMRbackPercent, aes(x = Comparison, y = Percent, fill = Direction, color = Direction))
+gg + 
+        geom_bar(stat="identity") +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.7, 1.05), legend.background = element_blank(), 
+              legend.key.size = unit(0.7, "cm"), legend.spacing = unit(4, "lines"),
+              axis.ticks = element_line(size = 1.25, color = "black"), 
+              legend.text = element_text(size = 20, margin = unit(c(0, 0, 0, 0.5), "lines")),
+              strip.background = element_blank(), legend.direction = "horizontal", 
+              panel.spacing.y = unit(0, "lines"), 
+              axis.text.x = element_text(size = 18, color = "black", angle = 45, hjust = 1),
+              plot.margin = unit(c(2, 1, 1, 1), "lines"), axis.title.x = element_blank(), 
+              axis.text.y = element_text(size = 20, color = "black"), legend.title = element_blank()) +
+        ylab("DMR Width (% of Background)") +
+        scale_fill_manual(breaks = c("Hyper  ", "Hypo"), values = c("#FF3366", "#3366CC")) +
+        scale_color_manual(breaks = c("Hyper  ", "Hypo"), values = c("#FF3366", "#3366CC")) +
+        coord_cartesian(ylim = c(0, 0.85)) +
+        scale_y_continuous(expand = c(0.004, 0), breaks = pretty_breaks(n = 4))
+ggsave("Figures/DMR Percent of Background by Direction Stacked Barplot.png", dpi = 600, width = 5, height = 7, 
+       units = "in")
+
+# DMR Percent of Background Hyper and Hypomethylated Autosomes
+DMRs_auto <- lapply(append(DiscDMRs, RepDMRs), subset, chr %in% paste("chr", 1:22, sep = ""))
+names(DMRs_auto) <- c("Disc_All", "Disc_Males", "Disc_Females", "Rep_All", "Rep_Males", "Rep_Females")
+DMRbackground_auto <- lapply(append(DisDxBackRegions, RepDxBackRegions), subset, chr %in% paste("chr", 1:22, sep = ""))
+names(DMRbackground_auto) <- c("Disc_All", "Disc_Males", "Disc_Females", "Rep_All", "Rep_Males", "Rep_Females")
+
+DMRbackPercent <- mapply(function(x, y){c("Hyper  " = sum(x$width[x$percentDifference > 0]) * 100 / sum(y$width), 
+                                          "Hypo" = sum(x$width[x$percentDifference < 0]) * 100 / sum(y$width))},
+                         x = DMRs_auto, y = DMRbackground_auto)
+colnames(DMRbackPercent) <- c("Discovery All", "Discovery Males", "Discovery Females", 
+                              "Replication All", "Replication Males", "Replication Females")
+DMRbackPercent <- melt(DMRbackPercent)
+colnames(DMRbackPercent) <- c("Direction", "Comparison", "Percent")
+DMRbackPercent$Comparison <- factor(DMRbackPercent$Comparison, levels = c("Discovery All", "Discovery Males", "Discovery Females", 
+                                                                          "Replication All", "Replication Males", "Replication Females"))
+gg <- ggplot(DMRbackPercent, aes(x = Comparison, y = Percent, fill = Direction, color = Direction))
+gg + 
+        geom_bar(stat="identity") +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.7, 1.05), legend.background = element_blank(), 
+              legend.key.size = unit(0.7, "cm"), legend.spacing = unit(4, "lines"),
+              axis.ticks = element_line(size = 1.25, color = "black"), 
+              legend.text = element_text(size = 20, margin = unit(c(0, 0, 0, 0.5), "lines")),
+              strip.background = element_blank(), legend.direction = "horizontal", 
+              panel.spacing.y = unit(0, "lines"), 
+              axis.text.x = element_text(size = 18, color = "black", angle = 45, hjust = 1),
+              plot.margin = unit(c(2, 1, 1, 1), "lines"), axis.title.x = element_blank(), 
+              axis.text.y = element_text(size = 20, color = "black"), legend.title = element_blank()) +
+        ylab("DMR Width (% of Background)") +
+        scale_fill_manual(breaks = c("Hyper  ", "Hypo"), values = c("#FF3366", "#3366CC")) +
+        scale_color_manual(breaks = c("Hyper  ", "Hypo"), values = c("#FF3366", "#3366CC")) +
+        coord_cartesian(ylim = c(0, 0.85)) +
+        scale_y_continuous(expand = c(0.004, 0), breaks = pretty_breaks(n = 4))
+ggsave("Figures/DMR Percent of Background by Direction Autosomes Only Stacked Barplot.png", dpi = 600, width = 5, height = 7, 
+       units = "in")
+
+# DMR Percent of Background Hyper and Hypomethylated chrX
+DMRs_chrX <- lapply(append(DiscDMRs, RepDMRs), subset, chr == "chrX")
+names(DMRs_chrX) <- c("Disc_All", "Disc_Males", "Disc_Females", "Rep_All", "Rep_Males", "Rep_Females")
+DMRbackground_chrX <- lapply(append(DisDxBackRegions, RepDxBackRegions), subset, chr == "chrX")
+names(DMRbackground_chrX) <- c("Disc_All", "Disc_Males", "Disc_Females", "Rep_All", "Rep_Males", "Rep_Females")
+
+DMRbackPercent <- mapply(function(x, y){c("Hyper  " = sum(x$width[x$percentDifference > 0]) * 100 / sum(y$width), 
+                                          "Hypo" = sum(x$width[x$percentDifference < 0]) * 100 / sum(y$width))},
+                         x = DMRs_chrX, y = DMRbackground_chrX)
+colnames(DMRbackPercent) <- c("Discovery All", "Discovery Males", "Discovery Females", 
+                              "Replication All", "Replication Males", "Replication Females")
+DMRbackPercent <- melt(DMRbackPercent)
+colnames(DMRbackPercent) <- c("Direction", "Comparison", "Percent")
+DMRbackPercent$Comparison <- factor(DMRbackPercent$Comparison, levels = c("Discovery All", "Discovery Males", "Discovery Females", 
+                                                                          "Replication All", "Replication Males", "Replication Females"))
+gg <- ggplot(DMRbackPercent, aes(x = Comparison, y = Percent, fill = Direction, color = Direction))
+gg + 
+        geom_bar(stat="identity") +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.7, 1.05), legend.background = element_blank(), 
+              legend.key.size = unit(0.7, "cm"), legend.spacing = unit(4, "lines"),
+              axis.ticks = element_line(size = 1.25, color = "black"), 
+              legend.text = element_text(size = 20, margin = unit(c(0, 0, 0, 0.5), "lines")),
+              strip.background = element_blank(), legend.direction = "horizontal", 
+              panel.spacing.y = unit(0, "lines"), 
+              axis.text.x = element_text(size = 18, color = "black", angle = 45, hjust = 1),
+              plot.margin = unit(c(2, 1, 1, 1), "lines"), axis.title.x = element_blank(), 
+              axis.text.y = element_text(size = 20, color = "black"), legend.title = element_blank()) +
+        ylab("DMR Width (% of Background)") +
+        scale_fill_manual(breaks = c("Hyper  ", "Hypo"), values = c("#FF3366", "#3366CC")) +
+        scale_color_manual(breaks = c("Hyper  ", "Hypo"), values = c("#FF3366", "#3366CC")) +
+        coord_cartesian(ylim = c(0, 0.85)) +
+        scale_y_continuous(expand = c(0.004, 0), breaks = pretty_breaks(n = 4))
+ggsave("Figures/DMR Percent of Background by Direction chrX Only Stacked Barplot.png", dpi = 600, width = 5, height = 7, 
+       units = "in")
+
