@@ -591,26 +591,29 @@ g +
 ggsave("Figures/Estimated nRBCs by Global mCpG and Platform, Males.png", dpi = 600, width = 10, height = 6, units = "in")
 
 # Plot nRBCs by Global mCG, Sex, and Platform
-g <- ggplot(samples_cov, aes(x = nRBC, y = percent_cpg_meth))
+samples_cov_plot <- samples_cov
+samples_cov_plot$Sex <- ifelse(samples_cov_plot$Sex == "M", yes = "Males", no = "Females") %>% 
+        factor(levels = c("Males", "Females"))
+g <- ggplot(samples_cov_plot, aes(x = nRBC, y = percent_cpg_meth))
 g + 
         geom_smooth(method = "lm") +
         geom_point(aes(color = Diagnosis_Alg), size = 3) +
-        facet_grid(rows = vars(SampleSet), cols = vars(Sex)) +
+        facet_grid(rows = vars(SampleSet), cols = vars(Sex), scales = "free") +
         theme_bw(base_size = 25) +
         theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
               legend.key = element_blank(), panel.grid.minor = element_blank(),
-              legend.position = c(0.91, 1.02), legend.background = element_blank(),
-              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 22), 
+              legend.position = c(0.89, 1.08), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 20), 
               axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
               strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(1, "lines"), 
-              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
-              axis.text = element_text(size = 17, color = "black")) +
+              plot.margin = unit(c(1,0.25,0.5,0.5), "lines"), axis.title = element_text(size = 20, color = "black"),
+              axis.text = element_text(size = 16, color = "black")) +
         scale_x_continuous(breaks = pretty_breaks(n = 5)) +
-        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5), expand = c(0.08, 0)) +
         xlab("Estimated nRBCs (%)") +
         ylab("Global CpG Methylation (%)") +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
-ggsave("Figures/Estimated nRBCs by Global mCpG, Sex, and Platform.png", dpi = 600, width = 10, height = 10, units = "in")
+ggsave("Figures/Estimated nRBCs by Global mCpG, Sex, and Platform.png", dpi = 600, width = 8, height = 8, units = "in")
 
 # Plot nRBCs by Mullen ELC
 ggScatterPlot(x = samples_cov$nRBC, y = samples_cov$MSLelcStandard36, groupVar = samples_cov$Diagnosis_Alg,
@@ -661,6 +664,28 @@ g +
         ylab("Mullen Composite Score") +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
 ggsave("Figures/Estimated nRBCs by Mullen Composite and Platform, Males.png", dpi = 600, width = 10, height = 6, units = "in")
+
+# Plot nRBCs by Mullen ELC, Sex, and Platform
+g <- ggplot(samples_cov_plot, aes(x = nRBC, y = MSLelcStandard36))
+g + 
+        geom_smooth(method = "lm") +
+        geom_point(aes(color = Diagnosis_Alg), size = 3) +
+        facet_grid(rows = vars(SampleSet), cols = vars(Sex), scales = "free") +
+        theme_bw(base_size = 25) +
+        theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
+              legend.key = element_blank(), panel.grid.minor = element_blank(),
+              legend.position = c(0.89, 1.08), legend.background = element_blank(),
+              legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 20), 
+              axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
+              strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(1, "lines"), 
+              plot.margin = unit(c(1,0.25,0.5,0.5), "lines"), axis.title = element_text(size = 20, color = "black"),
+              axis.text = element_text(size = 16, color = "black")) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5), expand = c(0.08, 0)) +
+        xlab("Estimated nRBCs (%)") +
+        ylab("Mullen Early Learning Composite") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Estimated nRBCs by Mullen Composite, Sex, and Platform.png", dpi = 600, width = 8, height = 8, units = "in")
 
 # Plot Gestational Age by Cell Populations
 gaCells <- samples_cov[,c("Sequencing_ID", "Diagnosis_Alg", "ga_w", "Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC")]

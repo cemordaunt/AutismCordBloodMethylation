@@ -675,6 +675,29 @@ ggScatterPlot(x = samples4000M$MSLelcStandard36, y = samples4000M$percent_cpg_me
               fileName = "Figures/Global Methylation by Mullen ELC Replication Males Scatterplot.png",
               xlab = "Mullen Early Learning Composite", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
+# Global Methylation ~ MullenELC by Sex and Platform
+samples$Set <- ifelse(samples$Platform == "HiSeqX10", yes = "Discovery", no = "Replication") %>% 
+        factor(levels = c("Discovery", "Replication"))
+samples$Sex <- ifelse(samples$Sex == "M", yes = "Males", no = "Females") %>% factor(levels = c("Males", "Females"))
+g <- ggplot(data = samples)
+g + 
+        geom_smooth(aes(x = MSLelcStandard36, y = percent_cpg_meth_bsseq), method = "lm") +
+        geom_point(aes(x = MSLelcStandard36, y = percent_cpg_meth_bsseq, color = Diagnosis_Alg), size = 3) +
+        facet_grid(rows = vars(Set), cols = vars(Sex), scales = "free") +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.89, 1.08), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title = element_blank(),
+              axis.text = element_text(size = 16, color = "black"), axis.title = element_text(size = 20),
+              legend.background = element_blank(), strip.background = element_blank(), 
+              plot.margin = unit(c(1,0.25,0.5,0.5), "lines"), strip.text = element_text(size = 20)) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("Mullen Early Learning Composite") +
+        ylab("Global CpG Methylation (%)") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Global Methylation by Mullen ELC split by Sex and Platform.png", dpi = 600, width = 8, height = 8, units = "in")
+
 # Global Methylation ~ ADOS Scatterplots ####
 # Global Methylation ~ ADOS + PCR Duplicates, Discovery Samples
 ggScatterPlot(x = samplesX10$ADOScs, y = samplesX10$percent_cpg_meth_bsseq, groupVar = samplesX10$Diagnosis_Alg, 
@@ -696,6 +719,25 @@ ggScatterPlot(x = samples4000M$ADOScs, y = samples4000M$percent_cpg_meth_bsseq, 
               fileName = "Figures/Global Methylation by ADOS Replication Males Scatterplot.png",
               xlab = "ADOS Comparison Score", ylab = "Global CpG Methylation (%)", legendPos = c(0.89, 1.035))
 
+# Global Methylation ~ ADOS by Sex and Platform
+g <- ggplot(data = samples)
+g + 
+        geom_smooth(aes(x = ADOScs, y = percent_cpg_meth_bsseq), method = "lm") +
+        geom_point(aes(x = ADOScs, y = percent_cpg_meth_bsseq, color = Diagnosis_Alg), size = 3) +
+        facet_grid(rows = vars(Set), cols = vars(Sex), scales = "free") +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = c(0.89, 1.08), panel.grid.major = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
+              legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title = element_blank(),
+              axis.text = element_text(size = 16, color = "black"), axis.title = element_text(size = 20),
+              legend.background = element_blank(), strip.background = element_blank(), 
+              plot.margin = unit(c(1,0.25,0.5,0.5), "lines"), strip.text = element_text(size = 20)) +
+        scale_x_continuous(breaks = pretty_breaks(n = 5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5)) +
+        xlab("ADOS Comparison Score") +
+        ylab("Global CpG Methylation (%)") +
+        scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
+ggsave("Figures/Global Methylation by ADOS split by Sex and Platform.png", dpi = 600, width = 8, height = 8, units = "in")
 
 # Global Methylation ~ Covariates Heatmap ####
 # Plot effect size for discovery, replication, males, and females
@@ -735,7 +777,7 @@ heatStats$Variable <- factor(varNames,
                                             "Gestational Diabetes", "Parity", "Urine Cotinine", "Married", "Own Home",
                                             "Bases Trimmed", "Aligned Reads", "Unique Reads", "C Coverage", 
                                             "CpG Coverage", "CHG Methylation", "CHH Methylation")))
-heatStats$Significant <- (heatStats$qvalue < 0.1) %>% factor(levels = c("TRUE", "FALSE"))
+heatStats$Significant <- (heatStats$qvalue < 0.05) %>% factor(levels = c("TRUE", "FALSE"))
 
 g <- ggplot(data = heatStats)
 g + 
