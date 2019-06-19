@@ -783,49 +783,101 @@ prepLOLAhistone <- function(histone, index, regions, file){
         return(histone)
 }
 
-plotLOLAhistone <- function(histone, title, type = c("oddsRatio", "qValueLog", "legend"), hm.max, file){
+plotLOLAhistone <- function(histone, title, type = c("oddsRatio", "qValueLog", "legend"), hm.max, file, axis.text.y = element_blank(),
+                            axis.ticks.y = element_blank(), labels = NULL, width = 5.5, height = 7, legend.position = c(1.21, 0.855), 
+                            facet = NULL){
         if(!type %in% c("oddsRatio", "qValueLog", "legend")){
                 message("[plotLOLAhistone] type must be oddsRatio, qValueLog or legend")
         }
         else {
                 message("[plotLOLAhistone] Plotting histone enrichment ", type)
                 if(type == "oddsRatio"){
-                        gg <- ggplot(data = histone)
-                        gg +
-                                geom_tile(aes(x = antibody, y = order, fill = oddsRatio)) +
-                                scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
-                                                     na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
-                                theme_bw(base_size = 24) +
-                                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
-                                      panel.border = element_rect(color = "black", size = 1.25), 
-                                      panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
-                                      axis.ticks.y = element_blank(), legend.key = element_blank(),  legend.position = c(1.21, 0.855), 
-                                      legend.background = element_blank(), legend.title = element_text(size = 18), 
-                                      plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = element_blank(), 
-                                      axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
-                                      axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0)) +
-                                scale_x_discrete(expand = c(0, 0)) + 
-                                ggtitle(title)
-                        ggsave(file, dpi = 600, width = 5.5, height = 7, units = "in")
+                        if(!is.null(facet)){
+                                gg <- ggplot(data = histone)
+                                gg +
+                                        geom_tile(aes(x = antibody, y = order, fill = oddsRatio)) +
+                                        facet_grid(cols = facet) +
+                                        scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                             na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                        theme_bw(base_size = 24) +
+                                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                              panel.border = element_rect(color = "black", size = 1.25), 
+                                              panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                              axis.ticks.y = axis.ticks.y, legend.key = element_blank(),  legend.position = legend.position, 
+                                              legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                              plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = axis.text.y, 
+                                              axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                              axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0),
+                                              strip.background = element_blank(), strip.text = element_text(size = 18)) +
+                                        scale_x_discrete(expand = c(0, 0)) + 
+                                        scale_y_discrete(labels = labels) +
+                                        ggtitle(title)
+                                ggsave(file, dpi = 600, width = width, height = height, units = "in")
+                        } else {
+                                gg <- ggplot(data = histone)
+                                gg +
+                                        geom_tile(aes(x = antibody, y = order, fill = oddsRatio)) +
+                                        scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                             na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                        theme_bw(base_size = 24) +
+                                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                              panel.border = element_rect(color = "black", size = 1.25), 
+                                              panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                              axis.ticks.y = axis.ticks.y, legend.key = element_blank(),  legend.position = legend.position, 
+                                              legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                              plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = axis.text.y, 
+                                              axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                              axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0),
+                                              strip.background = element_blank(), strip.text = element_text(size = 18)) +
+                                        scale_x_discrete(expand = c(0, 0)) + 
+                                        scale_y_discrete(labels = labels) +
+                                        ggtitle(title)
+                                ggsave(file, dpi = 600, width = width, height = height, units = "in")
+                        }
                 }
                 if(type == "qValueLog"){
-                        gg <- ggplot(data = histone)
-                        gg +
-                                geom_tile(aes(x = antibody, y = order, fill = qValueLog)) +
-                                scale_fill_gradientn("-log(q-value)", colors = c("black", "#FF0000"), values = c(0, 1), 
-                                                     na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
-                                theme_bw(base_size = 24) +
-                                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
-                                      panel.border = element_rect(color = "black", size = 1.25), 
-                                      panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
-                                      axis.ticks.y = element_blank(), legend.key = element_blank(), legend.position = c(1.23, 0.855), 
-                                      legend.background = element_blank(), legend.title = element_text(size = 18), 
-                                      plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = element_blank(), 
-                                      axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
-                                      axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0)) +
-                                scale_x_discrete(expand = c(0, 0)) + 
-                                ggtitle(title)
-                        ggsave(file, dpi = 600, width = 5.5, height = 7, units = "in")
+                        if(!is.null(facet)){
+                                gg <- ggplot(data = histone)
+                                gg +
+                                        geom_tile(aes(x = antibody, y = order, fill = qValueLog)) +
+                                        facet_grid(cols = facet) +
+                                        scale_fill_gradientn("-log(q-value)", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                             na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                        theme_bw(base_size = 24) +
+                                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                              panel.border = element_rect(color = "black", size = 1.25), 
+                                              panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                              axis.ticks.y = axis.ticks.y, legend.key = element_blank(), legend.position = legend.position, 
+                                              legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                              plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = axis.text.y, 
+                                              axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                              axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0),
+                                              strip.background = element_blank(), strip.text = element_text(size = 18)) +
+                                        scale_x_discrete(expand = c(0, 0)) + 
+                                        scale_y_discrete(labels = labels) +
+                                        ggtitle(title)
+                                ggsave(file, dpi = 600, width = width, height = height, units = "in")
+                        } else {
+                                gg <- ggplot(data = histone)
+                                gg +
+                                        geom_tile(aes(x = antibody, y = order, fill = qValueLog)) +
+                                        scale_fill_gradientn("-log(q-value)", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                             na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                        theme_bw(base_size = 24) +
+                                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                              panel.border = element_rect(color = "black", size = 1.25), 
+                                              panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                              axis.ticks.y = axis.ticks.y, legend.key = element_blank(), legend.position = legend.position, 
+                                              legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                              plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = axis.text.y, 
+                                              axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                              axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0),
+                                              strip.background = element_blank(), strip.text = element_text(size = 18)) +
+                                        scale_x_discrete(expand = c(0, 0)) + 
+                                        scale_y_discrete(labels = labels) +
+                                        ggtitle(title)
+                                ggsave(file, dpi = 600, width = width, height = height, units = "in")
+                        }
                 }
                 if(type == "legend"){
                         gg <- ggplot(data = histone)
@@ -895,49 +947,101 @@ prepLOLAchromHMM <- function(chromHMM, index, regions, file){
         return(chromHMM)
 }
 
-plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog", "legend"), hm.max, file){
+plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog", "legend"), hm.max, file, axis.text.y = element_blank(),
+                            axis.ticks.y = element_blank(), labels = NULL, width = 5.5, height = 7, legend.position = c(1.21, 0.855), 
+                            facet = NULL){
         if(!type %in% c("oddsRatio", "qValueLog", "legend")){
                 message("[plotLOLAchromHMM] type must be oddsRatio, qValueLog or legend")
         }
         else {
                 message("[plotLOLAchromHMM] Plotting chromHMM enrichment ", type)
                 if(type == "oddsRatio"){
-                        gg <- ggplot(data = chromHMM)
-                        gg +
-                                geom_tile(aes(x = chromState, y = order, fill = oddsRatio)) +
-                                scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
-                                                     na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
-                                theme_bw(base_size = 24) +
-                                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
-                                      panel.border = element_rect(color = "black", size = 1.25), 
-                                      panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
-                                      axis.ticks.y = element_blank(), legend.key = element_blank(),  legend.position = c(1.21, 0.855), 
-                                      legend.background = element_blank(), legend.title = element_text(size = 18), 
-                                      plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = element_blank(), 
-                                      axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
-                                      axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0)) +
-                                scale_x_discrete(expand = c(0, 0)) + 
-                                ggtitle(title)
-                        ggsave(file, dpi = 600, width = 5.5, height = 7, units = "in")
+                        if(!is.null(facet)){
+                                gg <- ggplot(data = chromHMM)
+                                gg +
+                                        geom_tile(aes(x = chromState, y = order, fill = oddsRatio)) +
+                                        facet_grid(cols = facet) +
+                                        scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                             na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                        theme_bw(base_size = 24) +
+                                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                              panel.border = element_rect(color = "black", size = 1.25), 
+                                              panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                              axis.ticks.y = axis.ticks.y, legend.key = element_blank(),  legend.position = legend.position, 
+                                              legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                              plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = axis.text.y, 
+                                              axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                              axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0),
+                                              strip.background = element_blank(), strip.text = element_text(size = 18)) +
+                                        scale_x_discrete(expand = c(0, 0)) + 
+                                        scale_y_discrete(labels = labels) +
+                                        ggtitle(title)
+                                ggsave(file, dpi = 600, width = width, height = height, units = "in")
+                        } else {
+                                gg <- ggplot(data = chromHMM)
+                                gg +
+                                        geom_tile(aes(x = chromState, y = order, fill = oddsRatio)) +
+                                        scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                             na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                        theme_bw(base_size = 24) +
+                                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                              panel.border = element_rect(color = "black", size = 1.25), 
+                                              panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                              axis.ticks.y = axis.ticks.y, legend.key = element_blank(),  legend.position = legend.position, 
+                                              legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                              plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = axis.text.y, 
+                                              axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                              axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0),
+                                              strip.background = element_blank(), strip.text = element_text(size = 18)) +
+                                        scale_x_discrete(expand = c(0, 0)) + 
+                                        scale_y_discrete(labels = labels) +
+                                        ggtitle(title)
+                                ggsave(file, dpi = 600, width = width, height = height, units = "in")
+                        }
                 }
                 if(type == "qValueLog"){
-                        gg <- ggplot(data = chromHMM)
-                        gg +
-                                geom_tile(aes(x = chromState, y = order, fill = qValueLog)) +
-                                scale_fill_gradientn("-log(q-value)", colors = c("black", "#FF0000"), values = c(0, 1), 
-                                                     na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
-                                theme_bw(base_size = 24) +
-                                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
-                                      panel.border = element_rect(color = "black", size = 1.25), 
-                                      panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
-                                      axis.ticks.y = element_blank(), legend.key = element_blank(), legend.position = c(1.23, 0.855), 
-                                      legend.background = element_blank(), legend.title = element_text(size = 18), 
-                                      plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = element_blank(), 
-                                      axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
-                                      axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0)) +
-                                scale_x_discrete(expand = c(0, 0)) + 
-                                ggtitle(title)
-                        ggsave(file, dpi = 600, width = 5.5, height = 7, units = "in")
+                        if(!is.null(facet)){
+                                gg <- ggplot(data = chromHMM)
+                                gg +
+                                        geom_tile(aes(x = chromState, y = order, fill = qValueLog)) +
+                                        facet_grid(cols = facet) +
+                                        scale_fill_gradientn("-log(q-value)", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                             na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                        theme_bw(base_size = 24) +
+                                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                              panel.border = element_rect(color = "black", size = 1.25), 
+                                              panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                              axis.ticks.y = axis.ticks.y, legend.key = element_blank(), legend.position = legend.position, 
+                                              legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                              plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = axis.text.y, 
+                                              axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                              axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0),
+                                              strip.background = element_blank(), strip.text = element_text(size = 18)) +
+                                        scale_x_discrete(expand = c(0, 0)) + 
+                                        scale_y_discrete(labels = labels) +
+                                        ggtitle(title)
+                                ggsave(file, dpi = 600, width = width, height = height, units = "in")
+                        } else {
+                                gg <- ggplot(data = chromHMM)
+                                gg +
+                                        geom_tile(aes(x = chromState, y = order, fill = qValueLog)) +
+                                        scale_fill_gradientn("-log(q-value)", colors = c("black", "#FF0000"), values = c(0, 1), 
+                                                             na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                                        theme_bw(base_size = 24) +
+                                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                                              panel.border = element_rect(color = "black", size = 1.25), 
+                                              panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
+                                              axis.ticks.y = axis.ticks.y, legend.key = element_blank(), legend.position = legend.position, 
+                                              legend.background = element_blank(), legend.title = element_text(size = 18), 
+                                              plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = axis.text.y, 
+                                              axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
+                                              axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0),
+                                              strip.background = element_blank(), strip.text = element_text(size = 18)) +
+                                        scale_x_discrete(expand = c(0, 0)) + 
+                                        scale_y_discrete(labels = labels) +
+                                        ggtitle(title)
+                                ggsave(file, dpi = 600, width = width, height = height, units = "in")
+                        }
                 }
                 if(type == "legend"){
                         gg <- ggplot(data = chromHMM)
@@ -960,14 +1064,26 @@ plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog",
 
 # Replication Functions ---------------------------------------------------
 
-DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, rotation.degree = 0, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03),
-                           fill = c("lightblue", "lightpink"), ext.text = TRUE, ext.dist = -0.2){
+DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, totalTest = NULL, rotation.degree = 0, cat.pos = c(0, 0), 
+                           cat.dist = c(0.03, 0.03), cat.cex = 2, fill = c("lightblue", "lightpink"), ext.text = TRUE, 
+                           ext.dist = -0.2, margin = 0.04, cex = 2.5){
         pdf(file = file, width = 10, height = 8, onefile = FALSE)
-        venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, maxgap = -1, minoverlap = 1, 
-                                                 by = "region", connectedPeaks = "min", rotation.degree = rotation.degree, 
-                                                 margin = 0.04, cat.cex = 2, cex = 2.5, fill = fill,
-                                                 cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans",
-                                                 cat.fontfamily = "sans", ext.dist = ext.dist, ext.length = 0.85, ext.text = ext.text))
+        if(!is.null(totalTest)){
+                venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, totalTest = totalTest, 
+                                                         maxgap = -1, minoverlap = 1, by = "region", connectedPeaks = "min", 
+                                                         rotation.degree = rotation.degree, margin = margin, cat.cex = cat.cex, 
+                                                         cex = cex, fill = fill, cat.pos = cat.pos, cat.dist = cat.dist, 
+                                                         fontfamily = "sans", cat.fontfamily = "sans", ext.dist = ext.dist, 
+                                                         ext.length = 0.85, ext.text = ext.text))
+                message("[DMRoverlapVenn] Hypergeometric test p = ", signif(venn$p.value[3], digits = 6), "\n")
+        } else {
+                venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, maxgap = -1, minoverlap = 1, 
+                                                         by = "region", connectedPeaks = "min", rotation.degree = rotation.degree, 
+                                                         margin = margin, cat.cex = cat.cex, cex = cex, fill = fill,
+                                                         cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans",
+                                                         cat.fontfamily = "sans", ext.dist = ext.dist, ext.length = 0.85, 
+                                                         ext.text = ext.text))
+        }
         dev.off()
 }
 

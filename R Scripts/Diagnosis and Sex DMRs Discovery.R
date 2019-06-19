@@ -1,8 +1,9 @@
 # Diagnosis and Sex DMRs Discovery ####
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 5/31/19
+# 6/17/19
 # Excluded JLCM032B and JLCM050B
+# Updated filtering for DxAdjSex
 
 # cmordaunt@epigenerate:/share/lasallelab/Charles/CM_WGBS_ASD_CordBlood/Bismark_Reports/Discovery
 # THREADS=${SLURM_NTASKS}
@@ -87,41 +88,188 @@ plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate
 dev.off()
 
 # Meth ~ Diagnosis + AdjSex DMRs and Plots ####
-# (Includes JLCM032B and JLCM050B)
-# New R session
-bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
-regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms,
-                  testCovariate = testCovariate, adjustCovariate = "Sex", matchCovariate = NULL)
+# New processBismark
+processBismark <- function(files = list.files(path = getwd(), pattern = "*.txt.gz"),
+                           meta = openxlsx::read.xlsx("sample_info.xlsx", colNames = TRUE) %>% dplyr::mutate_if(is.character, as.factor),
+                           testCovar = testCovariate,
+                           adjustCovar = adjustCovariate,
+                           matchCovar = NULL,
+                           Cov = coverage,
+                           mc.cores = cores,
+                           per.Group = perGroup){
+        
+        cat("\n[DMRichR] Processing Bismark cytosine reports \t\t", format(Sys.time(), "%d-%m-%Y %X"), "\n")
+        start_time <- Sys.time()
+        print(glue::glue("Selecting files..."))
+        files.idx <- pmatch(meta$Name, files)
+        files <- files[files.idx]
+        #names <- as.data.frame(gsub( "_.*$","", files[files.idx])) # For colData, but jumbles file order with parallel processing
+        #colnames(names) <- "Name"
+        #rownames(names) <- names[,1]
+        #names[,1] <- NULL
+        
+        # glue::glue("Determining parallelization...") # Does not work on some clusters due to use of BiocParallel, but speeds up desktops 
+        # if(mc.cores >= 4){
+        #  BPPARAM <- BiocParallel::MulticoreParam(workers = floor(mc.cores/4), progressbar = TRUE)
+        #  nThread <- as.integer(floor(mc.cores/floor(mc.cores/4)))
+        #  glue::glue("Parallel processing will be used with {floor(mc.cores/4)} cores consisting of {nThread} threads each")
+        # }else if(mc.cores < 4){
+        #  BPPARAM <- BiocParallel::MulticoreParam(workers = 1, progressbar = TRUE)
+        #  nThread <- as.integer(1)
+        #  glue::glue("Parallel processing will not be used")
+        # }
+        
+        print(glue::glue("Reading cytosine reports..."))
+        bs <- read.bismark(files = files,
+                           #colData = names,
+                           rmZeroCov = FALSE,
+                           strandCollapse = TRUE,
+                           verbose = TRUE,
+                           BPPARAM = MulticoreParam(workers = mc.cores, progressbar = FALSE), # BPPARAM # bpparam() # MulticoreParam(workers = mc.cores, progressbar = TRUE)
+                           nThread = 1) # 1L # nThread
+        
+        print(glue::glue("Assigning sample metadata with {testCovar} as factor of interest..."))
+        sampleNames(bs) <- gsub( "_.*$","", sampleNames(bs))
+        meta <- meta[order(match(meta[,1],sampleNames(bs))),]
+        stopifnot(sampleNames(bs) == as.character(meta$Name))
+        pData(bs) <- cbind(pData(bs), meta[2:length(meta)])
+        print(pData(bs))
+        
+        print(glue::glue("Filtering CpGs..."))
+        bs <- GenomeInfoDb::keepStandardChromosomes(bs, pruning.mode = "coarse")
+        pData(bs)[[testCovar]] <- as.factor(pData(bs)[[testCovar]])
+        loci.cov <- getCoverage(bs, type = "Cov")
+        
+        if(!is.null(adjustCovar)){
+                excludeCovar <- NULL
+                for(i in 1:length(adjustCovar)){
+                        if(is.numeric(pData(bs)[, adjustCovar[i]]) | is.integer(pData(bs)[, adjustCovar[i]])){
+                                print(glue::glue("Assuming adjustment covariate {adjustCovar[i]} is continuous and excluding it from filtering..."))
+                                excludeCovar <- c(excludeCovar, adjustCovar[i])
+                                
+                        }else{
+                                print(glue::glue("Assuming adjustment covariate {adjustCovar[i]} is discrete and including it for filtering..."))
+                        }
+                }
+                adjustCovar <- adjustCovar[!adjustCovar %in% excludeCovar]
+        }
+        
+        if(!is.null(matchCovar)){
+                if(length(matchCovar) > 1){
+                        stop(print(glue::glue("Only one matching covariate can be used")))
+                        
+                }else if(is.numeric(pData(bs)[, matchCovar]) | is.integer(pData(bs)[, matchCovar])){
+                        stop(print(glue::glue("Matching covariate {matchCovar} must be discrete")))
+                        
+                }else{
+                        print(glue::glue("Assuming matching covariate {matchCovar} is discrete and including it for filtering..."))
+                }
+        }
+        
+        covar.groups <- apply(pData(bs)[, as.character(c(testCovar, adjustCovar, matchCovar))] %>% as.data.frame(), 
+                              MARGIN = 1, FUN = paste, collapse = "_") %>% 
+                as.factor() # Covariate combination groups
+        group.samples <- split(t(loci.cov >= Cov) %>% as.data.frame(), f = covar.groups) %>% 
+                mclapply(FUN = as.matrix, mc.cores = mc.cores) %>% 
+                mclapply(FUN = DelayedMatrixStats::colSums2, mc.cores = mc.cores) %>%
+                simplify2array() %>%
+                as.data.frame() # Samples in each cov.group meeting coverage threshold by CpG (slow)
+        
+        print(glue::glue("Making coverage filter table..."))
+        per.Group.seq <- seq(0,1,0.05)
+        covFilter <- NULL
+        for(i in 1:length(per.Group.seq)){
+                groups.n <- (table(covar.groups) * per.Group.seq[i]) %>% ceiling() %>% as.integer()
+                per.Group.seq.test <- mapply(function(x, y){x >= y}, 
+                                             x = group.samples, 
+                                             y = (table(covar.groups) * per.Group.seq[i]) %>% ceiling() %>% as.integer()) # Test if enough samples are in each group by CpG
+                CpGs <- sum(DelayedMatrixStats::rowSums2(per.Group.seq.test) >= length(unique(covar.groups))) # Total CpGs meeting coverage threshold in at least per.Group of all covariate combos
+                temp <- c(per.Group.seq[i] * 100, groups.n, CpGs, round(CpGs * 100 / length(bs), 2))
+                covFilter <- rbind(covFilter, temp)
+        }
+        covFilter <- as.data.frame(covFilter, row.names = 1:nrow(covFilter))
+        colnames(covFilter) <- c("perGroup", paste("n", unique(covar.groups), sep = "_"), "nCpG", "perCpG")
+        print(covFilter)
+        
+        if(per.Group <= 1){
+                print(glue::glue("Filtering for {Cov}x coverage in at least {per.Group*100}% of samples for \\
+                                 all combinations of covariates..."))
+                sample.idx <- which(pData(bs)[[testCovar]] %in% levels(pData(bs)[[testCovar]]))
+                per.Group.test <- mapply(function(x, y){x >= y}, 
+                                         x = group.samples, 
+                                         y = (table(covar.groups) * per.Group) %>% ceiling() %>% as.integer()) # Test if enough samples are in each group by CpG
+                loci.idx <- which(DelayedMatrixStats::rowSums2(per.Group.test) >= length(unique(covar.groups))) # Which CpGs meet coverage threshold in at least per.Group of all covariate combos
+                bs.filtered <- bs[loci.idx, sample.idx]
+                
+        }else if(per.Group > 1){
+                stop(print(glue::glue("perGroup is {per.Group} and cannot be greater than 1, which is 100% of samples")))
+                
+        }else{
+                stop(print(glue::glue("processBismark arguments")))
+        } 
+        
+        print(glue::glue("processBismark timing..."))
+        end_time <- Sys.time()
+        print(end_time - start_time)
+        
+        print(glue::glue("Before filtering for {Cov}x coverage there were {nrow(bs)} CpGs, \\
+                         after filtering there are {nrow(bs.filtered)} CpGs, \\
+                         which is {round(nrow(bs.filtered)/nrow(bs)*100,1)}% of all CpGs."))
+        
+        return(bs.filtered)
+}
+
+# Load and Process Samples, using new processBismark with covariate filtering (Running on Epigenerate 6/17)
+adjustCovariate <- "Sex"
+bs.filtered <- processBismark(files = list.files(path = getwd(), pattern = "*.txt.gz"),
+                              meta = read.xlsx("sample_info.xlsx", colNames = TRUE) %>% mutate_if(is.character,as.factor),
+                              testCovar = testCovariate, adjustCovar = adjustCovariate, Cov = coverage, mc.cores = cores, per.Group = perGroup)
+bs.filtered <- chrSelectBSseq(bs.filtered, seqnames = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")) # Remove chrY
+saveRDS(bs.filtered, "Dx_Sex_All/Filtered_BSseq_Discovery50_DxAdjSex.rds")
+
+# Background Regions (Running on Epigenerate 6/17)
+background <- getBackground(bs.filtered, minNumRegion = minCpGs, maxGap = 1000)
+write.table(background, file = "Dx_Sex_All/bsseq_background_Discovery50_DxAdjSex.csv", sep = ",", quote = FALSE, row.names = FALSE)
+
+# DMRs and Raw Methylation (Running on Epigenerate 6/17)
+regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms, testCovariate = testCovariate)
 regions$percentDifference <- round(regions$beta/pi * 100)
 sigRegions <- regions[regions$pval < 0.05,]
-gr2csv(regions, "CandidateRegions_DxAdjSex_Discovery50.csv")
-gr2csv(sigRegions, "DMRs_DxAdjSex_Discovery50.csv")
+gr2csv(regions, "Dx_Sex_All/CandidateRegions_Discovery50_DxAdjSex.csv")
+gr2csv(sigRegions, "Dx_Sex_All/DMRs_Discovery50_DxAdjSex.csv")
+raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = sigRegions, type = "raw", what = "perRegion"))
+raw <- cbind(sigRegions, raw)
+write.table(raw, "Dx_Sex_All/DMR_raw_methylation_Discovery50_DxAdjSex.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
-bs.filtered.bsseq <- readRDS("Filtered_Smoothed_BSseq_Discovery50.rds")
+# Smoothed Methylation (Running on Epigenerate 6/17)
+bs.filtered.bsseq <- BSmooth(bs.filtered, BPPARAM = MulticoreParam(workers = cores, progressbar = TRUE))
+pData <- pData(bs.filtered.bsseq)
+pData$col <- NULL
+pData$col[pData[,testCovariate] == levels(pData[,testCovariate])[1]] <- "#3366CC"
+pData$col[pData[,testCovariate] == levels(pData[,testCovariate])[2]] <-  "#FF3366"
+pData$label <- NULL
+pData$label[pData[,testCovariate] == levels(pData[,testCovariate])[1]] <- "TD"
+pData$label[pData[,testCovariate] == levels(pData[,testCovariate])[2]] <-  "ASD"
+pData(bs.filtered.bsseq) <- pData
+saveRDS(bs.filtered.bsseq, "Dx_Sex_All/Filtered_Smoothed_BSseq_Discovery50_DxAdjSex.rds")
+smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegions)
+write.table(smoothed, "Dx_Sex_All/DMR_smoothed_methylation_Discovery50_DxAdjSex.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+
+# Plots (Running on Epigenerate 6/17)
 annoTrack <- readRDS("hg38_annoTrack.rds")
-smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegions, 
-                      out = "DMR_smoothed_methylation_DxAdjSex_Discovery50.txt")
-
-pdf("DMRs_DxAdjSex_Discovery50.pdf", height = 4, width = 8)
+pdf("Dx_Sex_All/DMRs_Discovery50_DxAdjSex.pdf", height = 4, width = 8)
 plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, 
           extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2,
           addRegions = sigRegions, annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE,
           horizLegend = TRUE)
 dev.off()
 
-pdf("DMRs_DxAdjSex_Discovery50_noPoints.pdf", height = 4, width = 8)
+pdf("Dx_Sex_All/DMRs_Discovery50_noPoints_DxAdjSex.pdf", height = 4, width = 8)
 plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, 
           extend = 5000 - (end(sigRegions) - start(sigRegions) + 1)/2,
           addRegions = sigRegions, annoTrack = annoTrack, lwd = 2, qval = FALSE, stat = FALSE,
           horizLegend = TRUE, addPoints = FALSE)
 dev.off()
-
-# Get raw DMR methylation (Done)
-bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
-sigRegions <- read.csv("DMRs_DxAdjSex_Discovery50.csv", header = TRUE, stringsAsFactors = FALSE)
-raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = data.frame2GRanges(sigRegions), type = "raw", what = "perRegion"))
-raw <- cbind(sigRegions, raw)
-write.table(raw, "DMR_raw_methylation_DxAdjSex_Discovery50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
 # DMRs with Males Only (Rerun without JLCM032B and JLCM050B) ####
 # New R session

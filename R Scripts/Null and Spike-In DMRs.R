@@ -1,7 +1,8 @@
 # Null and Spike-In DMRs --------------------------------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 4/4/19
+# 6/17/19
+# Updated to DMRs without JLCM032B and JLCM050B
 
 # Load Packages ####
 .libPaths("/share/lasallelab/programs/DMRichR/R_3.5")
@@ -230,19 +231,19 @@ GR_background <- sapply(background, function(x) {GRanges(seqnames = x$chr, range
 # Overlap Diagnosis All Males with Diagnosis Reduced Males DMRs
 DMRoverlapVenn(list(GR_DMRs$DMRs_Dx[DMRs$DMRs_Dx$percentDifference > 0], 
                     GR_DMRs$DMRs_DxRed[DMRs$DMRs_DxRed$percentDifference > 0]), 
-               NameOfPeaks = c("Dx_All_Hyper", "Dx_Reduced_Hyper"), 
+               NameOfPeaks = c("All_Males", "Reduced_Males"), cat.cex = 2.5, cex = 3,
                file = "Figures/DMR Overlap Diagnosis All Males with Diagnosis Reduced Males Hyper DMRs Venn.pdf",
-               rotation.degree = 180, cat.pos = c(170, 180), cat.dist = c(0.03, 0.03))
+               rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE, margin = 0.02)
 DMRoverlapVenn(list(GR_DMRs$DMRs_Dx[DMRs$DMRs_Dx$percentDifference < 0], 
                     GR_DMRs$DMRs_DxRed[DMRs$DMRs_DxRed$percentDifference < 0]), 
-               NameOfPeaks = c("Dx_All_Hypo", "Dx_Reduced_Hypo"), 
+               NameOfPeaks = c("All_Males", "Reduced_Males"), cat.cex = 2.5, cex = 3, margin = 0.02, ext.text = FALSE,
                file = "Figures/DMR Overlap Diagnosis All Males with Diagnosis Reduced Males Hypo DMRs Venn.pdf",
-               rotation.degree = 180, cat.pos = c(170, 180), cat.dist = c(0.03, 0.03))
+               rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03))
 DMRoverlapVenn(list(GR_background$background_Dx, GR_background$background_DxRed), 
-               NameOfPeaks = c("Dx_All_Background", "Dx_Reduced_Background"), 
+               NameOfPeaks = c("All_Males", "Reduced_Males"), cat.cex = 2.5, cex = 3, margin = 0.02,
                file = "Figures/DMR Overlap Diagnosis All Males with Diagnosis Reduced Males Background Venn.pdf",
                rotation.degree = 180, cat.pos = c(155, 205), cat.dist = c(0.05, 0.05))
-GR_background$background_Dx[!GR_background$background_Dx %over% GR_background$background_DxRed] #2666 only in background_Dx
+GR_background$background_Dx[!GR_background$background_Dx %over% GR_background$background_DxRed] #2401 only in background_Dx
 
 # Overlap Diagnosis Reduced Males with Null TD Males DMRs
 DMRoverlapVenn(list(GR_DMRs$DMRs_DxRed[DMRs$DMRs_DxRed$percentDifference > 0], 

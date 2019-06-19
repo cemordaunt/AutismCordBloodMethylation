@@ -212,7 +212,7 @@ colnames(DMRs) <- c("chr", "start", "end", "CpGs", "width", "invdensity", "areaS
 write.csv(DMRs, paste(outprefix, "DMRs.csv", sep = "_"), quote = FALSE, row.names = FALSE)
 rm(chroms, numCtrl, numExp, CTRLgroup, EXPgroup, cutoff, outprefix, BSobj, pData, tstat, DMRs)
 
-# DMRfinder vs DMRichR Comparison (Rerun without JLCM032B and JLCM050B) -----------------------------------------
+# DMRfinder vs DMRichR Comparison (Rerun without JLCM032B and JLCM050B, Complete) -----------------------------------------
 source("R Scripts/DMR Analysis Functions.R")
 # Data ####
 # Load Regions
@@ -265,9 +265,9 @@ write.csv(DMRichR_DMRstats, "Tables/DMRichR DMR Stats DMRfinder DMRichR Comparis
 DMRfinder_DMRstats <- getRegionStats(DMRs = DMRfinder_DMRs, background = background, n = c(108, 76, 32, 46, 38, 8))
 write.csv(DMRfinder_DMRstats, "Tables/DMRfinder DMR Stats DMRfinder DMRichR Comparison.csv", row.names = FALSE, quote = FALSE)
 
-cor(DMRichR_DMRstats$DMR_Number, DMRfinder_DMRstats$DMR_Number) # 0.326
-cor(DMRichR_DMRstats$DMR_Width_KB, DMRfinder_DMRstats$DMR_Width_KB) # 0.167
-cor(DMRichR_DMRstats$DMR_CpGs, DMRfinder_DMRstats$DMR_CpGs) # 0.226
+cor(DMRichR_DMRstats$DMR_Number, DMRfinder_DMRstats$DMR_Number) # 0.327
+cor(DMRichR_DMRstats$DMR_Width_KB, DMRfinder_DMRstats$DMR_Width_KB) # 0.170
+cor(DMRichR_DMRstats$DMR_CpGs, DMRfinder_DMRstats$DMR_CpGs) # 0.231
 
 # Intersect Regions ####
 GR_DMRichR_DMRs_Hyper <- mapply(function(x, y) x[y$percentDifference > 0], x = GR_DMRichR_DMRs, y = DMRichR_DMRs)
@@ -276,10 +276,10 @@ GR_DMRfinder_DMRs_Hyper <- mapply(function(x, y) x[y$meanDiff > 0], x = GR_DMRfi
 GR_DMRfinder_DMRs_Hypo <- mapply(function(x, y) x[y$meanDiff < 0], x = GR_DMRfinder_DMRs, y = DMRfinder_DMRs)
 DMR_Overlap_Hyper <- mapply(function(x, y) sum(x %over% y), x = GR_DMRichR_DMRs_Hyper, y = GR_DMRfinder_DMRs_Hyper)
 # Disc_All   Disc_Males Disc_Females      Rep_All    Rep_Males  Rep_Females 
-#        9           36          260          143          218          439 
+#        9           29          260          143          218          439 
 DMR_Overlap_Hypo <- mapply(function(x, y) sum(x %over% y), x = GR_DMRichR_DMRs_Hypo, y = GR_DMRfinder_DMRs_Hypo)
 # Disc_All   Disc_Males Disc_Females      Rep_All    Rep_Males  Rep_Females 
-#       24           68          371          373          462          454 
+#       22           68          371          373          462          454 
 
 DMR_Overlap <- data.frame(Comparison = names(DMRichR_DMRs), DMRichR_DMRs = sapply(GR_DMRichR_DMRs, length),
                           DMRichR_Hyper_DMRs = sapply(GR_DMRichR_DMRs_Hyper, length), 
@@ -301,14 +301,14 @@ DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Disc_All, GR_DMRfinder_DMRs_Hyper$Disc
                totalTest = length(GR_background$Disc_All),
                file = "Figures/Discovery All Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
                rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 2.415242e-14 
+# Hypergeometric test p = 3.8356e-13
 
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Disc_All, GR_DMRfinder_DMRs_Hypo$Disc_All),
                NameOfPeaks = c("DMRichR_Disc_All_Hypo", "DMRfinder_Disc_All_Hypo"), 
                totalTest = length(GR_background$Disc_All),
                file = "Figures/Discovery All Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
                rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 1.334224e-30 
+# Hypergeometric Test p = 1.34168e-26 
 
 # Discovery Males
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Disc_Males, GR_DMRfinder_DMRs_Hyper$Disc_Males),
@@ -316,14 +316,14 @@ DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Disc_Males, GR_DMRfinder_DMRs_Hyper$Di
                totalTest = length(GR_background$Disc_Males),
                file = "Figures/Discovery Males Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
                rotation.degree = 180, cat.pos = c(190, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-#Hypergeometric Test p = 2.314635e-48 
+#Hypergeometric Test p = p = 4.29693e-35
 
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Disc_Males, GR_DMRfinder_DMRs_Hypo$Disc_Males),
                NameOfPeaks = c("DMRichR_Disc_Males_Hypo", "DMRfinder_Disc_Males_Hypo"), 
                totalTest = length(GR_background$Disc_Males),
                file = "Figures/Discovery Males Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
                rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 2.735767e-53 
+# Hypergeometric Test p = 2.08863e-56
 
 # Discovery Females
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Disc_Females, GR_DMRfinder_DMRs_Hyper$Disc_Females),
@@ -375,14 +375,14 @@ DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Rep_Females, GR_DMRfinder_DMRs_Hyper$R
                NameOfPeaks = c("DMRichR_Rep_Females_Hyper", "DMRfinder_Rep_Females_Hyper"), 
                totalTest = length(GR_background$Rep_Females),
                file = "Figures/Replication Females Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(205, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
+               rotation.degree = 180, cat.pos = c(170, 190), cat.dist = c(0.03, 0.03), ext.text = FALSE)
 # Hypergeometric Test p = 1.3363e-267 
 
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Rep_Females, GR_DMRfinder_DMRs_Hypo$Rep_Females),
                NameOfPeaks = c("DMRichR_Rep_Females_Hypo", "DMRfinder_Rep_Females_Hypo"), 
                totalTest = length(GR_background$Rep_Females),
                file = "Figures/Replication Females Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(200, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
+               rotation.degree = 0, cat.pos = c(350, 10), cat.dist = c(0.03, 0.03), ext.text = FALSE)
 # Hypergeometric Test p = 0 
 
 

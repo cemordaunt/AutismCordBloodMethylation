@@ -1,7 +1,8 @@
-# LOLA Enrichment Diagnosis and Sex Discovery DMRs ------------------------
+# LOLA Enrichment Diagnosis and Sex DMRs ------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 2/26/19
+# 6/17/19
+# Excluded JLCM032B and JLCM050B
 
 # Packages ####
 sapply(c("tidyverse", "LOLA", "simpleCache", "GenomicRanges", "qvalue", "RColorBrewer", "scales", "reshape2"), 
@@ -36,188 +37,63 @@ makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
 source("R Scripts/DMR Analysis Functions.R")
 
 # Get LOLA Enrichments ----------------------------------------------------
-# Discovery Diagnosis DMRs ####
-DMRs <- loadRegions(file = "DMRs_DxNoXY_Discovery50.csv", chroms = c(paste("chr", 1:22, sep = ""), "chrM"), sort = TRUE)
-DMRlist <- list("AllDMRs" = makeGRange(DMRs = DMRs, direction = "all"),
-                "HyperDMRs" = makeGRange(DMRs = DMRs, direction = "hyper"),
-                "HypoDMRs" = makeGRange(DMRs = DMRs, direction = "hypo"))
-Background <- loadRegions(file = "bsseq_background_Discovery50.csv", chroms = c(paste("chr", 1:22, sep = ""), "chrM"), 
-                          sort = TRUE) %>% makeGRange(direction = "all")
+# Data ####
 regionDB <- loadRegionDB(dbLocation = "/share/lasallelab/programs/LOLA/hg38", useCache = TRUE, limit = NULL, 
                          collections = c("Roadmap_ChromHMM", "roadmap_epigenomics"))
-Results <- runLOLA(userSets = DMRList, userUniverse = Background, regionDB = regionDB, cores = 2, redefineUserSets = TRUE)
-writeCombinedEnrichment(combinedResults = Results, outFolder = "LOLA", includeSplits = FALSE)
-file.copy(from = "LOLA/allEnrichments.tsv", to = "LOLA/LOLA_DxNoXY_Discovery50_DMRs.tsv")
-rm(DMRs, DMRlist, Background, Results)
-
-# Discovery and Sex Diagnosis DMRs ####
-DMRs <- loadRegions(file = "DMRs_DxAdjSex_Discovery50.csv", chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), sort = TRUE)
-DMRlist <- list("AllDMRs" = makeGRange(DMRs = DMRs, direction = "all"),
-                "HyperDMRs" = makeGRange(DMRs = DMRs, direction = "hyper"),
-                "HypoDMRs" = makeGRange(DMRs = DMRs, direction = "hypo"))
-Background <- loadRegions(file = "bsseq_background_Discovery50.csv", chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), 
-                          sort = TRUE) %>% makeGRange(direction = "all")
-Results <- runLOLA(userSets = DMRlist, userUniverse = Background, regionDB = regionDB, cores = 2, redefineUserSets = TRUE)
-writeCombinedEnrichment(combinedResults = Results, outFolder = "LOLA", includeSplits = FALSE)
-file.copy(from = "LOLA/allEnrichments.tsv", to = "LOLA/LOLA_DxAdjSex_Discovery50_DMRs.tsv")
-rm(DMRs, DMRlist, Background, Results)
+maleChroms <- c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")
+femaleChroms <- c(paste("chr", 1:22, sep = ""), "chrX", "chrM")
 
 # Discovery Diagnosis Males DMRs ####
-DMRs <- loadRegions(file = "DMRs_Dx_Discovery50_males.csv", chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"), sort = TRUE)
+setwd("/share/lasallelab/Charles/CM_WGBS_ASD_CordBlood/Bismark_Reports/Discovery/")
+DMRs <- loadRegions(file = "Dx_Males/DMRs_Dx_Discovery50_males.csv", chroms = maleChroms, sort = TRUE)
 DMRlist <- list("AllDMRs" = makeGRange(DMRs = DMRs, direction = "all"),
                 "HyperDMRs" = makeGRange(DMRs = DMRs, direction = "hyper"),
                 "HypoDMRs" = makeGRange(DMRs = DMRs, direction = "hypo"))
-Background <- loadRegions(file = "bsseq_background_Discovery50_males.csv", chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"), 
-                          sort = TRUE) %>% makeGRange(direction = "all")
+Background <- loadRegions(file = "Dx_Males/bsseq_background_Discovery50_males.csv", chroms = maleChroms, sort = TRUE) %>% 
+        makeGRange(direction = "all")
 Results <- runLOLA(userSets = DMRlist, userUniverse = Background, regionDB = regionDB, cores = 2, redefineUserSets = TRUE)
 writeCombinedEnrichment(combinedResults = Results, outFolder = "LOLA", includeSplits = FALSE)
-file.copy(from = "LOLA/allEnrichments.tsv", to = "LOLA/LOLA_Dx_Discovery50_males_DMRs.tsv")
+file.copy(from = "LOLA/allEnrichments.tsv", to = "LOLA/LOLA_Dx_Discovery50_males_DMRs.tsv", overwrite = TRUE)
 rm(DMRs, DMRlist, Background, Results)
 
 # Discovery Diagnosis Females DMRs ####
-DMRs <- loadRegions(file = "DMRs_Dx_Discovery50_females.csv", chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), sort = TRUE)
+setwd("/share/lasallelab/Charles/CM_WGBS_ASD_CordBlood/Bismark_Reports/Discovery/")
+DMRs <- loadRegions(file = "Dx_Females/DMRs_Dx_Discovery50_females.csv", chroms = femaleChroms, sort = TRUE)
 DMRlist <- list("AllDMRs" = makeGRange(DMRs = DMRs, direction = "all"),
                 "HyperDMRs" = makeGRange(DMRs = DMRs, direction = "hyper"),
                 "HypoDMRs" = makeGRange(DMRs = DMRs, direction = "hypo"))
-Background <- loadRegions(file = "bsseq_background_Discovery50_females.csv", chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), 
-                          sort = TRUE) %>% makeGRange(direction = "all")
+Background <- loadRegions(file = "Dx_Females/bsseq_background_Discovery50_females.csv", chroms = femaleChroms, sort = TRUE) %>% 
+        makeGRange(direction = "all")
 Results <- runLOLA(userSets = DMRlist, userUniverse = Background, regionDB = regionDB, cores = 2, redefineUserSets = TRUE)
 writeCombinedEnrichment(combinedResults = Results, outFolder = "LOLA", includeSplits = FALSE)
-file.copy(from = "LOLA/allEnrichments.tsv", to = "LOLA/LOLA_Dx_Discovery50_females_DMRs.tsv")
+file.copy(from = "LOLA/allEnrichments.tsv", to = "LOLA/LOLA_Dx_Discovery50_females_DMRs.tsv", overwrite = TRUE)
 rm(DMRs, DMRlist, Background, Results)
 
-# Analyze Discovery Diagnosis DMRs LOLA ------------------------------------
-# Load Data ####
-lola <- read.delim("Tables/LOLA_DxNoXY_Discovery50_DMRs.tsv", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-index <- read.delim("Tables/LOLA Roadmap ChromHMM index.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+# Replication Diagnosis Males DMRs ####
+setwd("/share/lasallelab/Charles/CM_WGBS_ASD_CordBlood/Bismark_Reports/Replication/")
+DMRs <- loadRegions(file = "Dx_Males/DMRs_Dx_Replication50_males.csv", chroms = maleChroms, sort = TRUE)
+DMRlist <- list("AllDMRs" = makeGRange(DMRs = DMRs, direction = "all"),
+                "HyperDMRs" = makeGRange(DMRs = DMRs, direction = "hyper"),
+                "HypoDMRs" = makeGRange(DMRs = DMRs, direction = "hypo"))
+Background <- loadRegions(file = "Dx_Males/bsseq_background_Replication50_males.csv", chroms = maleChroms, sort = TRUE) %>% 
+        makeGRange(direction = "all")
+Results <- runLOLA(userSets = DMRlist, userUniverse = Background, regionDB = regionDB, cores = 2, redefineUserSets = TRUE)
+writeCombinedEnrichment(combinedResults = Results, outFolder = "LOLA", includeSplits = FALSE)
+file.copy(from = "LOLA/allEnrichments.tsv", to = "LOLA/LOLA_Dx_Replication50_males_DMRs.tsv", overwrite = TRUE)
+rm(DMRs, DMRlist, Background, Results)
 
-# Histone Mark Enrichment ####
-# Prep Data
-histone <- subset(lola, collection == "roadmap_epigenomics")
-histone_all <- prepLOLAhistone(histone, index = index, regions = "AllDMRs", 
-                               file = "Tables/LOLA Histone DxNoXY Discovery 50 AllDMRs.csv")
-histone_hyper <- prepLOLAhistone(histone, index = index, regions = "HyperDMRs", 
-                               file = "Tables/LOLA Histone DxNoXY Discovery 50 HyperDMRs.csv")
-histone_hypo <- prepLOLAhistone(histone, index = index, regions = "HypoDMRs", 
-                               file = "Tables/LOLA Histone DxNoXY Discovery 50 HypoDMRs.csv")
-
-# Plot Odds Ratio
-hm.max <- quantile(c(histone_all$oddsRatio, histone_hyper$oddsRatio, histone_hypo$oddsRatio), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAhistone(histone = histone_all, title = "All DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxNoXY Discovery 50 All DMRs OR Heatmap.png")
-plotLOLAhistone(histone = histone_hyper, title = "Hyper DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxNoXY Discovery 50 Hyper DMRs OR Heatmap.png")
-plotLOLAhistone(histone = histone_hypo, title = "Hypo DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxNoXY Discovery 50 Hypo DMRs OR Heatmap.png")
-
-# Plot log q-value
-hm.max <- quantile(c(histone_all$qValueLog, histone_hyper$qValueLog, histone_hypo$qValueLog), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAhistone(histone = histone_all, title = "All DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxNoXY Discovery 50 All DMRs log qvalue Heatmap.png")
-plotLOLAhistone(histone = histone_hyper, title = "Hyper DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxNoXY Discovery 50 Hyper DMRs log qvalue Heatmap.png")
-plotLOLAhistone(histone = histone_hypo, title = "Hypo DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxNoXY Discovery 50 Hypo DMRs log qvalue Heatmap.png")
-
-# Plot Legend
-plotLOLAhistone(histone = histone_all, type = "legend", file = "Figures/LOLA Discovery 50 DMRs Heatmap Legend.png")
-
-# ChromHMM Enrichment ####
-# Prep Data
-chromHMM <- subset(lola, collection == "Roadmap_ChromHMM")
-chromHMM_all <- prepLOLAchromHMM(chromHMM, index = index, regions = "AllDMRs", 
-                                 file = "Tables/LOLA chromHMM DxNoXY Discovery 50 AllDMRs.csv")
-chromHMM_hyper <- prepLOLAchromHMM(chromHMM, index = index, regions = "HyperDMRs", 
-                                   file = "Tables/LOLA chromHMM DxNoXY Discovery 50 HyperDMRs.csv")
-chromHMM_hypo <- prepLOLAchromHMM(chromHMM, index = index, regions = "HypoDMRs", 
-                                  file = "Tables/LOLA chromHMM DxNoXY Discovery 50 HypoDMRs.csv")
-
-# Plot Odds Ratio
-hm.max <- quantile(c(chromHMM_all$oddsRatio, chromHMM_hyper$oddsRatio, chromHMM_hypo$oddsRatio), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAchromHMM(chromHMM = chromHMM_all, title = "All DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA chromHMM DxNoXY Discovery 50 All DMRs OR Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hyper DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA chromHMM DxNoXY Discovery 50 Hyper DMRs OR Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypo DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA chromHMM DxNoXY Discovery 50 Hypo DMRs OR Heatmap.png")
-
-# Plot log q-value
-hm.max <- quantile(c(chromHMM_all$qValueLog, chromHMM_hyper$qValueLog, chromHMM_hypo$qValueLog), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAchromHMM(chromHMM = chromHMM_all, title = "All DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA chromHMM DxNoXY Discovery 50 All DMRs log qvalue Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hyper DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA chromHMM DxNoXY Discovery 50 Hyper DMRs log qvalue Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypo DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA chromHMM DxNoXY Discovery 50 Hypo DMRs log qvalue Heatmap.png")
-
-# Analyze Discovery Diagnosis and Sex DMRs LOLA ------------------------------------
-# Load Data ####
-lola <- read.delim("Tables/LOLA_DxAdjSex_Discovery50_DMRs.tsv", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-index <- read.delim("Tables/LOLA Roadmap ChromHMM index.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-
-# Histone Mark Enrichment ####
-# Prep Data
-histone <- subset(lola, collection == "roadmap_epigenomics")
-histone_all <- prepLOLAhistone(histone, index = index, regions = "AllDMRs", 
-                               file = "Tables/LOLA Histone DxAdjSex Discovery 50 AllDMRs.csv")
-histone_hyper <- prepLOLAhistone(histone, index = index, regions = "HyperDMRs", 
-                                 file = "Tables/LOLA Histone DxAdjSex Discovery 50 HyperDMRs.csv")
-histone_hypo <- prepLOLAhistone(histone, index = index, regions = "HypoDMRs", 
-                                file = "Tables/LOLA Histone DxAdjSex Discovery 50 HypoDMRs.csv")
-
-# Plot Odds Ratio
-hm.max <- quantile(c(histone_all$oddsRatio, histone_hyper$oddsRatio, histone_hypo$oddsRatio), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAhistone(histone = histone_all, title = "All DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxAdjSex Discovery 50 All DMRs OR Heatmap.png")
-plotLOLAhistone(histone = histone_hyper, title = "Hyper DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxAdjSex Discovery 50 Hyper DMRs OR Heatmap.png")
-plotLOLAhistone(histone = histone_hypo, title = "Hypo DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxAdjSex Discovery 50 Hypo DMRs OR Heatmap.png")
-
-# Plot log q-value
-hm.max <- quantile(c(histone_all$qValueLog, histone_hyper$qValueLog, histone_hypo$qValueLog), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAhistone(histone = histone_all, title = "All DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxAdjSex Discovery 50 All DMRs log qvalue Heatmap.png")
-plotLOLAhistone(histone = histone_hyper, title = "Hyper DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxAdjSex Discovery 50 Hyper DMRs log qvalue Heatmap.png")
-plotLOLAhistone(histone = histone_hypo, title = "Hypo DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone DxAdjSex Discovery 50 Hypo DMRs log qvalue Heatmap.png")
-
-# ChromHMM Enrichment ####
-# Prep Data
-chromHMM <- subset(lola, collection == "Roadmap_ChromHMM")
-chromHMM_all <- prepLOLAchromHMM(chromHMM, index = index, regions = "AllDMRs", 
-                                 file = "Tables/LOLA chromHMM DxAdjSex Discovery 50 AllDMRs.csv")
-chromHMM_hyper <- prepLOLAchromHMM(chromHMM, index = index, regions = "HyperDMRs", 
-                                   file = "Tables/LOLA chromHMM DxAdjSex Discovery 50 HyperDMRs.csv")
-chromHMM_hypo <- prepLOLAchromHMM(chromHMM, index = index, regions = "HypoDMRs", 
-                                  file = "Tables/LOLA chromHMM DxAdjSex Discovery 50 HypoDMRs.csv")
-
-# Plot Odds Ratio
-hm.max <- quantile(c(chromHMM_all$oddsRatio, chromHMM_hyper$oddsRatio, chromHMM_hypo$oddsRatio), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAchromHMM(chromHMM = chromHMM_all, title = "All DMRs", type = "oddsRatio", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM DxAdjSex Discovery 50 All DMRs OR Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hyper DMRs", type = "oddsRatio", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM DxAdjSex Discovery 50 Hyper DMRs OR Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypo DMRs", type = "oddsRatio", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM DxAdjSex Discovery 50 Hypo DMRs OR Heatmap.png")
-
-# Plot log q-value
-hm.max <- quantile(c(chromHMM_all$qValueLog, chromHMM_hyper$qValueLog, chromHMM_hypo$qValueLog), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAchromHMM(chromHMM = chromHMM_all, title = "All DMRs", type = "qValueLog", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM DxAdjSex Discovery 50 All DMRs log qvalue Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hyper DMRs", type = "qValueLog", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM DxAdjSex Discovery 50 Hyper DMRs log qvalue Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypo DMRs", type = "qValueLog", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM DxAdjSex Discovery 50 Hypo DMRs log qvalue Heatmap.png")
+# Replication Diagnosis Females DMRs ####
+setwd("/share/lasallelab/Charles/CM_WGBS_ASD_CordBlood/Bismark_Reports/Replication/")
+DMRs <- loadRegions(file = "Dx_Females_100/DMRs_Dx_Replication100_females.csv", chroms = femaleChroms, sort = TRUE)
+DMRlist <- list("AllDMRs" = makeGRange(DMRs = DMRs, direction = "all"),
+                "HyperDMRs" = makeGRange(DMRs = DMRs, direction = "hyper"),
+                "HypoDMRs" = makeGRange(DMRs = DMRs, direction = "hypo"))
+Background <- loadRegions(file = "Dx_Females_100/bsseq_background_Replication100_females.csv", chroms = femaleChroms, sort = TRUE) %>% 
+        makeGRange(direction = "all")
+Results <- runLOLA(userSets = DMRlist, userUniverse = Background, regionDB = regionDB, cores = 2, redefineUserSets = TRUE)
+writeCombinedEnrichment(combinedResults = Results, outFolder = "LOLA", includeSplits = FALSE)
+file.copy(from = "LOLA/allEnrichments.tsv", to = "LOLA/LOLA_Dx_Replication100_females_DMRs.tsv", overwrite = TRUE)
+rm(DMRs, DMRlist, Background, Results)
 
 # Analyze Discovery Diagnosis Males DMRs LOLA ------------------------------------
 # Load Data ####
@@ -227,136 +103,372 @@ index <- read.delim("Tables/LOLA Roadmap ChromHMM index.txt", sep = "\t", header
 # Histone Mark Enrichment ####
 # Prep Data
 histone <- subset(lola, collection == "roadmap_epigenomics")
-histone_all <- prepLOLAhistone(histone, index = index, regions = "AllDMRs", 
-                               file = "Tables/LOLA Histone Dx Discovery 50 Males AllDMRs.csv")
 histone_hyper <- prepLOLAhistone(histone, index = index, regions = "HyperDMRs", 
                                  file = "Tables/LOLA Histone Dx Discovery 50 Males HyperDMRs.csv")
 histone_hypo <- prepLOLAhistone(histone, index = index, regions = "HypoDMRs", 
                                 file = "Tables/LOLA Histone Dx Discovery 50 Males HypoDMRs.csv")
 
 # Plot Odds Ratio
-hm.max <- quantile(c(histone_all$oddsRatio, histone_hyper$oddsRatio, histone_hypo$oddsRatio), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAhistone(histone = histone_all, title = "All DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Males All DMRs OR Heatmap.png")
-plotLOLAhistone(histone = histone_hyper, title = "Hyper DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Males Hyper DMRs OR Heatmap.png")
-plotLOLAhistone(histone = histone_hypo, title = "Hypo DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Males Hypo DMRs OR Heatmap.png")
+hm.max <- quantile(c(histone_hyper$oddsRatio, histone_hypo$oddsRatio), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = histone_hyper, title = "Hypermethylated", type = "oddsRatio", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Discovery 50 Males Hypermethylated OR Heatmap.png")
+plotLOLAhistone(histone = histone_hypo, title = "Hypomethylated", type = "oddsRatio", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Discovery 50 Males Hypomethylated OR Heatmap.png")
 
 # Plot log q-value
-hm.max <- quantile(c(histone_all$qValueLog, histone_hyper$qValueLog, histone_hypo$qValueLog), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAhistone(histone = histone_all, title = "All DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Males All DMRs log qvalue Heatmap.png")
-plotLOLAhistone(histone = histone_hyper, title = "Hyper DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Males Hyper DMRs log qvalue Heatmap.png")
-plotLOLAhistone(histone = histone_hypo, title = "Hypo DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Males Hypo DMRs log qvalue Heatmap.png")
+hm.max <- quantile(c(histone_hyper$qValueLog, histone_hypo$qValueLog), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = histone_hyper, title = "Hypermethylated", type = "qValueLog", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Discovery 50 Males Hypermethylated log qvalue Heatmap.png")
+plotLOLAhistone(histone = histone_hypo, title = "Hypomethylated", type = "qValueLog", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Discovery 50 Males Hypomethylated log qvalue Heatmap.png")
+
+# Plot Legend
+plotLOLAhistone(histone = histone_hyper, type = "legend", file = "Figures/LOLA DMRs Heatmap Legend.png")
+
+# Plot Odds Ratio for Blood
+hm.sub <- rbind(histone_hyper, histone_hypo) %>% subset(tissue %in% c("HSC & B-cell", "Blood & T-cell"))
+hm.sub$cellType[grepl(pattern = "E038", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 1"
+hm.sub$cellType[grepl(pattern = "E039", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 2"
+hm.sub$cellType <- iconv(hm.sub$cellType, from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% # remove special characters
+        str_replace_all(c("Primary " = "")) %>% str_to_sentence %>% 
+        str_replace_all(c(" from peripheral blood" = "", "cd" = "CD", "pma-i" = "PMA-I", "g-csf" = "G-CSF"))
+
+hm.sub$userSet <- ifelse(hm.sub$userSet == "HyperDMRs", yes = "Hypermethylated", no = "Hypomethylated") %>% 
+        factor(levels = c("Hypermethylated", "Hypomethylated"))
+hm.max <- quantile(hm.sub$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = hm.sub, facet = vars(userSet), title = NULL, type = "oddsRatio", hm.max = hm.max, 
+                axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.13, 0.855),
+                file = "Figures/LOLA Histone Blood Dx Discovery 50 Males OR Heatmap.png")
+
+# Plot log q-value for Blood
+hm.max <- quantile(hm.sub$qValueLog, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = hm.sub, facet = vars(userSet), title = NULL, type = "qValueLog", hm.max = hm.max, 
+                axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.14, 0.855),
+                file = "Figures/LOLA Histone Blood Dx Discovery 50 Males log qvalue Heatmap.png")
 
 # ChromHMM Enrichment ####
 # Prep Data
 chromHMM <- subset(lola, collection == "Roadmap_ChromHMM")
-chromHMM_all <- prepLOLAchromHMM(chromHMM, index = index, regions = "AllDMRs", 
-                                 file = "Tables/LOLA chromHMM Dx Discovery 50 Males AllDMRs.csv")
 chromHMM_hyper <- prepLOLAchromHMM(chromHMM, index = index, regions = "HyperDMRs", 
                                    file = "Tables/LOLA chromHMM Dx Discovery 50 Males HyperDMRs.csv")
 chromHMM_hypo <- prepLOLAchromHMM(chromHMM, index = index, regions = "HypoDMRs", 
                                   file = "Tables/LOLA chromHMM Dx Discovery 50 Males HypoDMRs.csv")
 
 # Plot Odds Ratio
-hm.max <- quantile(c(chromHMM_all$oddsRatio, chromHMM_hyper$oddsRatio, chromHMM_hypo$oddsRatio), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAchromHMM(chromHMM = chromHMM_all, title = "All DMRs", type = "oddsRatio", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Males All DMRs OR Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hyper DMRs", type = "oddsRatio", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Males Hyper DMRs OR Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypo DMRs", type = "oddsRatio", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Males Hypo DMRs OR Heatmap.png")
+hm.max <- quantile(c(chromHMM_hyper$oddsRatio, chromHMM_hypo$oddsRatio), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hypermethylated", type = "oddsRatio", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Discovery 50 Males Hypermethylated OR Heatmap.png")
+plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypomethylated", type = "oddsRatio", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Discovery 50 Males Hypomethylated OR Heatmap.png")
 
 # Plot log q-value
-hm.max <- quantile(c(chromHMM_all$qValueLog, chromHMM_hyper$qValueLog, chromHMM_hypo$qValueLog), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAchromHMM(chromHMM = chromHMM_all, title = "All DMRs", type = "qValueLog", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Males All DMRs log qvalue Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hyper DMRs", type = "qValueLog", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Males Hyper DMRs log qvalue Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypo DMRs", type = "qValueLog", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Males Hypo DMRs log qvalue Heatmap.png")
+hm.max <- quantile(c(chromHMM_hyper$qValueLog, chromHMM_hypo$qValueLog), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hypermethylated", type = "qValueLog", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Discovery 50 Males Hypermethylated log qvalue Heatmap.png")
+plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypomethylated", type = "qValueLog", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Discovery 50 Males Hypomethylated log qvalue Heatmap.png")
+
+# Plot Odds Ratio for Blood
+hm.sub <- rbind(chromHMM_hyper, chromHMM_hypo) %>% subset(tissue %in% c("HSC & B-cell", "Blood & T-cell"))
+hm.sub$cellType[grepl(pattern = "E038", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 1"
+hm.sub$cellType[grepl(pattern = "E039", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 2"
+hm.sub$cellType <- iconv(hm.sub$cellType, from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% # remove special characters
+        str_replace_all(c("Primary " = "")) %>% str_to_sentence %>% 
+        str_replace_all(c(" from peripheral blood" = "", "cd" = "CD", "pma-i" = "PMA-I", "g-csf" = "G-CSF"))
+hm.sub$userSet <- ifelse(hm.sub$userSet == "HyperDMRs", yes = "Hypermethylated", no = "Hypomethylated") %>% 
+        factor(levels = c("Hypermethylated", "Hypomethylated"))
+hm.max <- quantile(hm.sub$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = hm.sub, facet = vars(userSet), title = NULL, type = "oddsRatio", hm.max = hm.max, 
+                axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.13, 0.855),
+                file = "Figures/LOLA chromHMM Blood Dx Discovery 50 Males OR Heatmap.png")
+
+# Plot log q-value for Blood
+hm.max <- quantile(hm.sub$qValueLog, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = hm.sub, facet = vars(userSet), title = NULL, type = "qValueLog", hm.max = hm.max, 
+                axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.14, 0.855),
+                file = "Figures/LOLA chromHMM Blood Dx Discovery 50 Males log qvalue Heatmap.png")
 
 # Analyze Discovery Diagnosis Females DMRs LOLA ------------------------------------
 # Load Data ####
 lola <- read.delim("Tables/LOLA_Dx_Discovery50_females_DMRs.tsv", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-index <- read.delim("Tables/LOLA Roadmap ChromHMM index.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 
 # Histone Mark Enrichment ####
 # Prep Data
 histone <- subset(lola, collection == "roadmap_epigenomics")
-histone_all <- prepLOLAhistone(histone, index = index, regions = "AllDMRs", 
-                               file = "Tables/LOLA Histone Dx Discovery 50 Females AllDMRs.csv")
 histone_hyper <- prepLOLAhistone(histone, index = index, regions = "HyperDMRs", 
                                  file = "Tables/LOLA Histone Dx Discovery 50 Females HyperDMRs.csv")
 histone_hypo <- prepLOLAhistone(histone, index = index, regions = "HypoDMRs", 
                                 file = "Tables/LOLA Histone Dx Discovery 50 Females HypoDMRs.csv")
 
 # Plot Odds Ratio
-hm.max <- quantile(c(histone_all$oddsRatio, histone_hyper$oddsRatio, histone_hypo$oddsRatio), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAhistone(histone = histone_all, title = "All DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Females All DMRs OR Heatmap.png")
-plotLOLAhistone(histone = histone_hyper, title = "Hyper DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Females Hyper DMRs OR Heatmap.png")
-plotLOLAhistone(histone = histone_hypo, title = "Hypo DMRs", type = "oddsRatio", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Females Hypo DMRs OR Heatmap.png")
+hm.max <- quantile(c(histone_hyper$oddsRatio, histone_hypo$oddsRatio), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = histone_hyper, title = "Hypermethylated", type = "oddsRatio", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Discovery 50 Females Hypermethylated OR Heatmap.png")
+plotLOLAhistone(histone = histone_hypo, title = "Hypomethylated", type = "oddsRatio", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Discovery 50 Females Hypomethylated OR Heatmap.png")
 
 # Plot log q-value
-hm.max <- quantile(c(histone_all$qValueLog, histone_hyper$qValueLog, histone_hypo$qValueLog), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAhistone(histone = histone_all, title = "All DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Females All DMRs log qvalue Heatmap.png")
-plotLOLAhistone(histone = histone_hyper, title = "Hyper DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Females Hyper DMRs log qvalue Heatmap.png")
-plotLOLAhistone(histone = histone_hypo, title = "Hypo DMRs", type = "qValueLog", hm.max = hm.max, 
-                file = "Figures/LOLA Histone Dx Discovery 50 Females Hypo DMRs log qvalue Heatmap.png")
+hm.max <- quantile(c(histone_hyper$qValueLog, histone_hypo$qValueLog), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = histone_hyper, title = "Hypermethylated", type = "qValueLog", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Discovery 50 Females Hypermethylated log qvalue Heatmap.png")
+plotLOLAhistone(histone = histone_hypo, title = "Hypomethylated", type = "qValueLog", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Discovery 50 Females Hypomethylated log qvalue Heatmap.png")
+
+# Plot Odds Ratio for Blood
+hm.sub <- rbind(histone_hyper, histone_hypo) %>% subset(tissue %in% c("HSC & B-cell", "Blood & T-cell"))
+hm.sub$cellType[grepl(pattern = "E038", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 1"
+hm.sub$cellType[grepl(pattern = "E039", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 2"
+hm.sub$cellType <- iconv(hm.sub$cellType, from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% # remove special characters
+        str_replace_all(c("Primary " = "")) %>% str_to_sentence %>% 
+        str_replace_all(c(" from peripheral blood" = "", "cd" = "CD", "pma-i" = "PMA-I", "g-csf" = "G-CSF"))
+
+hm.sub$userSet <- ifelse(hm.sub$userSet == "HyperDMRs", yes = "Hypermethylated", no = "Hypomethylated") %>% 
+        factor(levels = c("Hypermethylated", "Hypomethylated"))
+hm.max <- quantile(hm.sub$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = hm.sub, facet = vars(userSet), title = NULL, type = "oddsRatio", hm.max = hm.max, 
+                axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.13, 0.855),
+                file = "Figures/LOLA Histone Blood Dx Discovery 50 Females OR Heatmap.png")
+
+# Plot log q-value for Blood
+hm.max <- quantile(hm.sub$qValueLog, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = hm.sub, facet = vars(userSet), title = NULL, type = "qValueLog", hm.max = hm.max, 
+                axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.14, 0.855),
+                file = "Figures/LOLA Histone Blood Dx Discovery 50 Females log qvalue Heatmap.png")
 
 # ChromHMM Enrichment ####
 # Prep Data
 chromHMM <- subset(lola, collection == "Roadmap_ChromHMM")
-chromHMM_all <- prepLOLAchromHMM(chromHMM, index = index, regions = "AllDMRs", 
-                                 file = "Tables/LOLA chromHMM Dx Discovery 50 Females AllDMRs.csv")
 chromHMM_hyper <- prepLOLAchromHMM(chromHMM, index = index, regions = "HyperDMRs", 
                                    file = "Tables/LOLA chromHMM Dx Discovery 50 Females HyperDMRs.csv")
 chromHMM_hypo <- prepLOLAchromHMM(chromHMM, index = index, regions = "HypoDMRs", 
                                   file = "Tables/LOLA chromHMM Dx Discovery 50 Females HypoDMRs.csv")
 
 # Plot Odds Ratio
-hm.max <- quantile(c(chromHMM_all$oddsRatio, chromHMM_hyper$oddsRatio, chromHMM_hypo$oddsRatio), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAchromHMM(chromHMM = chromHMM_all, title = "All DMRs", type = "oddsRatio", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Females All DMRs OR Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hyper DMRs", type = "oddsRatio", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Females Hyper DMRs OR Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypo DMRs", type = "oddsRatio", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Females Hypo DMRs OR Heatmap.png")
+hm.max <- quantile(c(chromHMM_hyper$oddsRatio, chromHMM_hypo$oddsRatio), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hypermethylated", type = "oddsRatio", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Discovery 50 Females Hypermethylated OR Heatmap.png")
+plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypomethylated", type = "oddsRatio", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Discovery 50 Females Hypomethylated OR Heatmap.png")
 
 # Plot log q-value
-hm.max <- quantile(c(chromHMM_all$qValueLog, chromHMM_hyper$qValueLog, chromHMM_hypo$qValueLog), probs = 0.975, 
-                   names = FALSE, na.rm = TRUE) %>% ceiling
-plotLOLAchromHMM(chromHMM = chromHMM_all, title = "All DMRs", type = "qValueLog", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Females All DMRs log qvalue Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hyper DMRs", type = "qValueLog", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Females Hyper DMRs log qvalue Heatmap.png")
-plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypo DMRs", type = "qValueLog", hm.max = hm.max, 
-                 file = "Figures/LOLA chromHMM Dx Discovery 50 Females Hypo DMRs log qvalue Heatmap.png")
+hm.max <- quantile(c(chromHMM_hyper$qValueLog, chromHMM_hypo$qValueLog), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hypermethylated", type = "qValueLog", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Discovery 50 Females Hypermethylated log qvalue Heatmap.png")
+plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypomethylated", type = "qValueLog", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Discovery 50 Females Hypomethylated log qvalue Heatmap.png")
 
+# Plot Odds Ratio for Blood
+hm.sub <- rbind(chromHMM_hyper, chromHMM_hypo) %>% subset(tissue %in% c("HSC & B-cell", "Blood & T-cell"))
+hm.sub$cellType[grepl(pattern = "E038", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 1"
+hm.sub$cellType[grepl(pattern = "E039", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 2"
+hm.sub$cellType <- iconv(hm.sub$cellType, from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% # remove special characters
+        str_replace_all(c("Primary " = "")) %>% str_to_sentence %>% 
+        str_replace_all(c(" from peripheral blood" = "", "cd" = "CD", "pma-i" = "PMA-I", "g-csf" = "G-CSF"))
+hm.sub$userSet <- ifelse(hm.sub$userSet == "HyperDMRs", yes = "Hypermethylated", no = "Hypomethylated") %>% 
+        factor(levels = c("Hypermethylated", "Hypomethylated"))
+hm.max <- quantile(hm.sub$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = hm.sub, facet = vars(userSet), title = NULL, type = "oddsRatio", hm.max = hm.max, 
+                 axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                 labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.13, 0.855),
+                 file = "Figures/LOLA chromHMM Blood Dx Discovery 50 Females OR Heatmap.png")
 
+# Plot log q-value for Blood
+hm.max <- quantile(hm.sub$qValueLog, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = hm.sub, facet = vars(userSet), title = NULL, type = "qValueLog", hm.max = hm.max, 
+                 axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                 labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.14, 0.855),
+                 file = "Figures/LOLA chromHMM Blood Dx Discovery 50 Females log qvalue Heatmap.png")
 
+# Analyze Replication Diagnosis Males DMRs LOLA ------------------------------------
+# Load Data ####
+index <- read.delim("Tables/LOLA Roadmap ChromHMM index.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 
+# Histone Mark Enrichment ####
+# Prep Data
+histone <- subset(lola, collection == "roadmap_epigenomics")
+histone_hyper <- prepLOLAhistone(histone, index = index, regions = "HyperDMRs", 
+                                 file = "Tables/LOLA Histone Dx Replication 50 Males HyperDMRs.csv")
+histone_hypo <- prepLOLAhistone(histone, index = index, regions = "HypoDMRs", 
+                                file = "Tables/LOLA Histone Dx Replication 50 Males HypoDMRs.csv")
 
+# Plot Odds Ratio
+hm.max <- quantile(c(histone_hyper$oddsRatio, histone_hypo$oddsRatio), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = histone_hyper, title = "Hypermethylated", type = "oddsRatio", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Replication 50 Males Hypermethylated OR Heatmap.png")
+plotLOLAhistone(histone = histone_hypo, title = "Hypomethylated", type = "oddsRatio", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Replication 50 Males Hypomethylated OR Heatmap.png")
 
+# Plot log q-value
+hm.max <- quantile(c(histone_hyper$qValueLog, histone_hypo$qValueLog), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = histone_hyper, title = "Hypermethylated", type = "qValueLog", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Replication 50 Males Hypermethylated log qvalue Heatmap.png")
+plotLOLAhistone(histone = histone_hypo, title = "Hypomethylated", type = "qValueLog", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Replication 50 Males Hypomethylated log qvalue Heatmap.png")
 
+# Plot Odds Ratio for Blood
+hm.sub <- rbind(histone_hyper, histone_hypo) %>% subset(tissue %in% c("HSC & B-cell", "Blood & T-cell"))
+hm.sub$cellType[grepl(pattern = "E038", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 1"
+hm.sub$cellType[grepl(pattern = "E039", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 2"
+hm.sub$cellType <- iconv(hm.sub$cellType, from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% # remove special characters
+        str_replace_all(c("Primary " = "")) %>% str_to_sentence %>% 
+        str_replace_all(c(" from peripheral blood" = "", "cd" = "CD", "pma-i" = "PMA-I", "g-csf" = "G-CSF"))
 
+hm.sub$userSet <- ifelse(hm.sub$userSet == "HyperDMRs", yes = "Hypermethylated", no = "Hypomethylated") %>% 
+        factor(levels = c("Hypermethylated", "Hypomethylated"))
+hm.max <- quantile(hm.sub$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = hm.sub, facet = vars(userSet), title = NULL, type = "oddsRatio", hm.max = hm.max, 
+                axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.13, 0.855),
+                file = "Figures/LOLA Histone Blood Dx Replication 50 Males OR Heatmap.png")
 
+# Plot log q-value for Blood
+hm.max <- quantile(hm.sub$qValueLog, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = hm.sub, facet = vars(userSet), title = NULL, type = "qValueLog", hm.max = hm.max, 
+                axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.14, 0.855),
+                file = "Figures/LOLA Histone Blood Dx Replication 50 Males log qvalue Heatmap.png")
 
+# ChromHMM Enrichment ####
+# Prep Data
+chromHMM <- subset(lola, collection == "Roadmap_ChromHMM")
+chromHMM_hyper <- prepLOLAchromHMM(chromHMM, index = index, regions = "HyperDMRs", 
+                                   file = "Tables/LOLA chromHMM Dx Replication 50 Males HyperDMRs.csv")
+chromHMM_hypo <- prepLOLAchromHMM(chromHMM, index = index, regions = "HypoDMRs", 
+                                  file = "Tables/LOLA chromHMM Dx Replication 50 Males HypoDMRs.csv")
+
+# Plot Odds Ratio
+hm.max <- quantile(c(chromHMM_hyper$oddsRatio, chromHMM_hypo$oddsRatio), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hypermethylated", type = "oddsRatio", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Replication 50 Males Hypermethylated OR Heatmap.png")
+plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypomethylated", type = "oddsRatio", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Replication 50 Males Hypomethylated OR Heatmap.png")
+
+# Plot log q-value
+hm.max <- quantile(c(chromHMM_hyper$qValueLog, chromHMM_hypo$qValueLog), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hypermethylated", type = "qValueLog", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Replication 50 Males Hypermethylated log qvalue Heatmap.png")
+plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypomethylated", type = "qValueLog", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Replication 50 Males Hypomethylated log qvalue Heatmap.png")
+
+# Plot Odds Ratio for Blood
+hm.sub <- rbind(chromHMM_hyper, chromHMM_hypo) %>% subset(tissue %in% c("HSC & B-cell", "Blood & T-cell"))
+hm.sub$cellType[grepl(pattern = "E038", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 1"
+hm.sub$cellType[grepl(pattern = "E039", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 2"
+hm.sub$cellType <- iconv(hm.sub$cellType, from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% # remove special characters
+        str_replace_all(c("Primary " = "")) %>% str_to_sentence %>% 
+        str_replace_all(c(" from peripheral blood" = "", "cd" = "CD", "pma-i" = "PMA-I", "g-csf" = "G-CSF"))
+hm.sub$userSet <- ifelse(hm.sub$userSet == "HyperDMRs", yes = "Hypermethylated", no = "Hypomethylated") %>% 
+        factor(levels = c("Hypermethylated", "Hypomethylated"))
+hm.max <- quantile(hm.sub$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = hm.sub, facet = vars(userSet), title = NULL, type = "oddsRatio", hm.max = hm.max, 
+                 axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                 labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.13, 0.855),
+                 file = "Figures/LOLA chromHMM Blood Dx Replication 50 Males OR Heatmap.png")
+
+# Plot log q-value for Blood
+hm.max <- quantile(hm.sub$qValueLog, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = hm.sub, facet = vars(userSet), title = NULL, type = "qValueLog", hm.max = hm.max, 
+                 axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                 labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.14, 0.855),
+                 file = "Figures/LOLA chromHMM Blood Dx Replication 50 Males log qvalue Heatmap.png")
+
+# Analyze Replication Diagnosis Females DMRs LOLA ------------------------------------
+# Load Data ####
+lola <- read.delim("Tables/LOLA_Dx_Replication100_females_DMRs.tsv", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+
+# Histone Mark Enrichment ####
+# Prep Data
+histone <- subset(lola, collection == "roadmap_epigenomics")
+histone_hyper <- prepLOLAhistone(histone, index = index, regions = "HyperDMRs", 
+                                 file = "Tables/LOLA Histone Dx Replication 100 Females HyperDMRs.csv")
+histone_hypo <- prepLOLAhistone(histone, index = index, regions = "HypoDMRs", 
+                                file = "Tables/LOLA Histone Dx Replication 100 Females HypoDMRs.csv")
+
+# Plot Odds Ratio
+hm.max <- quantile(c(histone_hyper$oddsRatio, histone_hypo$oddsRatio), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = histone_hyper, title = "Hypermethylated", type = "oddsRatio", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Replication 100 Females Hypermethylated OR Heatmap.png")
+plotLOLAhistone(histone = histone_hypo, title = "Hypomethylated", type = "oddsRatio", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Replication 100 Females Hypomethylated OR Heatmap.png")
+
+# Plot log q-value
+hm.max <- quantile(c(histone_hyper$qValueLog, histone_hypo$qValueLog), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = histone_hyper, title = "Hypermethylated", type = "qValueLog", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Replication 100 Females Hypermethylated log qvalue Heatmap.png")
+plotLOLAhistone(histone = histone_hypo, title = "Hypomethylated", type = "qValueLog", hm.max = hm.max, 
+                file = "Figures/LOLA Histone Dx Replication 100 Females Hypomethylated log qvalue Heatmap.png")
+
+# Plot Odds Ratio for Blood
+hm.sub <- rbind(histone_hyper, histone_hypo) %>% subset(tissue %in% c("HSC & B-cell", "Blood & T-cell"))
+hm.sub$cellType[grepl(pattern = "E038", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 1"
+hm.sub$cellType[grepl(pattern = "E039", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 2"
+hm.sub$cellType <- iconv(hm.sub$cellType, from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% # remove special characters
+        str_replace_all(c("Primary " = "")) %>% str_to_sentence %>% 
+        str_replace_all(c(" from peripheral blood" = "", "cd" = "CD", "pma-i" = "PMA-I", "g-csf" = "G-CSF"))
+
+hm.sub$userSet <- ifelse(hm.sub$userSet == "HyperDMRs", yes = "Hypermethylated", no = "Hypomethylated") %>% 
+        factor(levels = c("Hypermethylated", "Hypomethylated"))
+hm.max <- quantile(hm.sub$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = hm.sub, facet = vars(userSet), title = NULL, type = "oddsRatio", hm.max = hm.max, 
+                axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.13, 0.855),
+                file = "Figures/LOLA Histone Blood Dx Replication 100 Females OR Heatmap.png")
+
+# Plot log q-value for Blood
+hm.max <- quantile(hm.sub$qValueLog, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAhistone(histone = hm.sub, facet = vars(userSet), title = NULL, type = "qValueLog", hm.max = hm.max, 
+                axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.14, 0.855),
+                file = "Figures/LOLA Histone Blood Dx Replication 100 Females log qvalue Heatmap.png")
+
+# ChromHMM Enrichment ####
+# Prep Data
+chromHMM <- subset(lola, collection == "Roadmap_ChromHMM")
+chromHMM_hyper <- prepLOLAchromHMM(chromHMM, index = index, regions = "HyperDMRs", 
+                                   file = "Tables/LOLA chromHMM Dx Replication 100 Females HyperDMRs.csv")
+chromHMM_hypo <- prepLOLAchromHMM(chromHMM, index = index, regions = "HypoDMRs", 
+                                  file = "Tables/LOLA chromHMM Dx Replication 100 Females HypoDMRs.csv")
+
+# Plot Odds Ratio
+hm.max <- quantile(c(chromHMM_hyper$oddsRatio, chromHMM_hypo$oddsRatio), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hypermethylated", type = "oddsRatio", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Replication 100 Females Hypermethylated OR Heatmap.png")
+plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypomethylated", type = "oddsRatio", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Replication 100 Females Hypomethylated OR Heatmap.png")
+
+# Plot log q-value
+hm.max <- quantile(c(chromHMM_hyper$qValueLog, chromHMM_hypo$qValueLog), probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = chromHMM_hyper, title = "Hypermethylated", type = "qValueLog", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Replication 100 Females Hypermethylated log qvalue Heatmap.png")
+plotLOLAchromHMM(chromHMM = chromHMM_hypo, title = "Hypomethylated", type = "qValueLog", hm.max = hm.max, 
+                 file = "Figures/LOLA chromHMM Dx Replication 100 Females Hypomethylated log qvalue Heatmap.png")
+
+# Plot Odds Ratio for Blood
+hm.sub <- rbind(chromHMM_hyper, chromHMM_hypo) %>% subset(tissue %in% c("HSC & B-cell", "Blood & T-cell"))
+hm.sub$cellType[grepl(pattern = "E038", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 1"
+hm.sub$cellType[grepl(pattern = "E039", x = hm.sub$filename, fixed = TRUE)] <- "Primary T helper naive cells from peripheral blood 2"
+hm.sub$cellType <- iconv(hm.sub$cellType, from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% # remove special characters
+        str_replace_all(c("Primary " = "")) %>% str_to_sentence %>% 
+        str_replace_all(c(" from peripheral blood" = "", "cd" = "CD", "pma-i" = "PMA-I", "g-csf" = "G-CSF"))
+hm.sub$userSet <- ifelse(hm.sub$userSet == "HyperDMRs", yes = "Hypermethylated", no = "Hypomethylated") %>% 
+        factor(levels = c("Hypermethylated", "Hypomethylated"))
+hm.max <- quantile(hm.sub$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = hm.sub, facet = vars(userSet), title = NULL, type = "oddsRatio", hm.max = hm.max, 
+                 axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                 labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.13, 0.855),
+                 file = "Figures/LOLA chromHMM Blood Dx Replication 100 Females OR Heatmap.png")
+
+# Plot log q-value for Blood
+hm.max <- quantile(hm.sub$qValueLog, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+plotLOLAchromHMM(chromHMM = hm.sub, facet = vars(userSet), title = NULL, type = "qValueLog", hm.max = hm.max, 
+                 axis.text.y = element_text(size = 13, color = "Black"), axis.ticks.y = element_line(size = 1.25), 
+                 labels = unique(hm.sub$cellType), width = 12, height = 7, legend.position = c(1.14, 0.855),
+                 file = "Figures/LOLA chromHMM Blood Dx Replication 100 Females log qvalue Heatmap.png")
 
 
