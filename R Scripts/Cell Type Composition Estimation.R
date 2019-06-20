@@ -295,7 +295,7 @@ g +
         facet_wrap(vars(SampleSet)) +
         scale_fill_manual(breaks = c("TD", "ASD"), values = c("TD" = "#3366CC", "ASD" = "#FF3366")) +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("TD" = "#3366CC", "ASD" = "#FF3366"))
-ggsave("Figures/Estimated nRBCs by Diagnosis, Sex, and Platform Dotplot Mean CL.png", dpi = 600, width = 10, 
+ggsave("Figures/Estimated nRBCs by Diagnosis, Sex, and Platform Dotplot Mean CL.png", dpi = 600, width = 9, 
        height = 7, units = "in")
 
 # nRBCs Stats ####
@@ -577,18 +577,18 @@ g +
         theme_bw(base_size = 25) +
         theme(panel.grid.major = element_blank(), panel.border = element_rect(color = "black", size = 1.25),
               legend.key = element_blank(), panel.grid.minor = element_blank(),
-              legend.position = c(0.92, 1.05), legend.background = element_blank(),
+              legend.position = c(0.895, 1.12), legend.background = element_blank(),
               legend.key.size = unit(0.8, "cm"), strip.text.x = element_text(size = 22), 
               axis.ticks = element_line(size = 1.25), legend.title = element_blank(),
               strip.background = element_blank(), legend.direction = "horizontal", panel.spacing.y = unit(0, "lines"), 
-              plot.margin = unit(c(0,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
+              plot.margin = unit(c(1,1,1,0.4), "lines"), axis.title = element_text(size = 22, color = "black"),
               axis.text = element_text(size = 17, color = "black")) +
         scale_x_continuous(breaks = pretty_breaks(n = 5)) +
         scale_y_continuous(breaks = pretty_breaks(n = 5)) +
         xlab("Estimated nRBCs (%)") +
         ylab("Global CpG Methylation (%)") +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366"))
-ggsave("Figures/Estimated nRBCs by Global mCpG and Platform, Males.png", dpi = 600, width = 10, height = 6, units = "in")
+ggsave("Figures/Estimated nRBCs by Global mCpG and Platform, Males.png", dpi = 600, width = 8.5, height = 6.07, units = "in")
 
 # Plot nRBCs by Global mCG, Sex, and Platform
 samples_cov_plot <- samples_cov

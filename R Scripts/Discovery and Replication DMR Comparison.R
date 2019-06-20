@@ -408,7 +408,6 @@ geneOverlapVenn(list("Males" = chrX_int$DxMales, "Females" = chrX_int$DxFemales)
              file = "Figures/Replicated Male vs Female chrX DMR Gene Overlap Venn.png", cat.cex = 3,
              cat.pos = c(175, 180), cat.dist = c(0.03, 0.03), rotation.degree = 180, margin = 0.04)
 
-# Start here, stats for chrX intersect, need background for chrX
 chrX_Back <- list(DisDxMalesBack = subset(DisDxBackRegions$DisDxMalesBack, chr == "chrX"),
                   DisDxFemalesBack = subset(DisDxBackRegions$DisDxFemalesBack, chr == "chrX"),
                   RepDxMalesBack = subset(RepDxBackRegions$RepDxMalesBack, chr == "chrX"),
@@ -424,6 +423,15 @@ chrX_intersect_gomResults$OddsRatio <- getMatrix(chrX_intersect_gom, "odds.ratio
 chrX_intersect_gomResults$pValue <- getMatrix(chrX_intersect_gom, "pval") %>% melt %>% .[,"value"]
 #                   intersection OddsRatio      pValue
 # DxFemales.DxMales           21  3.476742 4.60506e-05
+
+chrX_by_Sex <- list(MalesOnly = chrX_int$DxMales[!chrX_int$DxMales %in% chrX_int$DxFemales],
+                    FemalesOnly = chrX_int$DxFemales[!chrX_int$DxFemales %in% chrX_int$DxMales],
+                    MalesAndFemales = intersect(chrX_int$DxMales, chrX_int$DxFemales))
+mapply(write.table, x = chrX_by_Sex, file = c("Tables/Replicated chrX DMR Genes Males Only.txt", 
+                                              "Tables/Replicated chrX DMR Genes Females Only.txt",
+                                              "Tables/Replicated chrX DMR Genes Males and Females.txt"),
+       MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
+
 
 # Overlap Plots ####
 
@@ -520,6 +528,7 @@ mapply(write.table, x = IntDAVID, file = c("Tables/Overlapping DAVID Terms in Al
                                            "Tables/Overlapping DAVID Terms in Males Discovery and Replication.txt",
                                            "Tables/Overlapping DAVID Terms in Females Discovery and Replication.txt"),
        MoreArgs = list(sep = "\t", quote = FALSE, row.names = FALSE))
+
 sapply(DisDAVID, nrow)
 # All   Males Females 
 #  10      39     120 
@@ -559,14 +568,14 @@ gg <- gg +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
               panel.border = element_rect(color = "black", size = 1.25), 
               plot.margin = unit(c(0.5, 6.5, 0.5, 0.5), "lines"), axis.ticks = element_line(size = 0.7), 
-              axis.text.x = element_text(size = 12, color = "black"), 
-              axis.text.y = element_text(size = 12, color = "black"),
+              axis.text.x = element_text(size = 14, color = "black", angle = 45, hjust = 1.1, vjust = 1.15), 
+              axis.text.y = element_text(size = 14, color = "black"),
               axis.title = element_blank(), legend.key = element_blank(),  
-              legend.position = c(1.2, 0.88), legend.background = element_blank(), 
-              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 14), 
-              legend.text = element_text(size = 13), panel.background = element_rect(fill = "black"))
+              legend.position = c(1.235, 0.875), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 15), 
+              legend.text = element_text(size = 14), panel.background = element_rect(fill = "black"))
 ggsave("Figures/Discovery and Replication Males Females DAVID logp Heatmap.png", plot = gg, dpi = 600, width = 8, 
-       height = 6, units = "in")
+       height = 6.5, units = "in")
 
 # Expression Terms Only
 plotDAVIDexp$Term <- gsub(" expression", replacement = "", plotDAVIDexp$Term, fixed = TRUE)
@@ -585,15 +594,15 @@ gg <- gg +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
               panel.border = element_rect(color = "black", size = 1.25), 
-              plot.margin = unit(c(0.5, 6.5, 0.5, 4.6), "lines"), axis.ticks = element_line(size = 0.7), 
-              axis.text.x = element_text(size = 12, color = "black"), 
-              axis.text.y = element_text(size = 12, color = "black"),
+              plot.margin = unit(c(0.5, 6.5, 0.5, 5.3), "lines"), axis.ticks = element_line(size = 0.7), 
+              axis.text.x = element_text(size = 14, color = "black", angle = 45, hjust = 1.1, vjust = 1.15), 
+              axis.text.y = element_text(size = 14, color = "black"),
               axis.title = element_blank(), legend.key = element_blank(),  
-              legend.position = c(1.2, 0.88), legend.background = element_blank(), 
-              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 14), 
-              legend.text = element_text(size = 13), panel.background = element_rect(fill = "black"))
+              legend.position = c(1.235, 0.875), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 15), 
+              legend.text = element_text(size = 14), panel.background = element_rect(fill = "black"))
 ggsave("Figures/Discovery and Replication Males Females DAVID Expression logp Heatmap.png", plot = gg, dpi = 600, width = 8, 
-       height = 6, units = "in")
+       height = 6.5, units = "in")
 
 # DMR Percent of Background by Direction Stacked Barplots -----------------
 # DMR Percent of Background Hyper and Hypomethylated All Chroms

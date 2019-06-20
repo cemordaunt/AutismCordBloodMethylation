@@ -238,7 +238,7 @@ heatStats$Region <- factor(heatStats$Region, levels = rev(unique(heatStats$Regio
 g <- ggplot(data = heatStats)
 g + 
         geom_tile(aes(x = Set, y = Region, fill = Estimate, color = Estimate)) + 
-        geom_text(aes(x = Set, y = Region, alpha = Significant, label = "*"), color = "white", size = 15, nudge_y = -0.35) +
+        geom_text(aes(x = Set, y = Region, alpha = Significant, label = "*"), color = "white", size = 15, nudge_y = -0.47) +
         facet_grid(cols = vars(Sex)) +
         scale_fill_gradientn("Estimate", colors = c("#3366CC", "Black", "#FF0000"), values = c(0, 1), na.value = "#FF0000", 
                              limits = c(-1, 1), breaks = pretty_breaks(n = 2)) +
@@ -248,15 +248,15 @@ g +
         scale_x_discrete(expand = c(0,0)) +
         scale_y_discrete(expand = c(0,0)) +
         theme_bw(base_size = 25) +
-        theme(legend.direction = 'vertical', legend.position = c(1.12, 0.902), panel.grid.major = element_blank(), 
+        theme(legend.direction = 'vertical', legend.position = c(1.12, 0.875), panel.grid.major = element_blank(), 
               panel.border = element_rect(color = "Black", size = 1.25), axis.ticks = element_line(size = 1.25), 
               legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size = 24),
               axis.text.x = element_text(color = "Black", angle = 30, hjust = 1), 
               axis.text.y = element_text(color = "Black", size = 20),
-              legend.background = element_blank(), 
-              strip.text = element_text(size = 26), plot.margin = unit(c(1, 8, 1, 1), "lines"), 
+              legend.background = element_blank(), legend.text = element_text(size = 24),
+              strip.text = element_text(size = 26), plot.margin = unit(c(0.5, 8, 1, 1), "lines"), 
               axis.title = element_blank(), strip.background = element_blank())
-ggsave("Figures/Chromosome Methylation by Diagnosis Heatmap.png", dpi = 600, width = 9.5, height = 10.25, units = "in")
+ggsave("Figures/Chromosome Methylation by Diagnosis Heatmap.png", dpi = 600, width = 9.5, height = 8.25, units = "in")
 
 # All Chromosomes, Males Mean CL
 all_chroms_males <- rbind(subset(permeth_m, Sex == "M"), subset(permeth_rep_m, Sex == "M"))

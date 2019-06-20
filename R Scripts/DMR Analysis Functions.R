@@ -739,7 +739,7 @@ plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.w
 
 prepLOLAhistone <- function(histone, index, regions, file){
         message("[prepLOLAhistone] Preparing histone enrichment results for ", regions)
-        histone <- subset(histone, userSet == regions & antibody %in% c("H3K27me3", "H3K36me3", "H3K4me1", "H3K4me3", "H3K9me3", "H3K27ac"))
+        histone <- subset(histone, userSet == regions & antibody %in% c("H3K27me3", "H3K36me3", "H3K4me1", "H3K4me3", "H3K9me3"))
         histone$EID <- strsplit(as.character(histone$filename), "-") %>% sapply(function(x){x[1]})
         match <- match(histone$EID, index$EID)
         histone$type <- index$type[match]
@@ -774,7 +774,7 @@ prepLOLAhistone <- function(histone, index, regions, file){
                               "oddsRatio", "support", "pct_DMRs", "rnkPV", "rnkOR", "rnkSup", "maxRnk", "meanRnk", "b", "c", "d", 
                               "size", "filename", "order", "color")]
         histone$order <- factor(histone$order, levels = sort(unique(histone$order), decreasing = TRUE), ordered = TRUE)
-        histone$antibody <- factor(histone$antibody, levels = c("H3K4me1", "H3K4me3", "H3K9me3", "H3K27ac", "H3K27me3", "H3K36me3"), 
+        histone$antibody <- factor(histone$antibody, levels = c("H3K4me1", "H3K4me3", "H3K9me3", "H3K27me3", "H3K36me3"), 
                                    ordered = TRUE)
         histone <- histone[order(histone$order, histone$antibody), ]
         histone$tissue <- factor(histone$tissue, levels = rev(as.character(unique(histone$tissue))), ordered = TRUE)

@@ -782,7 +782,7 @@ heatStats$Significant <- (heatStats$qvalue < 0.05) %>% factor(levels = c("TRUE",
 g <- ggplot(data = heatStats)
 g + 
         geom_tile(aes(x = Set, y = Variable, fill = Estimate, color = Estimate)) + 
-        geom_text(aes(x = Set, y = Variable, alpha = Significant, label = "*"), color = "white", size = 15, nudge_y = -0.41) +
+        geom_text(aes(x = Set, y = Variable, alpha = Significant, label = "*"), color = "white", size = 15, nudge_y = -0.42) +
         facet_grid(cols = vars(Sex)) +
         scale_fill_gradientn("Estimate", colors = c("#3366CC", "Black", "#FF0000"), values = c(0, 1), na.value = "#FF0000", 
                              limits = c(-1.21, 1.21), breaks = pretty_breaks(n = 3)) +
@@ -792,13 +792,13 @@ g +
         scale_x_discrete(expand = c(0,0)) +
         scale_y_discrete(expand = c(0,0)) +
         theme_bw(base_size = 25) +
-        theme(legend.direction = 'vertical', legend.position = c(1.13, 0.902), panel.grid.major = element_blank(), 
+        theme(legend.direction = 'vertical', legend.position = c(1.13, 0.9), panel.grid.major = element_blank(), 
               panel.border = element_rect(color = "Black", size = 1.25), axis.ticks = element_line(size = 1.25), 
               legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size = 24),
               axis.text.x = element_text(color = "Black", angle = 30, hjust = 1), 
               axis.text.y = element_text(color = "Black", size = 20),
               legend.background = element_blank(), 
-              strip.text = element_text(size = 26), plot.margin = unit(c(1, 8, 1, 1), "lines"), 
+              strip.text = element_text(size = 26), plot.margin = unit(c(0.5, 8, 1, 1), "lines"), 
               axis.title = element_blank(), strip.background = element_blank())
-ggsave("Figures/Global Methylation by Covariates Heatmap.png", dpi = 600, width = 12, height = 10.25, units = "in")
+ggsave("Figures/Global Methylation by Covariates Heatmap.png", dpi = 600, width = 12, height = 9.75, units = "in")
 
