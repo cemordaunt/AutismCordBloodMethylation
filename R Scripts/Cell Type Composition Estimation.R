@@ -3,6 +3,7 @@
 # Charles Mordaunt
 # 6/1/19
 # Excluded JLCM032B and JLCM050B
+# Removed folate and added in bsseq global meth
 
 # Packages ####
 sapply(c("Biostrings", "AnnotationDbi", "openssl", "FlowSorted.CordBlood.450k", "minfi",
@@ -200,7 +201,6 @@ ggBoxPlot(data = cellCounts_m, x = cellCounts_m$Platform, y = cellCounts_m$Perce
 rm(cellCounts_agg, gg, ModelPars, permeth, cellCounts_m)
 
 # Covariate Association (Update this to exclude folate variables and include bsseq global meth) ####
-# See "Tables/MARBLES EARLI WGBS Sample Merged Covariate Database with Demo and Cell Type.csv"
 
 # Prep Data
 cellCov <- cellCounts[,c("Sample", "Bcell_scaled", "CD4T_scaled", "CD8T_scaled", "Gran_scaled", "Mono_scaled", "NK_scaled",
@@ -208,12 +208,11 @@ cellCov <- cellCounts[,c("Sample", "Bcell_scaled", "CD4T_scaled", "CD8T_scaled",
 colnames(cellCov) <- c("Sample", "Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC")
 write.csv(cellCov, file = "Tables/Estimated Cell Proportions by Sample Discovery and Replication.csv", quote = FALSE, 
           row.names = FALSE)
-
-samples_cov <- merge(x = samples, y = cellCov, by.x = "Sequencing_ID", by.y = "Sample", all = FALSE, sort = FALSE)
-catVars <- c("Study", "Platform", "Sex", "Site", "Diagnosis_Alg", "MomEdu_detail", "DM1or2", "GDM", "PE", 
-             "home_ownership", "marital_status", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", 
-             "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", 
-             "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9")
+samples_cov <- read.csv("Tables/MARBLES EARLI WGBS Sample Merged Covariate Database with Demo and Cell Type.csv", header = TRUE,
+                        stringsAsFactors = FALSE) 
+# Covariates merged with cell type in "Global Methylation and Covariate Analysis ASD Cord Blood.R"
+catVars <- c("Study", "Platform", "Sex", "Site", "Diagnosis_Alg", "MomEdu_detail", "DM1or2", "GDM", "PE", "home_ownership", 
+             "marital_status", "SmokeYN_Pregnancy")
 catVars <- catVars[!catVars == "Platform"]
 samples_cov$Study <- factor(samples_cov$Study, levels = c("MARBLES", "EARLI"))
 samples_cov$Platform <- factor(samples_cov$Platform, levels = c("HiSeqX10", "HiSeq4000"))
@@ -223,46 +222,33 @@ samples_cov$Diagnosis_Alg <- factor(samples_cov$Diagnosis_Alg, levels = c("TD", 
 samples_cov$MomEdu_detail <- factor(samples_cov$MomEdu_detail, levels = c(6, 1:5, 7,8))
 samples_cov$home_ownership[samples_cov$home_ownership == 99] <- NA
 samples_cov$marital_status[samples_cov$marital_status == 99] <- NA
-factorCols <- c("DM1or2", "GDM", "PE", "marital_status", "home_ownership", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", 
-                "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", 
-                "AllEQ_PV_YN_Mo4", "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", 
-                "AllEQ_PV_YN_Mo9")
+factorCols <- c("DM1or2", "GDM", "PE", "marital_status", "home_ownership", "SmokeYN_Pregnancy")
 samples_cov[,factorCols] <- lapply(samples_cov[,factorCols], as.factor)
-contVars <- colnames(samples_cov)[!colnames(samples_cov) %in% catVars & !colnames(samples_cov) %in% colnames(cellCov) &
-                                          !colnames(samples_cov) %in% c("COI_ID", "Sequencing_ID", "Cord_Blood_IBC",
-                                                                        "Platform")]
+celltypes <- c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC")
+contVars <- colnames(samples_cov)[!colnames(samples_cov) %in% catVars & 
+                                          !colnames(samples_cov) %in% celltypes &
+                                          !colnames(samples_cov) %in% c("COI_ID", "Sequencing_ID", "Cord_Blood_IBC", "Platform")]
 
 # Get Stats
-covStats <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
-                      contVars = contVars, sampleData = samples_cov, adj = "Platform",
+covStats <- DMRmethLm(DMRs = celltypes, catVars = catVars, contVars = contVars, sampleData = samples_cov, adj = "Platform",
                       file = "Tables/Estimated Cell Populations by Covariate Stats.txt")
 
 # Plot Heatmap
 variables<-c("Diagnosis_Alg", "Sex", "Study", "Site_Drexel", "Site_Johns_Hopkins_University", "Site_Kaiser_Permanente", 
              "ADOScs", "MSLelcStandard36", "MSLelTscore36", "MSLfmTscore36", "MSLrlTscore36", "MSLvrTscore36", "ga_w", 
              "bw_g", "percent_trimmed", "percent_aligned", "percent_duplicate", "dedup_reads_M", "C_coverage", 
-             "CG_coverage", "percent_cpg_meth", "percent_chg_meth", "percent_chh_meth", "MomEdu_detail_1", 
+             "CG_coverage", "percent_cpg_meth_bsseq", "percent_chg_meth", "percent_chh_meth", "MomEdu_detail_1", 
              "MomEdu_detail_2", "MomEdu_detail_3", "MomEdu_detail_4", "MomEdu_detail_5", "MomEdu_detail_7", 
              "MomEdu_detail_8", "home_ownership", "marital_status", "MomAgeYr", "Mat_Height_cm", "Mat_Weight_kg_PrePreg",
              "Mat_BMI_PrePreg", "DM1or2", "GDM", "PE", "parity", "dad_age", "SmokeYN_Pregnancy","cotinine_urine_ngml", 
-             "final_creatinine_mgdl", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", 
-             "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", 
-             "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9", "AllEQ_tot_All_FA_mcg_Mo_3", 
-             "AllEQ_tot_All_FA_mcg_Mo_2", "AllEQ_tot_All_FA_mcg_Mo_1", "AllEQ_tot_All_FA_mcg_Mo1", 
-             "AllEQ_tot_All_FA_mcg_Mo2", "AllEQ_tot_All_FA_mcg_Mo3", "AllEQ_tot_All_FA_mcg_Mo4", 
-             "AllEQ_tot_All_FA_mcg_Mo5", "AllEQ_tot_All_FA_mcg_Mo6", "AllEQ_tot_All_FA_mcg_Mo7", 
-             "AllEQ_tot_All_FA_mcg_Mo8","AllEQ_tot_All_FA_mcg_Mo9")
+             "final_creatinine_mgdl")
 covHeatmap(covStats, variableOrdering = "manual", regionOrdering = "variable", variables = variables,
            sortVariable = "Diagnosis_Alg", probs = 0.997, axis.ticks = element_line(size = 0.9),
            axis.text.y = element_text(size = 11, color = "Black"), width = 11, height = 6, 
            legend.position = c(1.06, 0.835),
            file = "Figures/Estimated Cell Populations by Covariate Heatmap Sorted by Diagnosis.png")
-covHeatmap(covStats, variableOrdering = "hierarchical", regionOrdering = "hierarchical", variables = variables,
-           sortVariable = "Diagnosis_Alg", probs = 0.997, axis.ticks = element_line(size = 0.9),
-           axis.text.y = element_text(size = 11, color = "Black"), width = 11, height = 6, 
-           legend.position = c(1.06, 0.835),
-           file = "Figures/Estimated Cell Populations by Covariate Heatmap Clustered.png")
 
+# nRBCs Plots ####
 # Plot nRBCs by Diagnosis and Sex
 ggBoxPlot(data = samples_cov, x = samples_cov$Diagnosis_Alg, y = samples_cov$nRBC, fill = samples_cov$Diagnosis_Alg,
           ylab = "Estimated nRBCs (%)", legend.name = NULL, legend.position = "none", facet = vars(Sex), 
@@ -270,16 +256,9 @@ ggBoxPlot(data = samples_cov, x = samples_cov$Diagnosis_Alg, y = samples_cov$nRB
           axis.ticks.x = element_line(size = 1.25), axis.text.x = element_text(size = 16, color = "black"),
           ylim = c(0, 40), outlier.size = 1.5)
 
-# Plot nRBCs by Diagnosis, Sex, and Platform
+# nRBC Dot Plot by Diagnosis, Sex, and Platform
 samples_cov$SampleSet <- ifelse(samples_cov$Platform == "HiSeqX10", yes = "Discovery", no = "Replication") %>%
         factor(levels = c("Discovery", "Replication"))
-ggBoxPlot(data = samples_cov, x = samples_cov$Sex, y = samples_cov$nRBC, fill = samples_cov$Diagnosis_Alg,
-          ylab = "Estimated nRBCs (%)", legend.name = NULL, legend.position = c(0.83, 0.96), facet = vars(SampleSet), 
-          file = "Figures/Estimated nRBCs by Diagnosis, Sex, and Platform.png", width = 8, height = 7, nrow = NULL, 
-          ncol = 4, axis.ticks.x = element_line(size = 1.25), axis.text.x = element_text(size = 16, color = "black"),
-          ylim = c(0, 40), outlier.size = 1.5, legend.direction = "horizontal")
-
-# nRBC Dot Plot by Diagnosis, Sex, and Platform
 samples_cov_dot <- samples_cov
 samples_cov_dot$Sex <- ifelse(samples_cov_dot$Sex == "M", yes = "Males", no = "Females") %>% factor(levels = c("Males", "Females"))
 g <- ggplot(data = samples_cov_dot)
@@ -302,160 +281,112 @@ g +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("TD" = "#3366CC", "ASD" = "#FF3366"))
 ggsave("Figures/Estimated nRBCs by Diagnosis, Sex, and Platform Dotplot Mean CL.png", dpi = 600, width = 9, 
        height = 7, units = "in")
+rm(samples_cov_dot)
 
-# nRBCs Stats ####
-# nRBCs by Diagnosis + Platform, stratified by sex
-summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = samples_cov))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# 1.83214635 0.79026086 2.31840705 0.02178725 
+# nRBC ~ Diagnosis Stats ####
+samples_cov_pooled <- list(All = samples_cov, 
+                           Males = subset(samples_cov, Sex == "M"), 
+                           Females = subset(samples_cov, Sex == "F"))
+samples_cov_disc <- list(All = subset(samples_cov, Platform == "HiSeqX10"), 
+                         Males = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10"), 
+                         Females = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10"))
+samples_cov_rep <- list(All = subset(samples_cov, Platform == "HiSeq4000"), 
+                        Males = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000"), 
+                        Females = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000"))
 
-summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = subset(samples_cov, Sex == "M")))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# 2.65037728 0.88237500 3.00368584 0.00330901 
+# Pooled
+sapply(samples_cov_pooled, function(x){summary(lm(nRBC ~ Diagnosis_Alg + Platform,
+                                                  data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
+#        All      Males    Females 
+# 0.02178725 0.00330901 0.78479547 
 
-summary(lm(nRBC ~ Diagnosis_Alg + Platform, data = subset(samples_cov, Sex == "F")))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# -0.4697397  1.7077322 -0.2750664  0.7847955 
+# Discovery
+sapply(samples_cov_disc, function(x){summary(lm(nRBC ~ Diagnosis_Alg,
+                                                data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
+#        All      Males    Females 
+# 0.12759851 0.03020234 0.66696558 
 
-# nRBCs by Diagnosis + Platform + Gestational Age, stratified by sex
-summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = samples_cov))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# 1.90374119 0.77768218 2.44796814 0.01553586 
-
-summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = subset(samples_cov, Sex == "M")))$coefficients["Diagnosis_AlgASD",]
-#    Estimate  Std. Error     t value    Pr(>|t|) 
-# 2.697778253 0.858955773 3.140765027 0.002174226 
-
-summary(lm(nRBC ~ Diagnosis_Alg + Platform + ga_w, data = subset(samples_cov, Sex == "F")))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# -0.4520351  1.7398020 -0.2598199  0.7964829 
-
-# Discovery nRBCs by Diagnosis, stratified by sex
-summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
-#  Estimate Std. Error    t value   Pr(>|t|) 
-# 1.5730246  1.0241679  1.5359049  0.1275985 
-
-summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# 2.62017782 1.18498970 2.21113974 0.03020234 
-
-summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# -0.8599870  1.9788178 -0.4345964  0.6669656 
-
-# Discovery nRBCs by Diagnosis + Gestational Age, stratified by sex
-summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
-#  Estimate Std. Error    t value   Pr(>|t|) 
-# 1.2508803  0.9987756  1.2524138  0.2132554 
-
-summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
-#  Estimate Std. Error    t value   Pr(>|t|) 
-# 2.0346600  1.1317106  1.7978625  0.0764503 
-
-summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# -0.8730100  2.0130092 -0.4336840  0.6677271 
-
-# Replication nRBCs by Diagnosis, stratified by sex
-summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# 2.43764141 1.11863019 2.17913071 0.03471946 
-
-summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# 2.70967192 1.21313434 2.23361242 0.03181311 
-
-summary(lm(nRBC ~ Diagnosis_Alg, data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
-#  Estimate Std. Error    t value   Pr(>|t|) 
-# 1.1888114  3.2621177  0.3644293  0.7280365 
-
-# Replication nRBCs by Diagnosis + Gestational Age, stratified by sex
-summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# 2.53141123 1.23816124 2.04449239 0.04705814 
-
-summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
-#   Estimate Std. Error    t value   Pr(>|t|) 
-# 2.61224030 1.34297553 1.94511386 0.05982975 
-
-summary(lm(nRBC ~ Diagnosis_Alg + ga_w, data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD",]
-#  Estimate Std. Error    t value   Pr(>|t|) 
-# 4.6633969  3.1198813  1.4947353  0.1952191 
+# Replication
+sapply(samples_cov_rep, function(x){summary(lm(nRBC ~ Diagnosis_Alg,
+                                               data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
+#        All      Males    Females 
+# 0.03471946 0.03181311 0.72803650 
 
 # nRBC ~ Global Methylation Stats ####
 # Pooled
-summary(lm(nRBC ~ percent_cpg_meth + Platform,
-           data = samples_cov))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 1.813856e-21
-summary(lm(nRBC ~ percent_cpg_meth + Platform, 
-           data = subset(samples_cov, Sex == "M")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 1.261959e-18
-summary(lm(nRBC ~ percent_cpg_meth + Platform, 
-           data = subset(samples_cov, Sex == "F")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 2.962901e-05
+sapply(samples_cov_pooled, function(x){summary(lm(nRBC ~ percent_cpg_meth_bsseq + Platform,
+                                                  data = x))$coefficients["percent_cpg_meth_bsseq", "Pr(>|t|)"]})
+#          All        Males      Females 
+# 2.494963e-21 1.695624e-18 3.099482e-05 
 
 # Discovery
-summary(lm(nRBC ~ percent_cpg_meth, 
-           data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 3.35061e-18
-summary(lm(nRBC ~ percent_cpg_meth, 
-           data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 6.793444e-18
-summary(lm(nRBC ~ percent_cpg_meth, 
-           data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 0.000315383
+sapply(samples_cov_disc, function(x){summary(lm(nRBC ~ percent_cpg_meth_bsseq,
+                                                data = x))$coefficients["percent_cpg_meth_bsseq", "Pr(>|t|)"]})
+#          All        Males      Females 
+# 4.283224e-18 9.030566e-18 3.243531e-04 
 
 # Replication
-summary(lm(nRBC ~ percent_cpg_meth, 
-           data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 4.927082e-06
-summary(lm(nRBC ~ percent_cpg_meth, 
-           data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 8.626476e-05
-summary(lm(nRBC ~ percent_cpg_meth, 
-           data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["percent_cpg_meth", "Pr(>|t|)"] # 0.02711881
+sapply(samples_cov_rep, function(x){summary(lm(nRBC ~ percent_cpg_meth_bsseq,
+                                               data = x))$coefficients["percent_cpg_meth_bsseq", "Pr(>|t|)"]})
+#          All        Males      Females 
+# 5.381384e-06 9.145221e-05 2.793185e-02 
 
 # nRBC ~ Mullen Composite Stats ####
 # Pooled
-summary(lm(nRBC ~ MSLelcStandard36 + Platform,
-           data = samples_cov))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.005435093
-summary(lm(nRBC ~ MSLelcStandard36 + Platform, 
-           data = subset(samples_cov, Sex == "M")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.003061058
-summary(lm(nRBC ~ MSLelcStandard36 + Platform, 
-           data = subset(samples_cov, Sex == "F")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.7108429
+sapply(samples_cov_pooled, function(x){summary(lm(nRBC ~ MSLelcStandard36 + Platform,
+                                                  data = x))$coefficients["MSLelcStandard36", "Pr(>|t|)"]})
+#         All       Males     Females 
+# 0.005435093 0.003061058 0.710842930 
 
 # Discovery
-summary(lm(nRBC ~ MSLelcStandard36, 
-           data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.06479838
-summary(lm(nRBC ~ MSLelcStandard36, 
-           data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.0336292
-summary(lm(nRBC ~ MSLelcStandard36, 
-           data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.9219254
+sapply(samples_cov_disc, function(x){summary(lm(nRBC ~ MSLelcStandard36,
+                                                data = x))$coefficients["MSLelcStandard36", "Pr(>|t|)"]})
+#        All      Males    Females 
+# 0.06479838 0.03362920 0.92192542 
 
 # Replication
-summary(lm(nRBC ~ MSLelcStandard36, 
-           data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.01365184
-summary(lm(nRBC ~ MSLelcStandard36, 
-           data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.03148084
-summary(lm(nRBC ~ MSLelcStandard36, 
-           data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["MSLelcStandard36", "Pr(>|t|)"] # 0.2319066
+sapply(samples_cov_rep, function(x){summary(lm(nRBC ~ MSLelcStandard36,
+                                               data = x))$coefficients["MSLelcStandard36", "Pr(>|t|)"]})
+#        All      Males    Females 
+# 0.01365184 0.03148084 0.23190658 
 
+# Global Methylation ~ Diagnosis + PCR Duplicates Stats ####
+# Pooled
+sapply(samples_cov_pooled, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + Platform,
+                                                  data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
+#         All       Males     Females 
+# 0.022733675 0.002460205 0.702384585 
+
+# Discovery
+sapply(samples_cov_disc, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate,
+                                                data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
+#       All     Males   Females 
+# 0.2508170 0.0610997 0.6389092 
+
+# Replication
+sapply(samples_cov_rep, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate,
+                                               data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
+#        All     Males   Females 
+# 0.02281887 0.01612698 0.91142013 
+ 
 # Global Methylation ~ Diagnosis + PCR Duplicates + nRBCs Stats ####
 # Pooled
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + Platform + nRBC, 
-           data = samples_cov))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.3343483
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + Platform + nRBC, 
-           data = subset(samples_cov, Sex == "M")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.1922716
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + Platform + nRBC, 
-           data = subset(samples_cov, Sex == "F")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.8061634
+sapply(samples_cov_pooled, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + Platform + nRBC,
+                                                  data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
+#       All     Males   Females 
+# 0.3353303 0.1859214 0.7863441 
 
 # Discovery
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
-           data = subset(samples_cov, Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.9643772
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
-           data = subset(samples_cov, Sex == "M" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.8533547
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
-           data = subset(samples_cov, Sex == "F" & Platform == "HiSeqX10")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.8073536
+sapply(samples_cov_disc, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + nRBC,
+                                                data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
+#       All     Males   Females 
+# 0.9624204 0.8315057 0.7917536 
 
 # Replication
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
-           data = subset(samples_cov, Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.1832475
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
-           data = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.1406058
-summary(lm(percent_cpg_meth ~ Diagnosis_Alg + percent_duplicate + nRBC, 
-           data = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000")))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"] # 0.8195298
+sapply(samples_cov_rep, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + nRBC,
+                                               data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
+#       All     Males   Females 
+# 0.1829127 0.1390658 0.8134737 
 
 # Test for reduced males ####
 table(samples_cov$Sex)
@@ -525,12 +456,12 @@ ggsave("Figures/Reduced Males nRBC Difference pvalue Histogram.png", dpi = 600, 
 
 # Covariate Plots ####
 # Plot nRBCs by Global mCG
-ggScatterPlot(x = samples_cov$nRBC, y = samples_cov$percent_cpg_meth, groupVar = samples_cov$Diagnosis_Alg,
+ggScatterPlot(x = samples_cov$nRBC, y = samples_cov$percent_cpg_meth_bsseq, groupVar = samples_cov$Diagnosis_Alg,
               fileName = "Figures/Estimated nRBCs by Global mCpG.png", xlab = "Estimated nRBCs (%)",
               ylab = "Global CpG Methylation (%)", legendPos = c(0.9, 1.03))
 
 # Plot nRBCs by Global mCG and Sex
-g <- ggplot(samples_cov, aes(x = nRBC, y = percent_cpg_meth))
+g <- ggplot(samples_cov, aes(x = nRBC, y = percent_cpg_meth_bsseq))
 g + 
         geom_smooth(method = "lm") +
         geom_point(aes(color = Diagnosis_Alg), size = 3) +
@@ -552,7 +483,7 @@ g +
 ggsave("Figures/Estimated nRBCs by Global mCpG and Sex.png", dpi = 600, width = 10, height = 6, units = "in")
 
 # Plot nRBCs by Global mCG and Platform
-g <- ggplot(samples_cov, aes(x = nRBC, y = percent_cpg_meth))
+g <- ggplot(samples_cov, aes(x = nRBC, y = percent_cpg_meth_bsseq))
 g + 
         geom_smooth(method = "lm") +
         geom_point(aes(color = Diagnosis_Alg), size = 3) +
@@ -574,7 +505,7 @@ g +
 ggsave("Figures/Estimated nRBCs by Global mCpG and Platform.png", dpi = 600, width = 10, height = 6, units = "in")
 
 # Plot nRBCs by Global mCG and Platform, Males Only
-g <- ggplot(subset(samples_cov, Sex == "M"), aes(x = nRBC, y = percent_cpg_meth))
+g <- ggplot(subset(samples_cov, Sex == "M"), aes(x = nRBC, y = percent_cpg_meth_bsseq))
 g + 
         geom_smooth(method = "lm") +
         geom_point(aes(color = Diagnosis_Alg), size = 3) +
@@ -599,7 +530,7 @@ ggsave("Figures/Estimated nRBCs by Global mCpG and Platform, Males.png", dpi = 6
 samples_cov_plot <- samples_cov
 samples_cov_plot$Sex <- ifelse(samples_cov_plot$Sex == "M", yes = "Males", no = "Females") %>% 
         factor(levels = c("Males", "Females"))
-g <- ggplot(samples_cov_plot, aes(x = nRBC, y = percent_cpg_meth))
+g <- ggplot(samples_cov_plot, aes(x = nRBC, y = percent_cpg_meth_bsseq))
 g + 
         geom_smooth(method = "lm") +
         geom_point(aes(color = Diagnosis_Alg), size = 3) +
@@ -727,33 +658,31 @@ catVars <- catVars[!catVars == "Sex"]
 variables <- variables[!variables == "Sex"]
 
 # Get Stats
-covStats_males <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
-                            contVars = contVars, sampleData = samples_cov_males, adj = "Platform",
-                            file = "Tables/Estimated Cell Populations by Covariate Stats Males Only.txt")
+covStats_males <- DMRmethLm(DMRs = celltypes, catVars = catVars, contVars = contVars, sampleData = samples_cov_males, 
+                            adj = "Platform", file = "Tables/Estimated Cell Populations by Covariate Stats Males Only.txt")
 
 # Covariate Association, Females Only ####
 # Data
 samples_cov_females <- subset(samples_cov, Sex == "F")
 
 # Get Stats
-covStats_females <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
+covStats_females <- DMRmethLm(DMRs = celltypes, catVars = catVars, 
                             contVars = contVars, sampleData = samples_cov_females, adj = "Platform",
                             file = "Tables/Estimated Cell Populations by Covariate Stats Females Only.txt")
+rm(gaCells, samples_cov_disc, samples_cov_rep, samples_cov_pooled)
 
 # Covariate Association, Discovery Samples --------------------------------
 # All Discovery Samples ####
 # Data
 samples_cov_disc <- subset(samples_cov, Platform == "HiSeqX10")
 catVars <- c("Study", "Platform", "Sex", "Site", "Diagnosis_Alg", "MomEdu_detail", "DM1or2", "GDM", "PE", 
-             "home_ownership", "marital_status", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", 
-             "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", 
-             "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9")
+             "home_ownership", "marital_status", "SmokeYN_Pregnancy")
 catVars <- catVars[!catVars == "Platform"]
 
 # Get Stats
-covStats_disc <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
-                            contVars = contVars, sampleData = samples_cov_disc, adj = NULL,
-                            file = "Tables/Estimated Cell Populations by Covariate Stats Discovery.txt")
+covStats_disc <- DMRmethLm(DMRs = celltypes, catVars = catVars, contVars = contVars, 
+                           sampleData = samples_cov_disc, adj = NULL,
+                           file = "Tables/Estimated Cell Populations by Covariate Stats Discovery.txt")
 
 # Discovery Males Only ####
 # Data
@@ -761,8 +690,8 @@ samples_cov_disc_males <- subset(samples_cov_disc, Sex == "M")
 catVars <- catVars[!catVars == "Sex"]
 
 # Get Stats
-covStats_disc_males <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
-                                 contVars = contVars, sampleData = samples_cov_disc_males, adj = NULL,
+covStats_disc_males <- DMRmethLm(DMRs = celltypes, catVars = catVars, contVars = contVars, 
+                                 sampleData = samples_cov_disc_males, adj = NULL,
                                  file = "Tables/Estimated Cell Populations by Covariate Stats Discovery Males Only.txt")
 # Error with Bcell and PE
 # Error with CD4T and PE
@@ -777,9 +706,9 @@ covStats_disc_males <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono
 samples_cov_disc_females <- subset(samples_cov_disc, Sex == "F")
 
 # Get Stats
-covStats_disc_females <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
-                                 contVars = contVars, sampleData = samples_cov_disc_females, adj = NULL,
-                                 file = "Tables/Estimated Cell Populations by Covariate Stats Discovery Females Only.txt")
+covStats_disc_females <- DMRmethLm(DMRs = celltypes, catVars = catVars, contVars = contVars, 
+                                   sampleData = samples_cov_disc_females, adj = NULL,
+                                   file = "Tables/Estimated Cell Populations by Covariate Stats Discovery Females Only.txt")
 
 # Plots ####
 # Plot nRBCs by Diagnosis and Sex
@@ -790,12 +719,12 @@ ggBoxPlot(data = samples_cov_disc, x = samples_cov_disc$Diagnosis_Alg, y = sampl
           axis.text.x = element_text(size = 16, color = "black"), ylim = c(0, 40), outlier.size = 1.5)
 
 # Plot nRBCs by Global mCG
-ggScatterPlot(x = samples_cov_disc$nRBC, y = samples_cov_disc$percent_cpg_meth, groupVar = samples_cov_disc$Diagnosis_Alg,
+ggScatterPlot(x = samples_cov_disc$nRBC, y = samples_cov_disc$percent_cpg_meth_bsseq, groupVar = samples_cov_disc$Diagnosis_Alg,
               fileName = "Figures/Estimated nRBCs by Global mCpG Discovery.png", xlab = "Estimated nRBCs (%)",
               ylab = "Global CpG Methylation (%)", legendPos = c(0.9, 1.03))
 
 # Plot nRBCs by Global mCG and Sex
-g <- ggplot(samples_cov_disc, aes(x = nRBC, y = percent_cpg_meth))
+g <- ggplot(samples_cov_disc, aes(x = nRBC, y = percent_cpg_meth_bsseq))
 g + 
         geom_smooth(method = "lm") +
         geom_point(aes(color = Diagnosis_Alg), size = 3) +
@@ -849,15 +778,13 @@ ggsave("Figures/Estimated Cell Populations by Gestational Age Scatterplots Disco
 # Data
 samples_cov_rep <- subset(samples_cov, Platform == "HiSeq4000")
 catVars <- c("Study", "Platform", "Sex", "Site", "Diagnosis_Alg", "MomEdu_detail", "DM1or2", "GDM", "PE", 
-             "home_ownership", "marital_status", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", 
-             "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", 
-             "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9")
+             "home_ownership", "marital_status", "SmokeYN_Pregnancy")
 catVars <- catVars[!catVars %in% c("Platform", "Study", "Site")]
 
 # Get Stats
-covStats_rep <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
-                           contVars = contVars, sampleData = samples_cov_rep, adj = NULL,
-                           file = "Tables/Estimated Cell Populations by Covariate Stats Replication.txt")
+covStats_rep <- DMRmethLm(DMRs = celltypes, catVars = catVars, contVars = contVars, 
+                          sampleData = samples_cov_rep, adj = NULL,
+                          file = "Tables/Estimated Cell Populations by Covariate Stats Replication.txt")
 
 # Replication Males Only ####
 # Data
@@ -865,9 +792,9 @@ samples_cov_rep_males <- subset(samples_cov_rep, Sex == "M")
 catVars <- catVars[!catVars == "Sex"]
 
 # Get Stats
-covStats_rep_males <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
-                                 contVars = contVars, sampleData = samples_cov_rep_males, adj = NULL,
-                                 file = "Tables/Estimated Cell Populations by Covariate Stats Replication Males Only.txt")
+covStats_rep_males <- DMRmethLm(DMRs = celltypes, catVars = catVars, contVars = contVars, 
+                                sampleData = samples_cov_rep_males, adj = NULL,
+                                file = "Tables/Estimated Cell Populations by Covariate Stats Replication Males Only.txt")
 # Error with DM1or2 for all
 
 # Replication Females Only ####
@@ -875,10 +802,10 @@ covStats_rep_males <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono"
 samples_cov_rep_females <- subset(samples_cov_rep, Sex == "F")
 
 # Get Stats
-covStats_rep_females <- DMRmethLm(DMRs = c("Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC"), catVars = catVars, 
-                                   contVars = contVars, sampleData = samples_cov_rep_females, adj = NULL,
-                                   file = "Tables/Estimated Cell Populations by Covariate Stats Replication Females Only.txt")
-# Error with PE, SmokeYN_Pregnancy, AllEQ_PV_YN_Mo_3, AllEQ_PV_YN_Mo_2, AllEQ_PV_YN_Mo_1, AllEQ_PV_YN_Mo1 for all
+covStats_rep_females <- DMRmethLm(DMRs = celltypes, catVars = catVars, contVars = contVars, 
+                                  sampleData = samples_cov_rep_females, adj = NULL,
+                                  file = "Tables/Estimated Cell Populations by Covariate Stats Replication Females Only.txt")
+# Error with PE, SmokeYN_Pregnancy for all
 
 # Plots ####
 # Plot nRBCs by Diagnosis and Sex
@@ -889,12 +816,12 @@ ggBoxPlot(data = samples_cov_rep, x = samples_cov_rep$Diagnosis_Alg, y = samples
           axis.text.x = element_text(size = 16, color = "black"), ylim = c(0, 40), outlier.size = 1.5)
 
 # Plot nRBCs by Global mCG
-ggScatterPlot(x = samples_cov_rep$nRBC, y = samples_cov_rep$percent_cpg_meth, groupVar = samples_cov_rep$Diagnosis_Alg,
+ggScatterPlot(x = samples_cov_rep$nRBC, y = samples_cov_rep$percent_cpg_meth_bsseq, groupVar = samples_cov_rep$Diagnosis_Alg,
               fileName = "Figures/Estimated nRBCs by Global mCpG Replication.png", xlab = "Estimated nRBCs (%)",
               ylab = "Global CpG Methylation (%)", legendPos = c(0.9, 1.03))
 
 # Plot nRBCs by Global mCG and Sex
-g <- ggplot(samples_cov_rep, aes(x = nRBC, y = percent_cpg_meth))
+g <- ggplot(samples_cov_rep, aes(x = nRBC, y = percent_cpg_meth_bsseq))
 g + 
         geom_smooth(method = "lm") +
         geom_point(aes(color = Diagnosis_Alg), size = 3) +
@@ -941,9 +868,5 @@ g +
         ylab("Cell Populations (%)") +
         scale_color_manual(breaks = c("TD", "ASD"), values = c("#3366CC", "#FF3366")) +
         facet_wrap(vars(CellType), nrow = 2, scales = "free")
-ggsave("Figures/Estimated Cell Populations by Gestational Age Scatterplots Replication.png", dpi = 600, width = 10, height = 7, units = "in")
-
-
-
-
-
+ggsave("Figures/Estimated Cell Populations by Gestational Age Scatterplots Replication.png", dpi = 600, width = 10, height = 7,
+       units = "in")
