@@ -129,7 +129,7 @@ write.table(raw, "DMR_raw_methylation_DxNoXY_Replication50.txt", sep = "\t", quo
 processBismark <- function(files = list.files(path = getwd(), pattern = "*.txt.gz"),
                            meta = openxlsx::read.xlsx("sample_info.xlsx", colNames = TRUE) %>% dplyr::mutate_if(is.character, as.factor),
                            testCovar = testCovariate,
-                           adjustCovar = adjustCovariate,
+                           adjustCovar = NULL,
                            matchCovar = NULL,
                            Cov = coverage,
                            mc.cores = cores,
@@ -256,8 +256,8 @@ processBismark <- function(files = list.files(path = getwd(), pattern = "*.txt.g
         return(bs.filtered)
 }
 
-# Load and Process Samples (Waiting for resources)
-cores <- 10
+# Load and Process Samples (Running on Barbera 6/21, Complete)
+cores <- 5
 adjustCovariate <- "Sex"
 bs.filtered <- processBismark(files = list.files(path = getwd(), pattern = "*.txt.gz"),
                               meta = read.xlsx("sample_info.xlsx", colNames = TRUE) %>% mutate_if(is.character,as.factor),
@@ -265,24 +265,24 @@ bs.filtered <- processBismark(files = list.files(path = getwd(), pattern = "*.tx
 bs.filtered <- chrSelectBSseq(bs.filtered, seqnames = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")) # Remove chrY
 saveRDS(bs.filtered, "Dx_Sex_All/Filtered_BSseq_Replication50_DxAdjSex.rds")
 
-# Background Regions
+# Background Regions (Running on Barbera 6/21, Complete)
 background <- getBackground(bs.filtered, minNumRegion = minCpGs, maxGap = 1000)
 write.table(background, file = "Dx_Sex_All/bsseq_background_Replication50_DxAdjSex.csv", sep = ",", quote = FALSE, row.names = FALSE)
 
-# DMRs
+# DMRs (Running on Barbera 6/21, Complete)
 regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms,
-                  testCovariate = testCovariate, adjustCovariate = NULL, matchCovariate = NULL)
+                  testCovariate = testCovariate, adjustCovariate = adjustCovariate, matchCovariate = NULL)
 regions$percentDifference <- round(regions$beta/pi * 100)
 sigRegions <- regions[regions$pval < 0.05,]
 gr2csv(regions, "Dx_Sex_All/CandidateRegions_Replication50_DxAdjSex.csv")
 gr2csv(sigRegions, "Dx_Sex_All/DMRs_Replication50_DxAdjSex.csv")
 
-# Raw Methylation
+# Raw Methylation (Running on Barbera 6/21, Complete)
 raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = sigRegions, type = "raw", what = "perRegion"))
 raw <- cbind(sigRegions, raw)
 write.table(raw, "Dx_Sex_All/DMR_raw_methylation_Replication50_DxAdjSex.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
-# Smoothed Methylation
+# Smoothed Methylation (Running on Barbera 6/21, Complete)
 bs.filtered.bsseq <- BSmooth(bs.filtered, BPPARAM = MulticoreParam(workers = cores, progressbar = TRUE))
 pData <- pData(bs.filtered.bsseq)
 pData$col <- NULL
@@ -294,10 +294,11 @@ pData$label[pData[,testCovariate] == levels(pData[,testCovariate])[2]] <-  "ASD"
 pData(bs.filtered.bsseq) <- pData
 saveRDS(bs.filtered.bsseq, "Dx_Sex_All/Filtered_Smoothed_BSseq_Replication50_DxAdjSex.rds")
 
-smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegions, 
-                      out = "Dx_Sex_All/DMR_smoothed_methylation_Replication50_DxAdjSex.txt")
+smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegions)
+write.table(smoothed, file = "Dx_Sex_All/DMR_smoothed_methylation_Replication50_DxAdjSex.txt", sep = "\t", quote = FALSE, 
+            row.names = FALSE)
 
-# Plots
+# Plots (Running on Barbera 6/21, Complete)
 annoTrack <- readRDS("hg38_annoTrack.rds")
 pdf("Dx_Sex_All/DMRs_Replication50_DxAdjSex.pdf", height = 4, width = 8)
 plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, 

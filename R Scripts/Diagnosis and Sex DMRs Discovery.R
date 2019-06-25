@@ -219,7 +219,7 @@ processBismark <- function(files = list.files(path = getwd(), pattern = "*.txt.g
         return(bs.filtered)
 }
 
-# Load and Process Samples, using new processBismark with covariate filtering (Running on Epigenerate 6/17)
+# Load and Process Samples, using new processBismark with covariate filtering (Running on Epigenerate 6/17, Complete)
 adjustCovariate <- "Sex"
 bs.filtered <- processBismark(files = list.files(path = getwd(), pattern = "*.txt.gz"),
                               meta = read.xlsx("sample_info.xlsx", colNames = TRUE) %>% mutate_if(is.character,as.factor),
@@ -227,12 +227,14 @@ bs.filtered <- processBismark(files = list.files(path = getwd(), pattern = "*.tx
 bs.filtered <- chrSelectBSseq(bs.filtered, seqnames = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")) # Remove chrY
 saveRDS(bs.filtered, "Dx_Sex_All/Filtered_BSseq_Discovery50_DxAdjSex.rds")
 
-# Background Regions (Running on Epigenerate 6/17)
+# Background Regions (Running on Epigenerate 6/17, Complete)
 background <- getBackground(bs.filtered, minNumRegion = minCpGs, maxGap = 1000)
 write.table(background, file = "Dx_Sex_All/bsseq_background_Discovery50_DxAdjSex.csv", sep = ",", quote = FALSE, row.names = FALSE)
 
-# DMRs and Raw Methylation (Running on Epigenerate 6/17)
-regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms, testCovariate = testCovariate)
+# DMRs and Raw Methylation (Running on Epigenerate 6/17, need to rerun, Rerunning on epigenerate on 6/23, complete)
+bs.filtered <- readRDS("Dx_Sex_All/Filtered_BSseq_Discovery50_DxAdjSex.rds")
+regions <- dmrseq(bs = bs.filtered, cutoff = 0.05, minNumRegion = minCpGs, maxPerms = maxPerms, testCovariate = testCovariate,
+                  adjustCovariate = adjustCovariate)
 regions$percentDifference <- round(regions$beta/pi * 100)
 sigRegions <- regions[regions$pval < 0.05,]
 gr2csv(regions, "Dx_Sex_All/CandidateRegions_Discovery50_DxAdjSex.csv")
@@ -241,21 +243,23 @@ raw <- as.data.frame(getMeth(BSseq = bs.filtered, regions = sigRegions, type = "
 raw <- cbind(sigRegions, raw)
 write.table(raw, "Dx_Sex_All/DMR_raw_methylation_Discovery50_DxAdjSex.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
-# Smoothed Methylation (Running on Epigenerate 6/17)
-bs.filtered.bsseq <- BSmooth(bs.filtered, BPPARAM = MulticoreParam(workers = cores, progressbar = TRUE))
-pData <- pData(bs.filtered.bsseq)
-pData$col <- NULL
-pData$col[pData[,testCovariate] == levels(pData[,testCovariate])[1]] <- "#3366CC"
-pData$col[pData[,testCovariate] == levels(pData[,testCovariate])[2]] <-  "#FF3366"
-pData$label <- NULL
-pData$label[pData[,testCovariate] == levels(pData[,testCovariate])[1]] <- "TD"
-pData$label[pData[,testCovariate] == levels(pData[,testCovariate])[2]] <-  "ASD"
-pData(bs.filtered.bsseq) <- pData
-saveRDS(bs.filtered.bsseq, "Dx_Sex_All/Filtered_Smoothed_BSseq_Discovery50_DxAdjSex.rds")
+# Smoothed Methylation (Running on Epigenerate 6/17, need to rerun, Rerunning on epigenerate on 6/23, complete)
+# bs.filtered.bsseq <- BSmooth(bs.filtered, BPPARAM = MulticoreParam(workers = cores, progressbar = TRUE))
+# pData <- pData(bs.filtered.bsseq)
+# pData$col <- NULL
+# pData$col[pData[,testCovariate] == levels(pData[,testCovariate])[1]] <- "#3366CC"
+# pData$col[pData[,testCovariate] == levels(pData[,testCovariate])[2]] <-  "#FF3366"
+# pData$label <- NULL
+# pData$label[pData[,testCovariate] == levels(pData[,testCovariate])[1]] <- "TD"
+# pData$label[pData[,testCovariate] == levels(pData[,testCovariate])[2]] <-  "ASD"
+# pData(bs.filtered.bsseq) <- pData
+# saveRDS(bs.filtered.bsseq, "Dx_Sex_All/Filtered_Smoothed_BSseq_Discovery50_DxAdjSex.rds")
+
+bs.filtered.bsseq <- readRDS("Dx_Sex_All/Filtered_Smoothed_BSseq_Discovery50_DxAdjSex.rds")
 smoothed <- getSmooth(bsseq = bs.filtered.bsseq, regions = sigRegions)
 write.table(smoothed, "Dx_Sex_All/DMR_smoothed_methylation_Discovery50_DxAdjSex.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
-# Plots (Running on Epigenerate 6/17)
+# Plots (Running on Epigenerate 6/17, need to rerun, rerunning on epigenerate on 6/23, complete)
 annoTrack <- readRDS("hg38_annoTrack.rds")
 pdf("Dx_Sex_All/DMRs_Discovery50_DxAdjSex.pdf", height = 4, width = 8)
 plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate, 
@@ -271,7 +275,7 @@ plotDMRs2(bs.filtered.bsseq, regions = sigRegions, testCovariate = testCovariate
           horizLegend = TRUE, addPoints = FALSE)
 dev.off()
 
-# DMRs with Males Only (Rerun without JLCM032B and JLCM050B) ####
+# DMRs with Males Only (Rerun without JLCM032B and JLCM050B, Complete) ####
 # New R session
 # Load and Process Samples (Rerun without JLCM032B and JLCM050B, Complete)
 bs.filtered <- processBismark(files = list.files(path = getwd(), pattern = "*.txt.gz"),

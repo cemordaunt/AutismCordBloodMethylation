@@ -1,10 +1,10 @@
 # Diagnosis and Sex Block DMRs Replication ----------------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 3/11/19
+# 6/23/19
 
 # Packages ####
-.libPaths("/share/lasallelab/programs/DMRichR/R_3.5")
+.libPaths("/share/lasallelab/programs/DMRichR/R_3.6")
 sapply(c("tidyverse", "openxlsx", "bsseq", "dmrseq", "DMRichR"), require, character.only = TRUE)
 
 # Global Variables ####
@@ -33,15 +33,18 @@ gr2csv(sigBlocks, "DifferentialBlocks_DxNoXY_Replication50.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis and Sex Block DMRs All Samples ----------------------------------------
-# (Finished, Background is with coordinate shifting)
-bs.filtered <- readRDS("BSseq_05Group.rds")
+# (Need to rerun with new covariate filtering, running on epigenerate 6/24)
+bs.filtered <- readRDS("Dx_Sex_All/Filtered_BSseq_Replication50_DxAdjSex.rds")
+background <- getBackground(bs.filtered, minNumRegion = minCpGs, maxGap = 5000) %>% subset(width >= 5000)
+write.table(background, file = "Dx_Sex_All/bsseq_block_background_Replication50_DxAdjSex.csv", sep = ",", quote = FALSE, row.names = FALSE)
+
 blocks <- dmrseq(bs = bs.filtered, testCovariate = testCovariate, adjustCovariate = "Sex", cutoff = cutoff,
                  minNumRegion = minCpGs, bpSpan = 5e4, minInSpan = 500, maxGapSmooth = 1e6, maxGap = 5e3, 
                  maxPerms = maxPerms, block = TRUE)
 blocks$percentDifference <- round(blocks$beta/pi * 100)
 sigBlocks <- blocks[blocks$pval < 0.05,]
-gr2csv(blocks, "CandidateBlocks_DxAdjSex_Replication50.csv")
-gr2csv(sigBlocks, "DifferentialBlocks_DxAdjSex_Replication50.csv")
+gr2csv(blocks, "Dx_Sex_All/CandidateBlocks_DxAdjSex_Replication50.csv")
+gr2csv(sigBlocks, "Dx_Sex_All/DifferentialBlocks_DxAdjSex_Replication50.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis Block DMRs Males ----------------------------------------

@@ -1,8 +1,9 @@
 # Global Methylation and Covariate Analysis ####
 # Autism Cord Blood Methylation Project
 # Charles Mordaunt
-# 5/31/19
+# 6/24/19
 # Excluded JLCM032B and JLCM050B
+# Added in cell type proportions
 
 # Packages ####
 sapply(c("reshape2", "scales", "tidyverse"), require, character.only = TRUE)
@@ -218,6 +219,7 @@ samples <- read.delim(file = "Merged Database/MARBLES EARLI WGBS Sample Merged C
                       stringsAsFactors = FALSE)
 samples <- subset(samples, !(Cord_Blood_IBC == 101470 & Platform %in% c("HiSeq2500", "HiSeq4000"))) # Remove 101470 Duplicates
 samples <- subset(samples, !Sequencing_ID %in% c("JLCM032B", "JLCM050B")) # Remove mislabeled females
+samples <- samples[,!grepl("AllEQ", x = colnames(samples), fixed = TRUE)] # Remove folic acid and prenatal vitamin variables
 
 # Add in global CpG methylation from bsseq, see 'Chromosome Methylation Analysis.R'
 meth_disc <- read.csv("Tables/Chromosome_Meth_CpG_Counts_Discovery.csv", header = TRUE, stringsAsFactors = FALSE)
@@ -234,27 +236,31 @@ globalMeth$percent_cpg_meth_bsseq <- globalMeth$meth * 100 / globalMeth$cov
 samples <- merge(x = samples, y = globalMeth[,c("Sample", "percent_cpg_meth_bsseq")], by.x = "Sequencing_ID", by.y = "Sample", 
                  all.x = TRUE, all.y = FALSE, sort = FALSE)
 # bsseq permeth is on average 0.27% (min = 0.11%, max = 0.35%) higher than bismark permeth
+samples <- samples[,!colnames(samples) == "percent_cpg_meth"] # Remove bismark permeth
 rm(cov_disc, cov_rep, globalMeth, meth_disc, meth_rep)
 
+# Add in estimated cell type proportions, see 'Cell Type Composition Estimation.R'
+cellCov <- read.csv("Tables/Estimated Cell Proportions by Sample Discovery and Replication.csv", header = TRUE,
+                    stringsAsFactors = FALSE)
+samples <- merge(x = samples, y = cellCov, by.x = "Sequencing_ID", by.y = "Sample", all.x = TRUE, all.y = FALSE, sort = FALSE)
+write.csv(samples, "Tables/MARBLES EARLI WGBS Sample Merged Covariate Database with Demo and Cell Type.csv", quote = FALSE,
+          row.names = FALSE)
+rm(cellCov)
+
 # Covariates by Diagnosis ####
-samples <- samples[,!colnames(samples) == "percent_cpg_meth"] # Remove bismark permeth
 samples$Diagnosis_Alg <- factor(samples$Diagnosis_Alg, levels = c("TD", "ASD"))
 catVars <- c("Study", "Platform", "Sex", "Site", "MomEdu_detail", "DM1or2", "GDM", "PE", "home_ownership", "marital_status", 
-             "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2",
-             "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6", "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", 
-             "AllEQ_PV_YN_Mo9")
+             "SmokeYN_Pregnancy")
 contVars <- colnames(samples)[!colnames(samples) %in% catVars]
-(contVars <- contVars[!contVars %in% c("COI_ID", "Sequencing_ID", "Cord_Blood_IBC", "Diagnosis_Alg")])
-# [1] "ADOScs"                    "MSLelcStandard36"          "MSLelTscore36"             "MSLfmTscore36"            
-# [5] "MSLrlTscore36"             "MSLvrTscore36"             "percent_trimmed"           "percent_aligned"          
-# [9] "percent_duplicate"         "dedup_reads_M"             "C_coverage"                "CG_coverage"              
-# [13] "percent_chg_meth"          "percent_chh_meth"          "ga_w"                      "bw_g"                     
-# [17] "MomAgeYr"                  "Mat_Height_cm"             "Mat_Weight_kg_PrePreg"     "Mat_BMI_PrePreg"          
-# [21] "parity"                    "dad_age"                   "cotinine_urine_ngml"       "final_creatinine_mgdl"    
-# [25] "AllEQ_tot_All_FA_mcg_Mo_3" "AllEQ_tot_All_FA_mcg_Mo_2" "AllEQ_tot_All_FA_mcg_Mo_1" "AllEQ_tot_All_FA_mcg_Mo1" 
-# [29] "AllEQ_tot_All_FA_mcg_Mo2"  "AllEQ_tot_All_FA_mcg_Mo3"  "AllEQ_tot_All_FA_mcg_Mo4"  "AllEQ_tot_All_FA_mcg_Mo5" 
-# [33] "AllEQ_tot_All_FA_mcg_Mo6"  "AllEQ_tot_All_FA_mcg_Mo7"  "AllEQ_tot_All_FA_mcg_Mo8"  "AllEQ_tot_All_FA_mcg_Mo9" 
-# [37] "percent_cpg_meth_bsseq"
+contVars <- contVars[!contVars %in% c("COI_ID", "Sequencing_ID", "Cord_Blood_IBC", "Diagnosis_Alg")]
+#  [1] "ADOScs"                 "MSLelcStandard36"       "MSLelTscore36"          "MSLfmTscore36"         
+#  [5] "MSLrlTscore36"          "MSLvrTscore36"          "percent_trimmed"        "percent_aligned"       
+#  [9] "percent_duplicate"      "dedup_reads_M"          "C_coverage"             "CG_coverage"           
+# [13] "percent_chg_meth"       "percent_chh_meth"       "ga_w"                   "bw_g"                  
+# [17] "MomAgeYr"               "Mat_Height_cm"          "Mat_Weight_kg_PrePreg"  "Mat_BMI_PrePreg"       
+# [21] "parity"                 "dad_age"                "cotinine_urine_ngml"    "final_creatinine_mgdl" 
+# [25] "percent_cpg_meth_bsseq" "Bcell"                  "CD4T"                   "CD8T"                  
+# [29] "Gran"                   "Mono"                   "NK"                     "nRBC"   
 allVars <- c(catVars, contVars)
 
 # HiSeqX10 Only (Discovery)
@@ -286,7 +292,7 @@ write.table(catStats, "Tables/Categorical Covariate Stats by Diagnosis HiSeq4000
 contStats <- contANOVA(variables = contVars4000, sampleData = hs4000, diagnosis = "Diagnosis_Alg", numHypotheses = length(allVars4000))
 contStats$Variable[contStats$pvalue < 0.05] %>% as.character %>% unique
 # [1] "ADOScs"                 "MSLelcStandard36"       "MSLelTscore36"          "MSLfmTscore36"          "MSLrlTscore36"         
-# [6] "MSLvrTscore36"          "ga_w"                   "percent_cpg_meth_bsseq"
+# [6] "MSLvrTscore36"          "ga_w"                   "percent_cpg_meth_bsseq" "nRBC"   
 write.table(contStats, "Tables/Continuous Covariate Stats by Diagnosis HiSeq4000 only.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
 # Pooled
@@ -296,8 +302,9 @@ write.table(catStats, "Tables/Categorical Covariate Stats by Diagnosis Pooled.tx
 
 contStats <- contANOVA(variables = contVars, sampleData = samples, diagnosis = "Diagnosis_Alg", numHypotheses = length(allVars))
 contStats$Variable[contStats$pvalue < 0.05] %>% as.character %>% unique
-# [1] "ADOScs"                 "MSLelcStandard36"       "MSLelTscore36"          "MSLfmTscore36"          "MSLrlTscore36"         
-# [6] "MSLvrTscore36"          "Mat_BMI_PrePreg"        "cotinine_urine_ngml"    "final_creatinine_mgdl"  "percent_cpg_meth_bsseq"
+# [1] "ADOScs"                 "MSLelcStandard36"       "MSLelTscore36"          "MSLfmTscore36"         
+# [5] "MSLrlTscore36"          "MSLvrTscore36"          "Mat_BMI_PrePreg"        "cotinine_urine_ngml"   
+# [9] "final_creatinine_mgdl"  "percent_cpg_meth_bsseq" "nRBC" 
 write.table(contStats, "Tables/Continuous Covariate Stats by Diagnosis Pooled.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
 rm(catStats, contStats, hs4000, x10, allVars4000, allVarsX10, catVars4000, catVarsX10, contVars4000, contVarsX10)
@@ -404,9 +411,7 @@ samples$Diagnosis_Alg <- factor(samples$Diagnosis_Alg, levels = c("TD", "ASD"))
 samples$MomEdu_detail <- factor(samples$MomEdu_detail, levels = c(6, 1:5, 7,8))
 samples$home_ownership[samples$home_ownership == 99] <- NA
 samples$marital_status[samples$marital_status == 99] <- NA
-factorCols <- c("DM1or2", "GDM", "PE", "marital_status", "home_ownership", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", "AllEQ_PV_YN_Mo_1",
-                "AllEQ_PV_YN_Mo1", "AllEQ_PV_YN_Mo2", "AllEQ_PV_YN_Mo3", "AllEQ_PV_YN_Mo4", "AllEQ_PV_YN_Mo5", "AllEQ_PV_YN_Mo6",
-                "AllEQ_PV_YN_Mo7", "AllEQ_PV_YN_Mo8", "AllEQ_PV_YN_Mo9")
+factorCols <- c("DM1or2", "GDM", "PE", "marital_status", "home_ownership", "SmokeYN_Pregnancy")
 samples[,factorCols] <- lapply(samples[,factorCols], as.factor)
 
 # Pooled
@@ -503,8 +508,7 @@ write.table(statsX10F, "Tables/Covariate Stats by Global Meth X10 Females Only.t
 
 # Replication
 samples4000F <- subset(samples4000, Sex == "F")
-catVars4000F <- catVars4000[!catVars4000 %in% c("Sex", "PE", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2",
-                                                "AllEQ_PV_YN_Mo_1", "AllEQ_PV_YN_Mo1")]
+catVars4000F <- catVars4000[!catVars4000 %in% c("Sex", "PE", "SmokeYN_Pregnancy")]
 stats4000F <- methLm(catVars = catVars4000F, contVars = contVars4000, sampleData = samples4000F, globalMeth = "percent_cpg_meth_bsseq")
 write.table(stats4000F, "Tables/Covariate Stats by Global Meth 4000 Females Only.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
@@ -755,7 +759,7 @@ heatStats$Sex <- c(rep("Males", (nrow(statsX10DupsM) + nrow(stats4000DupsM) + nr
 vars <- intersect(statsX10DupsM$Variable, statsX10DupsF$Variable) %>% 
         intersect(stats4000DupsM$Variable) %>% intersect(stats4000DupsF$Variable) %>% 
         intersect(platformStatsDupsM$Variable) %>% intersect(platformStatsDupsF$Variable) %>% unique
-vars <- vars[!grepl("AllEQ", vars, fixed = TRUE) & !vars %in% c("MomEdu_detail", "final_creatinine_mgdl")] # Remove folate variables
+vars <- vars[!vars %in% c("MomEdu_detail", "final_creatinine_mgdl")] # Remove Mom Edu and Creatinine
 heatStats <- subset(heatStats, Variable %in% vars)
 varNames <- as.character(heatStats$Variable) %>% 
         str_replace_all(c("Diagnosis_Alg" = "Diagnosis", "GDM" = "Gestational Diabetes", "home_ownership" = "Own Home",
@@ -768,7 +772,9 @@ varNames <- as.character(heatStats$Variable) %>%
                           "ga_w" = "Gestational Age", "bw_g" = "Birthweight", "MomAgeYr" = "Maternal Age",
                           "Mat_Height_cm" = "Maternal Height", "Mat_Weight_kg_PrePreg" = "Maternal Weight",
                           "Mat_BMI_PrePreg" = "Maternal BMI", "parity" = "Parity", "dad_age" = "Paternal Age",
-                          "cotinine_urine_ngml" = "Urine Cotinine"))
+                          "cotinine_urine_ngml" = "Urine Cotinine", "Bcell" = "B Cells", "CD4T" = "CD4 T Cells",
+                          "CD8T" = "CD8 T Cells", "Gran" = "Granulocytes", "Mono" = "Monocytes", "NK" = "NK Cells",
+                          "nRBC" = "nRBCs"))
 heatStats$Variable <- factor(varNames, 
                              levels = rev(c("Diagnosis", "ADOS", "Mullen Composite", "Mullen Expressive Language",
                                             "Mullen Fine Motor", "Mullen Receptive Language", "Mullen Visual Reception",
@@ -776,13 +782,14 @@ heatStats$Variable <- factor(varNames,
                                             "Maternal Height", "Maternal Weight", "Maternal BMI", 
                                             "Gestational Diabetes", "Parity", "Urine Cotinine", "Married", "Own Home",
                                             "Bases Trimmed", "Aligned Reads", "Unique Reads", "C Coverage", 
-                                            "CpG Coverage", "CHG Methylation", "CHH Methylation")))
+                                            "CpG Coverage", "CHG Methylation", "CHH Methylation", "B Cells", "CD4 T Cells",
+                                            "CD8 T Cells", "Granulocytes", "Monocytes", "NK Cells", "nRBCs")))
 heatStats$Significant <- (heatStats$qvalue < 0.05) %>% factor(levels = c("TRUE", "FALSE"))
 
 g <- ggplot(data = heatStats)
 g + 
         geom_tile(aes(x = Set, y = Variable, fill = Estimate, color = Estimate)) + 
-        geom_text(aes(x = Set, y = Variable, alpha = Significant, label = "*"), color = "white", size = 15, nudge_y = -0.42) +
+        geom_text(aes(x = Set, y = Variable, alpha = Significant, label = "*"), color = "white", size = 15, nudge_y = -0.43) +
         facet_grid(cols = vars(Sex)) +
         scale_fill_gradientn("Estimate", colors = c("#3366CC", "Black", "#FF0000"), values = c(0, 1), na.value = "#FF0000", 
                              limits = c(-1.21, 1.21), breaks = pretty_breaks(n = 3)) +
@@ -792,7 +799,7 @@ g +
         scale_x_discrete(expand = c(0,0)) +
         scale_y_discrete(expand = c(0,0)) +
         theme_bw(base_size = 25) +
-        theme(legend.direction = 'vertical', legend.position = c(1.13, 0.9), panel.grid.major = element_blank(), 
+        theme(legend.direction = 'vertical', legend.position = c(1.13, 0.915), panel.grid.major = element_blank(), 
               panel.border = element_rect(color = "Black", size = 1.25), axis.ticks = element_line(size = 1.25), 
               legend.key = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size = 24),
               axis.text.x = element_text(color = "Black", angle = 30, hjust = 1), 
@@ -800,5 +807,5 @@ g +
               legend.background = element_blank(), 
               strip.text = element_text(size = 26), plot.margin = unit(c(0.5, 8, 1, 1), "lines"), 
               axis.title = element_blank(), strip.background = element_blank())
-ggsave("Figures/Global Methylation by Covariates Heatmap.png", dpi = 600, width = 12, height = 9.75, units = "in")
+ggsave("Figures/Global Methylation by Covariates Heatmap.png", dpi = 600, width = 12, height = 11.5, units = "in")
 

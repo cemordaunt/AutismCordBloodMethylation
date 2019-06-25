@@ -1,7 +1,7 @@
 # Diagnosis and Sex Block DMRs Discovery ----------------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 2/23/19
+# 6/23/19
 
 # Packages ####
 .libPaths("/share/lasallelab/programs/DMRichR/R_3.6")
@@ -36,16 +36,19 @@ gr2csv(sigBlocks, "Dx_All/DifferentialBlocks_DxNoXY_Discovery50.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis and Sex Block DMRs All Samples ----------------------------------------
-# (Complete, Includes JLCM032B and JLCM050B)
-# Background is with coordinate shifting
-bs.filtered <- readRDS("Filtered_BSseq_Discovery50.rds")
+# (Rerun without JLCM032B and JLCM050B and with new covariate filtering, Running on Barbera 6/23)
+bs.filtered <- readRDS("Dx_Sex_All/Filtered_BSseq_Discovery50_DxAdjSex.rds")
+c("JLCM032B", "JLCM050B") %in% sampleNames(bs.filtered)
+background <- getBackground(bs.filtered, minNumRegion = minCpGs, maxGap = 5000) %>% subset(width >= 5000)
+write.csv(background, file = "Dx_Sex_All/bsseq_block_background_Discovery50_DxAdjSex.csv", quote = FALSE, row.names = FALSE)
+
 blocks <- dmrseq(bs = bs.filtered, testCovariate = testCovariate, adjustCovariate = "Sex", cutoff = cutoff,
                  minNumRegion = minCpGs, bpSpan = 5e4, minInSpan = 500, maxGapSmooth = 1e6, maxGap = 5e3, 
                  maxPerms = maxPerms, block = TRUE)
 blocks$percentDifference <- round(blocks$beta/pi * 100)
 sigBlocks <- blocks[blocks$pval < 0.05,]
-gr2csv(blocks, "CandidateBlocks_DxAdjSex_Discovery50.csv")
-gr2csv(sigBlocks, "DifferentialBlocks_DxAdjSex_Discovery50.csv")
+gr2csv(blocks, "Dx_Sex_All/CandidateBlocks_DxAdjSex_Discovery50.csv")
+gr2csv(sigBlocks, "Dx_Sex_All/DifferentialBlocks_DxAdjSex_Discovery50.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis Block DMRs Males ----------------------------------------

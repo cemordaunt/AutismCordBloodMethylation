@@ -199,11 +199,16 @@ ggBoxPlot(data = cellCounts_m, x = cellCounts_m$Platform, y = cellCounts_m$Perce
 
 rm(cellCounts_agg, gg, ModelPars, permeth, cellCounts_m)
 
-# Covariate Association ####
+# Covariate Association (Update this to exclude folate variables and include bsseq global meth) ####
+# See "Tables/MARBLES EARLI WGBS Sample Merged Covariate Database with Demo and Cell Type.csv"
+
 # Prep Data
 cellCov <- cellCounts[,c("Sample", "Bcell_scaled", "CD4T_scaled", "CD8T_scaled", "Gran_scaled", "Mono_scaled", "NK_scaled",
                          "nRBC_scaled")]
 colnames(cellCov) <- c("Sample", "Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC")
+write.csv(cellCov, file = "Tables/Estimated Cell Proportions by Sample Discovery and Replication.csv", quote = FALSE, 
+          row.names = FALSE)
+
 samples_cov <- merge(x = samples, y = cellCov, by.x = "Sequencing_ID", by.y = "Sample", all = FALSE, sort = FALSE)
 catVars <- c("Study", "Platform", "Sex", "Site", "Diagnosis_Alg", "MomEdu_detail", "DM1or2", "GDM", "PE", 
              "home_ownership", "marital_status", "SmokeYN_Pregnancy", "AllEQ_PV_YN_Mo_3", "AllEQ_PV_YN_Mo_2", 
