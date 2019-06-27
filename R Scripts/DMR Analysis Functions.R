@@ -418,8 +418,8 @@ DMRmethLmSum <- function(covStats, file){
 
 covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hierarchical"), 
                        regionOrdering = c("unsorted", "variable", "hierarchical"), variables = NULL,
-                       sortVariable = "Diagnosis_Alg", file, probs = 0.999, axis.ticks = element_blank(),
-                       axis.text.y = element_blank(), legend.position = c(1.07, 0.835), width = 10, height = 6){
+                       sortVariable = "Diagnosis_Alg", file, probs = 0.999, axis.text.y = element_blank(), 
+                       legend.position = c(1.07, 0.81), width = 9.5, height = 6, axis.text.x.size = 10){
         # Replace NA/Inf/NaN Values with 0
         covStats$log_pvalue[is.na(covStats$log_pvalue) | is.infinite(covStats$log_pvalue) | 
                                     is.nan(covStats$log_pvalue)] <- 0
@@ -451,18 +451,42 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
         }
         covStats$Region <- factor(covStats$Region, levels = unique(covStats$Region)[regionOrder], 
                                   ordered = TRUE)
+        
+        # Label Replacements
+        replacements <- c("Site_Drexel" = "Site (Drexel)", "Site_Johns_Hopkins_University" = "Site (Johns Hopkins)", 
+                          "Site_Kaiser_Permanente" = "Site (Kaiser)", "Diagnosis_Alg" = "Diagnosis", "ADOScs" = "ADOS", 
+                          "MSLelcStandard36" = "Mullen Composite", "MSLelTscore36" = "Mullen Expressive Language", 
+                          "MSLfmTscore36" = "Mullen Fine Motor", "MSLrlTscore36" = "Mullen Receptive Language", 
+                          "MSLvrTscore36" = "Mullen Visual Reception", "percent_trimmed" = "Bases Trimmed", 
+                          "percent_aligned" = "Aligned Reads", "percent_duplicate" = "PCR Duplicates", 
+                          "dedup_reads_M" = "Unique Reads", "C_coverage" = "C Coverage", "CG_coverage" = "CpG Coverage", 
+                          "percent_chg_meth" = "Global CHG Methylation", "percent_chh_meth" = "Global CHH Methylation", "ga_w" = "Gestational Age",
+                          "bw_g" = "Birthweight", "MomAgeYr" = "Maternal Age", "MomEdu_detail_1" = "Maternal Edu (8th Grade)", 
+                          "MomEdu_detail_2" = "Maternal Edu (Some High School)", 
+                          "MomEdu_detail_3" = "Maternal Edu (High School Diploma)", "MomEdu_detail_4" = "Maternal Edu (Some College)",
+                          "MomEdu_detail_5" = "Maternal Edu (Associate's)",  "MomEdu_detail_7" = "Maternal Edu (Master's)", 
+                          "MomEdu_detail_8" = "Maternal Edu (Doctorate)", "Mat_Height_cm" = "Maternal Height", 
+                          "Mat_Weight_kg_PrePreg" = "Maternal Weight", "Mat_BMI_PrePreg" = "Maternal BMI", 
+                          "DM1or2" = "Maternal Diabetes", "GDM" = "Maternal Gestational Diabetes", "PE" = "Maternal Preeclampsia", 
+                          "parity" = "Parity", "dad_age" = "Paternal Age", "home_ownership" = "Own Home", 
+                          "marital_status" = "Married", "SmokeYN_Pregnancy" = "Maternal Smoking", 
+                          "cotinine_urine_ngml" = "Urine Cotinine", "final_creatinine_mgdl" = "Urine Creatinine", 
+                          "percent_cpg_meth_bsseq" = "Global CpG Methylation", "Bcell" = "B Cells", "CD4T" = "CD4 T Cells", 
+                          "CD8T" = "CD8 T Cells", "Gran" = "Granulocytes", "Mono" = "Monocytes", "NK" = "NK Cells", "nRBC" = "nRBCs")
+        
         # Plot Heatmap
         gg <- ggplot(data = covStats)
         gg +
                 geom_tile(aes(y = Region, x = Variable, fill = log_pvalue)) +
                 scale_fill_gradientn("-log(p-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
                                      limits = c(0,quantile(x = covStats$log_pvalue, probs = probs, names = FALSE, na.rm = TRUE))) +
+                scale_x_discrete(labels = function(x){str_replace_all(string = x, pattern = replacements)}) +
                 theme_bw(base_size = 24) +
                 theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
                       panel.border = element_rect(color = "black", size = 1.25), 
-                      plot.margin = unit(c(1, 5.5, 1, 1), "lines"),
-                      axis.ticks = axis.ticks, panel.background = element_rect(fill = "black"),
-                      axis.text.x = element_text(size = 9, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
+                      plot.margin = unit(c(1, 5.5, 1, 1), "lines"), axis.ticks.x = element_line(size = 1), 
+                      axis.ticks.y = element_blank(), panel.background = element_rect(fill = "black"),
+                      axis.text.x = element_text(size = axis.text.x.size, color = "Black", angle = 90, hjust = 1, vjust = 0.5),
                       axis.text.y = axis.text.y, axis.title = element_blank(), legend.key = element_blank(),  
                       legend.position = legend.position, legend.background = element_blank(), 
                       legend.key.size = unit(1, "lines"), legend.title = element_text(size = 12), 

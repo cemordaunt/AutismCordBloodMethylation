@@ -36,7 +36,7 @@ gr2csv(sigBlocks, "Dx_All/DifferentialBlocks_DxNoXY_Discovery50.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis and Sex Block DMRs All Samples ----------------------------------------
-# (Rerun without JLCM032B and JLCM050B and with new covariate filtering, Running on Barbera 6/23)
+# (Rerun without JLCM032B and JLCM050B and with new covariate filtering, Running on Barbera 6/23, complete)
 bs.filtered <- readRDS("Dx_Sex_All/Filtered_BSseq_Discovery50_DxAdjSex.rds")
 c("JLCM032B", "JLCM050B") %in% sampleNames(bs.filtered)
 background <- getBackground(bs.filtered, minNumRegion = minCpGs, maxGap = 5000) %>% subset(width >= 5000)

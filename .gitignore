@@ -1,3 +1,4 @@
+.gitignore
 .Rproj.user
 .Rhistory
 .RData
@@ -17,3 +18,6 @@ Tables
 UCSC Tracks
 ~$ASD Cord Blood Methylation.pptx
 Nucleated Red Blood Cell Literature Search.docx
+Autism Cord Blood Methylation Analysis Plan v2.docx
+~$tism Cord Blood Methylation Analysis Plan v2.docx
+

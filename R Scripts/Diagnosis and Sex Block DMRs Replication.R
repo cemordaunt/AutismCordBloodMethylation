@@ -33,7 +33,7 @@ gr2csv(sigBlocks, "DifferentialBlocks_DxNoXY_Replication50.csv")
 rm(bs.filtered, blocks, sigBlocks)
 
 # Diagnosis and Sex Block DMRs All Samples ----------------------------------------
-# (Need to rerun with new covariate filtering, running on epigenerate 6/24)
+# (Need to rerun with new covariate filtering, running on epigenerate 6/24, complete)
 bs.filtered <- readRDS("Dx_Sex_All/Filtered_BSseq_Replication50_DxAdjSex.rds")
 background <- getBackground(bs.filtered, minNumRegion = minCpGs, maxGap = 5000) %>% subset(width >= 5000)
 write.table(background, file = "Dx_Sex_All/bsseq_block_background_Replication50_DxAdjSex.csv", sep = ",", quote = FALSE, row.names = FALSE)
