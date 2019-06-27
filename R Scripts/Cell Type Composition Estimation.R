@@ -283,7 +283,7 @@ ggsave("Figures/Estimated nRBCs by Diagnosis, Sex, and Platform Dotplot Mean CL.
        height = 7, units = "in")
 rm(samples_cov_dot)
 
-# nRBC ~ Diagnosis Stats ####
+# Diagnosis, Global Methylation, and nRBCs Stats ####
 samples_cov_pooled <- list(All = samples_cov, 
                            Males = subset(samples_cov, Sex == "M"), 
                            Females = subset(samples_cov, Sex == "F"))
@@ -294,99 +294,101 @@ samples_cov_rep <- list(All = subset(samples_cov, Platform == "HiSeq4000"),
                         Males = subset(samples_cov, Sex == "M" & Platform == "HiSeq4000"), 
                         Females = subset(samples_cov, Sex == "F" & Platform == "HiSeq4000"))
 
-# Pooled
-sapply(samples_cov_pooled, function(x){summary(lm(nRBC ~ Diagnosis_Alg + Platform,
-                                                  data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
-#        All      Males    Females 
-# 0.02178725 0.00330901 0.78479547 
+# nRBCs ~ Diagnosis
+nRBC_Dx <- list(
+        Disc = sapply(samples_cov_disc, function(x){
+                summary(lm(nRBC ~ Diagnosis_Alg, 
+                           data = x))$coefficients["Diagnosis_AlgASD", c("Estimate", "Pr(>|t|)")]}),
+        Rep = sapply(samples_cov_rep, function(x){
+                summary(lm(nRBC ~ Diagnosis_Alg, 
+                           data = x))$coefficients["Diagnosis_AlgASD", c("Estimate", "Pr(>|t|)")]}),
+        Pool = sapply(samples_cov_pooled, function(x){
+                summary(lm(nRBC ~ Diagnosis_Alg + Platform, 
+                           data = x))$coefficients["Diagnosis_AlgASD", c("Estimate", "Pr(>|t|)")]}))
 
-# Discovery
-sapply(samples_cov_disc, function(x){summary(lm(nRBC ~ Diagnosis_Alg,
-                                                data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
-#        All      Males    Females 
-# 0.12759851 0.03020234 0.66696558 
-
-# Replication
-sapply(samples_cov_rep, function(x){summary(lm(nRBC ~ Diagnosis_Alg,
-                                               data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
-#        All      Males    Females 
-# 0.03471946 0.03181311 0.72803650 
-
-# nRBC ~ Global Methylation Stats ####
-# Pooled
-sapply(samples_cov_pooled, function(x){summary(lm(nRBC ~ percent_cpg_meth_bsseq + Platform,
-                                                  data = x))$coefficients["percent_cpg_meth_bsseq", "Pr(>|t|)"]})
-#          All        Males      Females 
-# 2.494963e-21 1.695624e-18 3.099482e-05 
-
-# Discovery
-sapply(samples_cov_disc, function(x){summary(lm(nRBC ~ percent_cpg_meth_bsseq,
-                                                data = x))$coefficients["percent_cpg_meth_bsseq", "Pr(>|t|)"]})
-#          All        Males      Females 
-# 4.283224e-18 9.030566e-18 3.243531e-04 
-
-# Replication
-sapply(samples_cov_rep, function(x){summary(lm(nRBC ~ percent_cpg_meth_bsseq,
-                                               data = x))$coefficients["percent_cpg_meth_bsseq", "Pr(>|t|)"]})
-#          All        Males      Females 
-# 5.381384e-06 9.145221e-05 2.793185e-02 
-
-# nRBC ~ Mullen Composite Stats ####
-# Pooled
-sapply(samples_cov_pooled, function(x){summary(lm(nRBC ~ MSLelcStandard36 + Platform,
-                                                  data = x))$coefficients["MSLelcStandard36", "Pr(>|t|)"]})
-#         All       Males     Females 
-# 0.005435093 0.003061058 0.710842930 
-
-# Discovery
-sapply(samples_cov_disc, function(x){summary(lm(nRBC ~ MSLelcStandard36,
-                                                data = x))$coefficients["MSLelcStandard36", "Pr(>|t|)"]})
-#        All      Males    Females 
-# 0.06479838 0.03362920 0.92192542 
-
-# Replication
-sapply(samples_cov_rep, function(x){summary(lm(nRBC ~ MSLelcStandard36,
-                                               data = x))$coefficients["MSLelcStandard36", "Pr(>|t|)"]})
-#        All      Males    Females 
-# 0.01365184 0.03148084 0.23190658 
+# nRBCs ~ Global Methylation
+nRBC_Meth <- list(
+        Disc = sapply(samples_cov_disc, function(x){
+                summary(lm(nRBC ~ percent_cpg_meth_bsseq,
+                           data = x))$coefficients["percent_cpg_meth_bsseq", c("Estimate", "Pr(>|t|)")]}),
+        Rep = sapply(samples_cov_rep, function(x){
+                summary(lm(nRBC ~ percent_cpg_meth_bsseq,
+                           data = x))$coefficients["percent_cpg_meth_bsseq", c("Estimate", "Pr(>|t|)")]}),
+        Pool = sapply(samples_cov_pooled, function(x){
+                summary(lm(nRBC ~ percent_cpg_meth_bsseq + Platform, 
+                           data = x))$coefficients["percent_cpg_meth_bsseq", c("Estimate", "Pr(>|t|)")]}))
 
 # Global Methylation ~ Diagnosis + PCR Duplicates Stats ####
-# Pooled
-sapply(samples_cov_pooled, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + Platform,
-                                                  data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
-#         All       Males     Females 
-# 0.022733675 0.002460205 0.702384585 
+Meth_DxDup = list(
+        Disc = sapply(samples_cov_disc, function(x){
+                summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate,
+                           data = x))$coefficients["Diagnosis_AlgASD", c("Estimate", "Pr(>|t|)")]}),
+        Rep = sapply(samples_cov_rep, function(x){
+                summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate,
+                           data = x))$coefficients["Diagnosis_AlgASD", c("Estimate", "Pr(>|t|)")]}),
+        Pool = sapply(samples_cov_pooled, function(x){
+                summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + Platform,
+                           data = x))$coefficients["Diagnosis_AlgASD", c("Estimate", "Pr(>|t|)")]}))
 
-# Discovery
-sapply(samples_cov_disc, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate,
-                                                data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
-#       All     Males   Females 
-# 0.2508170 0.0610997 0.6389092 
-
-# Replication
-sapply(samples_cov_rep, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate,
-                                               data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
-#        All     Males   Females 
-# 0.02281887 0.01612698 0.91142013 
- 
 # Global Methylation ~ Diagnosis + PCR Duplicates + nRBCs Stats ####
-# Pooled
-sapply(samples_cov_pooled, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + Platform + nRBC,
-                                                  data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
-#       All     Males   Females 
-# 0.3353303 0.1859214 0.7863441 
+Meth_DxDup_nRBC = list(
+        Disc = sapply(samples_cov_disc, function(x){
+                summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + nRBC,
+                           data = x))$coefficients["Diagnosis_AlgASD", c("Estimate", "Pr(>|t|)")]}),
+        Rep = sapply(samples_cov_rep, function(x){
+                summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + nRBC,
+                           data = x))$coefficients["Diagnosis_AlgASD", c("Estimate", "Pr(>|t|)")]}),
+        Pool = sapply(samples_cov_pooled, function(x){
+                summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + Platform + nRBC,
+                           data = x))$coefficients["Diagnosis_AlgASD", c("Estimate", "Pr(>|t|)")]}))
 
+# Make Table
+estimates <- sapply(list(Meth_DxDup = Meth_DxDup, Meth_DxDup_nRBC = Meth_DxDup_nRBC, nRBC_Dx = nRBC_Dx, nRBC_Meth = nRBC_Meth), 
+                    function(x){
+                            sapply(x, function(y){
+                                    y["Estimate",]})}) %>% t
+colnames(estimates) <- paste(rep(c("Disc", "Rep", "Pool"), each = 3), rep(c("All", "Males", "Females"), times = 3), 
+                             "Estimate", sep = "_")
+estimates <- rbind(estimates[,grepl("Disc", colnames(estimates), fixed = TRUE)],
+                   estimates[,grepl("Rep", colnames(estimates), fixed = TRUE)],
+                   estimates[,grepl("Pool", colnames(estimates), fixed = TRUE)])
+
+pvalues <- sapply(list(Meth_DxDup = Meth_DxDup, Meth_DxDup_nRBC = Meth_DxDup_nRBC, nRBC_Dx = nRBC_Dx, nRBC_Meth = nRBC_Meth), 
+                    function(x){
+                            sapply(x, function(y){
+                                    y["Pr(>|t|)",]})}) %>% t
+colnames(pvalues) <- paste(rep(c("Disc", "Rep", "Pool"), each = 3), rep(c("All", "Males", "Females"), times = 3), 
+                           "Pvalue", sep = "_")
+pvalues <- rbind(pvalues[,grepl("Disc", colnames(pvalues), fixed = TRUE)],
+                   pvalues[,grepl("Rep", colnames(pvalues), fixed = TRUE)],
+                   pvalues[,grepl("Pool", colnames(pvalues), fixed = TRUE)])
+
+Dx_Meth_nRBC_stats <- cbind("Model" = rownames(estimates), "Set" = rep(c("Disc", "Rep", "Pool"), each = 4), 
+                            estimates, pvalues) %>% as.data.frame
+Dx_Meth_nRBC_stats <- Dx_Meth_nRBC_stats[order(Dx_Meth_nRBC_stats$Model),]
+write.csv(Dx_Meth_nRBC_stats, file = "Tables/Diagnosis Global Meth and nRBCs Stats.csv", quote = FALSE, row.names = FALSE)
+
+# nRBC ~ Mullen Composite Stats ####
 # Discovery
-sapply(samples_cov_disc, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + nRBC,
-                                                data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
-#       All     Males   Females 
-# 0.9624204 0.8315057 0.7917536 
+sapply(samples_cov_disc, function(x){
+        summary(lm(nRBC ~ MSLelcStandard36, data = x))$coefficients["MSLelcStandard36", c("Estimate", "Pr(>|t|)")]})
+#                  All       Males      Females
+# Estimate -0.03810434 -0.04735098 -0.004838788
+# Pr(>|t|)  0.06479838  0.03362920  0.921925417
 
 # Replication
-sapply(samples_cov_rep, function(x){summary(lm(percent_cpg_meth_bsseq ~ Diagnosis_Alg + percent_duplicate + nRBC,
-                                               data = x))$coefficients["Diagnosis_AlgASD", "Pr(>|t|)"]})
-#       All     Males   Females 
-# 0.1829127 0.1390658 0.8134737 
+sapply(samples_cov_rep, function(x){
+        summary(lm(nRBC ~ MSLelcStandard36, data = x))$coefficients["MSLelcStandard36", c("Estimate", "Pr(>|t|)")]})
+#                  All       Males      Females
+# Estimate -0.03810434 -0.04735098 -0.004838788
+# Pr(>|t|)  0.06479838  0.03362920  0.921925417
+
+# Pooled
+sapply(samples_cov_pooled, function(x){
+        summary(lm(nRBC ~ MSLelcStandard36 + Platform, data = x))$coefficients["MSLelcStandard36", c("Estimate", "Pr(>|t|)")]})
+#                   All        Males     Females
+# Estimate -0.044744041 -0.050752655 -0.01577715
+# Pr(>|t|)  0.005435093  0.003061058  0.71084293
 
 # Test for reduced males ####
 table(samples_cov$Sex)
