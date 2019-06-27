@@ -503,6 +503,8 @@ table(samples$Diagnosis, samples$Sex)
 # Load DMRs
 regions <- list(All = loadRegions("DMRs/Replication/Diagnosis 50/DMRs_DxNoXY_Replication50.csv", 
                                   chroms = c(paste("chr", 1:22, sep = ""), "chrM"), DMRid = TRUE),
+                All_Sex = loadRegions("DMRs/Replication/Diagnosis and Sex 50/DMRs_Replication50_DxAdjSex.csv", 
+                                  chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"), DMRid = TRUE),
                 Males = loadRegions("DMRs/Replication/Diagnosis Males 50/DMRs_Dx_Replication50_males.csv", 
                                     chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"), DMRid = TRUE),
                 Females = loadRegions("DMRs/Replication/Diagnosis Females 100/DMRs_Dx_Replication100_females.csv",
@@ -511,30 +513,44 @@ regions <- list(All = loadRegions("DMRs/Replication/Diagnosis 50/DMRs_DxNoXY_Rep
 # Load Background, all background is without coordinate shifting              
 background <- list(All = loadRegions("DMRs/Replication/Diagnosis 50/bsseq_background_Replication50.csv", 
                                      chroms = c(paste("chr", 1:22, sep = ""), "chrM")),
+                   All_Sex = loadRegions("DMRs/Replication/Diagnosis and Sex 50/bsseq_background_Replication50_DxAdjSex.csv", 
+                                     chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")),
                    Males = loadRegions("DMRs/Replication/Diagnosis Males 50/bsseq_background_Replication50_males.csv", 
                                        chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")),
                    Females = loadRegions("DMRs/Replication/Diagnosis Females 100/bsseq_background_Replication100_females.csv",
                                          chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrM")))
 
 # Region Stats
-regionStats <- getRegionStats(regions, background = background, n = c(46, 38, 8))
+regionStats <- getRegionStats(regions, background = background, n = c(46, 46, 38, 8))
 write.table(regionStats, "Tables/DMR Region Stats All Chr Dx Replication 50.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
 library(ChIPpeakAnno)
 
 # Write BED files
 mapply(function(x, y){writeBED(regions = x, file = y)}, x = regions, 
-       y = c("UCSC Tracks/Replication Diagnosis DMRs.bed", "UCSC Tracks/Replication Diagnosis Males DMRs.bed",
-             "UCSC Tracks/Replication Diagnosis Females DMRs.bed"))
+       y = c("UCSC Tracks/Replication Diagnosis DMRs.bed", "UCSC Tracks/Replication Diagnosis and Sex DMRs.bed",
+             "UCSC Tracks/Replication Diagnosis Males DMRs.bed", "UCSC Tracks/Replication Diagnosis Females DMRs.bed"))
 
 # Region Overlap Venn Diagrams
 GR_regions_hyper <- sapply(regions, makeGRange, direction = "hyper")
 GR_regions_hypo <- sapply(regions, makeGRange, direction = "hypo")
 
-DMRoverlapVenn(GR_regions_hyper, NameOfPeaks = c("All", "Males", "Females"), file = "Figures/Hyper DMR Overlap Dx Replication 50.pdf",
-               cat.pos = c(345, 15, 180), cat.dist = c(0.05, 0.05, 0.04), fill = c("lightblue", "lightpink", "lightgreen"))
-DMRoverlapVenn(GR_regions_hypo, NameOfPeaks = c("All", "Males", "Females"), file = "Figures/Hypo DMR Overlap Dx Replication 50.pdf",
-               cat.pos = c(345, 15, 180), cat.dist = c(0.05, 0.05, 0.04), fill = c("lightblue", "lightpink", "lightgreen"))
+DMRoverlapVenn(GR_regions_hyper, NameOfPeaks = c("All", "AllSex", "Males", "Females"), 
+               file = "Figures/Hyper DMR Overlap Dx Replication 50.pdf",
+               cat.pos = c(0, 0, 0, 0), cat.dist = c(0.1, 0.1, 0.1, 0.09), 
+               fill = c("lightblue", "lightpink", "lightgreen", "orange"))
+DMRoverlapVenn(GR_regions_hypo, NameOfPeaks = c("All", "AllSex", "Males", "Females"), 
+               file = "Figures/Hypo DMR Overlap Dx Replication 50.pdf",
+               cat.pos = c(0, 0, 0, 0), cat.dist = c(0.1, 0.1, 0.1, 0.09), 
+               fill = c("lightblue", "lightpink", "lightgreen", "orange"))
+
+# All vs All + Sex Overlap
+DMRoverlapVenn(GR_regions_hyper[c("All", "All_Sex")], NameOfPeaks = c("All", "AllSex"), 
+               file = "Figures/Hyper DMR Overlap Dx Replication 50 All vs All Sex.pdf", rotation.degree = 0,
+               cat.pos = c(0, 0), cat.dist = c(0.02, 0.02), fill = c("lightblue", "lightpink"))
+DMRoverlapVenn(GR_regions_hypo[c("All", "All_Sex")], NameOfPeaks = c("All", "AllSex"), 
+               file = "Figures/Hypo DMR Overlap Dx Replication 50 All vs All Sex.pdf", rotation.degree = 0,
+               cat.pos = c(0, 0), cat.dist = c(0.02, 0.02), fill = c("lightblue", "lightpink"))
 
 # Male Female Overlap
 DMRoverlapVenn(GR_regions_hyper[c("Males", "Females")], NameOfPeaks = c("Males", "Females"), 
