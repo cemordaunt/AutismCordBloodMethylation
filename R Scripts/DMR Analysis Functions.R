@@ -1169,9 +1169,9 @@ plotGOMheatmap <- function(data, type = c("log_OddsRatio", "log_qValue"), file, 
         }
 }
 
-DMRpermTest <- function(A, B, genome, universe, Comparison, file){
+DMRpermTest <- function(A, B, genome, universe, Comparison, file, ntimes = 10000){
         message("[DMRpermTest] Performing permutation test of regions using regioneR.")
-        pt <- permTest(A = A, B = B, genome = genome, ntimes = 10000, universe = universe, 
+        pt <- permTest(A = A, B = B, genome = genome, ntimes = ntimes, universe = universe, 
                        evaluate.function = c(numOverlaps, meanDistance), randomize.function = resampleRegions, 
                        mc.set.seed = FALSE, force.parallel = TRUE)
         stats <- data.frame("Comparison" = Comparison, "Overlap_observed" = pt$Function1$observed, 
