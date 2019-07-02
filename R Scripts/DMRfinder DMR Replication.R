@@ -1,13 +1,14 @@
 # DMRfinder DMR Replication -----------------------------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 6/6/19
+# 7/1/19
 # Excluded JLCM032B and JLCM050B
+# Removed all comparison and updated overlap stats
 
 # Packages ####
 .libPaths("/share/lasallelab/programs/DMRfinder/R_3.5")
 sapply(c("tidyverse", "BiocGenerics", "Biobase", "S4Vectors", "matrixStats", "DelayedArray", "bsseq", "DSS", "permute",
-         "GenomicRanges", "scales", "optparse"), require, character.only = TRUE)
+         "GenomicRanges", "scales", "optparse", "regioneR", "LOLA"), require, character.only = TRUE)
 
 # Global Variables ####
 mc.cores <- 20
@@ -216,58 +217,42 @@ rm(chroms, numCtrl, numExp, CTRLgroup, EXPgroup, cutoff, outprefix, BSobj, pData
 source("R Scripts/DMR Analysis Functions.R")
 # Data ####
 # Load Regions
-DMRichR_DMRs <- list(Disc_All = read.csv("DMRs/Discovery/Diagnosis 50/DMRs_DxNoXY_Discovery50.csv", 
-                                         header = TRUE, stringsAsFactors = FALSE),
-                     Disc_Males = read.csv("DMRs/Discovery/Diagnosis Males 50/DMRs_Dx_Discovery50_males.csv", 
+DMRichR_DMRs <- list(Disc_Males = read.csv("DMRs/Discovery/Diagnosis Males 50/DMRs_Dx_Discovery50_males.csv", 
                                            header = TRUE, stringsAsFactors = FALSE),
                      Disc_Females = read.csv("DMRs/Discovery/Diagnosis Females 50/DMRs_Dx_Discovery50_females.csv", 
                                              header = TRUE, stringsAsFactors = FALSE),
-                     Rep_All = read.csv("DMRs/Replication/Diagnosis 50/DMRs_DxNoXY_Replication50.csv",
-                                        header = TRUE, stringsAsFactors = FALSE),
                      Rep_Males = read.csv("DMRs/Replication/Diagnosis Males 50/DMRs_Dx_Replication50_males.csv",
                                           header = TRUE, stringsAsFactors = FALSE),
                      Rep_Females = read.csv("DMRs/Replication/Diagnosis Females 100/DMRs_Dx_Replication100_females.csv",
                                             header = TRUE, stringsAsFactors = FALSE))
-DMRfinder_DMRs <- list(Disc_All = read.csv("DMRs/Discovery/Diagnosis 50/DMRfinder_Dx_All_DMRs.csv", 
-                                           header = TRUE, stringsAsFactors = FALSE),
-                       Disc_Males = read.csv("DMRs/Discovery/Diagnosis Males 50/DMRfinder_Dx_Males_DMRs.csv", 
+DMRfinder_DMRs <- list(Disc_Males = read.csv("DMRs/Discovery/Diagnosis Males 50/DMRfinder_Dx_Males_DMRs.csv", 
                                              header = TRUE, stringsAsFactors = FALSE),
                        Disc_Females = read.csv("DMRs/Discovery/Diagnosis Females 50/DMRfinder_Dx_Females_DMRs.csv", 
                                                header = TRUE, stringsAsFactors = FALSE),
-                       Rep_All = read.csv("DMRs/Replication/Diagnosis 50/Replication_DMRfinder_Dx_All_DMRs.csv",
-                                          header = TRUE, stringsAsFactors = FALSE),
                        Rep_Males = read.csv("DMRs/Replication/Diagnosis Males 50/Replication_DMRfinder_Dx_Males_DMRs.csv",
                                             header = TRUE, stringsAsFactors = FALSE),
                        Rep_Females = read.csv("DMRs/Replication/Diagnosis Females 100/Replication_DMRfinder_Dx_Females_100_DMRs.csv",
                                               header = TRUE, stringsAsFactors = FALSE))
-background <- list(Disc_All = read.csv("DMRs/Discovery/Diagnosis 50/bsseq_background_Discovery50.csv", 
-                                       header = TRUE, stringsAsFactors = FALSE),
-                   Disc_Males = read.csv("DMRs/Discovery/Diagnosis Males 50/bsseq_background_Discovery50_males.csv", 
+background <- list(Disc_Males = read.csv("DMRs/Discovery/Diagnosis Males 50/bsseq_background_Discovery50_males.csv", 
                                          header = TRUE, stringsAsFactors = FALSE),
                    Disc_Females = read.csv("DMRs/Discovery/Diagnosis Females 50/bsseq_background_Discovery50_females.csv", 
                                            header = TRUE, stringsAsFactors = FALSE),
-                   Rep_All = read.csv("DMRs/Replication/Diagnosis 50/bsseq_background_Replication50.csv",
-                                      header = TRUE, stringsAsFactors = FALSE),
                    Rep_Males = read.csv("DMRs/Replication/Diagnosis Males 50/bsseq_background_Replication50_males.csv",
                                         header = TRUE, stringsAsFactors = FALSE),
                    Rep_Females = read.csv("DMRs/Replication/Diagnosis Females 100/bsseq_background_Replication100_females.csv",
                                           header = TRUE, stringsAsFactors = FALSE))
 
 # Convert to GRanges
-GR_DMRichR_DMRs <- sapply(DMRichR_DMRs, function(x) {GRanges(seqnames = x$seqnames, ranges = IRanges(start = x$start, end = x$end))})
-GR_DMRfinder_DMRs <- sapply(DMRfinder_DMRs, function(x) {GRanges(seqnames = x$chr, ranges = IRanges(start = x$start, end = x$end))})
-GR_background <- sapply(background, function(x) {GRanges(seqnames = x$chr, ranges = IRanges(start = x$start, end = x$end))})
+GR_DMRichR_DMRs <- sapply(DMRichR_DMRs, makeGRange, direction = "all")
+GR_DMRfinder_DMRs <- sapply(DMRfinder_DMRs, makeGRange, direction = "all")
+GR_background <- sapply(background, makeGRange, direction = "all")
 
 # Get Region Stats ####
-DMRichR_DMRstats <- getRegionStats(DMRs = DMRichR_DMRs, background = background, n = c(108, 76, 32, 46, 38, 8))
+DMRichR_DMRstats <- getRegionStats(DMRs = DMRichR_DMRs, background = background, n = c(76, 32, 38, 8))
 write.csv(DMRichR_DMRstats, "Tables/DMRichR DMR Stats DMRfinder DMRichR Comparison.csv", row.names = FALSE, quote = FALSE)
 
-DMRfinder_DMRstats <- getRegionStats(DMRs = DMRfinder_DMRs, background = background, n = c(108, 76, 32, 46, 38, 8))
+DMRfinder_DMRstats <- getRegionStats(DMRs = DMRfinder_DMRs, background = background, n = c(76, 32, 38, 8))
 write.csv(DMRfinder_DMRstats, "Tables/DMRfinder DMR Stats DMRfinder DMRichR Comparison.csv", row.names = FALSE, quote = FALSE)
-
-cor(DMRichR_DMRstats$DMR_Number, DMRfinder_DMRstats$DMR_Number) # 0.327
-cor(DMRichR_DMRstats$DMR_Width_KB, DMRfinder_DMRstats$DMR_Width_KB) # 0.170
-cor(DMRichR_DMRstats$DMR_CpGs, DMRfinder_DMRstats$DMR_CpGs) # 0.231
 
 # Intersect Regions ####
 GR_DMRichR_DMRs_Hyper <- mapply(function(x, y) x[y$percentDifference > 0], x = GR_DMRichR_DMRs, y = DMRichR_DMRs)
@@ -275,11 +260,11 @@ GR_DMRichR_DMRs_Hypo <- mapply(function(x, y) x[y$percentDifference < 0], x = GR
 GR_DMRfinder_DMRs_Hyper <- mapply(function(x, y) x[y$meanDiff > 0], x = GR_DMRfinder_DMRs, y = DMRfinder_DMRs)
 GR_DMRfinder_DMRs_Hypo <- mapply(function(x, y) x[y$meanDiff < 0], x = GR_DMRfinder_DMRs, y = DMRfinder_DMRs)
 DMR_Overlap_Hyper <- mapply(function(x, y) sum(x %over% y), x = GR_DMRichR_DMRs_Hyper, y = GR_DMRfinder_DMRs_Hyper)
-# Disc_All   Disc_Males Disc_Females      Rep_All    Rep_Males  Rep_Females 
-#        9           29          260          143          218          439 
+# Disc_Males Disc_Females    Rep_Males  Rep_Females 
+#         29          260          218          439
 DMR_Overlap_Hypo <- mapply(function(x, y) sum(x %over% y), x = GR_DMRichR_DMRs_Hypo, y = GR_DMRfinder_DMRs_Hypo)
-# Disc_All   Disc_Males Disc_Females      Rep_All    Rep_Males  Rep_Females 
-#       22           68          371          373          462          454 
+# Disc_Males Disc_Females    Rep_Males  Rep_Females 
+#         68          371          462          454 
 
 DMR_Overlap <- data.frame(Comparison = names(DMRichR_DMRs), DMRichR_DMRs = sapply(GR_DMRichR_DMRs, length),
                           DMRichR_Hyper_DMRs = sapply(GR_DMRichR_DMRs_Hyper, length), 
@@ -287,102 +272,115 @@ DMR_Overlap <- data.frame(Comparison = names(DMRichR_DMRs), DMRichR_DMRs = sappl
                           DMRfinder_DMRs = sapply(GR_DMRfinder_DMRs, length), 
                           DMRfinder_Hyper_DMRs = sapply(GR_DMRfinder_DMRs_Hyper, length),
                           DMRfinder_Hypo_DMRs = sapply(GR_DMRfinder_DMRs_Hypo, length),
-                          All_DMR_Overlap = DMR_Overlap_Hyper + DMR_Overlap_Hypo,
                           Hyper_DMR_Overlap = DMR_Overlap_Hyper, Hypo_DMR_Overlap = DMR_Overlap_Hypo,
-                          All_DMR_PerOverlap = (DMR_Overlap_Hyper + DMR_Overlap_Hypo) * 100 / sapply(GR_DMRichR_DMRs, length),
                           Hyper_DMR_PerOverlap = DMR_Overlap_Hyper * 100 / sapply(GR_DMRichR_DMRs_Hyper, length),
                           Hypo_DMR_PerOverlap = DMR_Overlap_Hypo * 100 / sapply(GR_DMRichR_DMRs_Hypo, length))
 write.csv(DMR_Overlap, "Tables/Overlap Table DMRfinder DMRichR Comparison.csv", row.names = FALSE, quote = FALSE)
 
 # Venn Diagrams ####
-# Discovery All
-DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Disc_All, GR_DMRfinder_DMRs_Hyper$Disc_All),
-               NameOfPeaks = c("DMRichR_Disc_All_Hyper", "DMRfinder_Disc_All_Hyper"), 
-               totalTest = length(GR_background$Disc_All),
-               file = "Figures/Discovery All Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric test p = 3.8356e-13
-
-DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Disc_All, GR_DMRfinder_DMRs_Hypo$Disc_All),
-               NameOfPeaks = c("DMRichR_Disc_All_Hypo", "DMRfinder_Disc_All_Hypo"), 
-               totalTest = length(GR_background$Disc_All),
-               file = "Figures/Discovery All Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 1.34168e-26 
-
 # Discovery Males
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Disc_Males, GR_DMRfinder_DMRs_Hyper$Disc_Males),
-               NameOfPeaks = c("DMRichR_Disc_Males_Hyper", "DMRfinder_Disc_Males_Hyper"), 
-               totalTest = length(GR_background$Disc_Males),
+               NameOfPeaks = c("DMRichR", "DMRfinder"), 
                file = "Figures/Discovery Males Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(190, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-#Hypergeometric Test p = p = 4.29693e-35
-
+               rotation.degree = 180, cat.pos = c(170, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Disc_Males, GR_DMRfinder_DMRs_Hypo$Disc_Males),
-               NameOfPeaks = c("DMRichR_Disc_Males_Hypo", "DMRfinder_Disc_Males_Hypo"), 
-               totalTest = length(GR_background$Disc_Males),
+               NameOfPeaks = c("DMRichR", "DMRfinder"), 
                file = "Figures/Discovery Males Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
                rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 2.08863e-56
 
 # Discovery Females
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Disc_Females, GR_DMRfinder_DMRs_Hyper$Disc_Females),
-               NameOfPeaks = c("DMRichR_Disc_Females_Hyper", "DMRfinder_Disc_Females_Hyper"), 
-               totalTest = length(GR_background$Disc_Females),
+               NameOfPeaks = c("DMRichR", "DMRfinder"), 
                file = "Figures/Discovery Females Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(205, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 2.157491e-132 
-
+               rotation.degree = 180, cat.pos = c(155, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Disc_Females, GR_DMRfinder_DMRs_Hypo$Disc_Females),
-               NameOfPeaks = c("DMRichR_Disc_Females_Hypo", "DMRfinder_Disc_Females_Hypo"), 
-               totalTest = length(GR_background$Disc_Females),
+               NameOfPeaks = c("DMRichR", "DMRfinder"), 
                file = "Figures/Discovery Females Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(200, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 1.725105e-203 
-
-# Replication All
-DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Rep_All, GR_DMRfinder_DMRs_Hyper$Rep_All),
-               NameOfPeaks = c("DMRichR_Rep_All_Hyper", "DMRfinder_Rep_All_Hyper"), 
-               totalTest = length(GR_background$Rep_All),
-               file = "Figures/Replication All Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 9.841473e-95 
-
-DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Rep_All, GR_DMRfinder_DMRs_Hypo$Rep_All),
-               NameOfPeaks = c("DMRichR_Rep_All_Hypo", "DMRfinder_Rep_All_Hypo"), 
-               totalTest = length(GR_background$Rep_All),
-               file = "Figures/Replication All Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 9.735604e-74 
+               rotation.degree = 180, cat.pos = c(155, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
 
 # Replication Males
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Rep_Males, GR_DMRfinder_DMRs_Hyper$Rep_Males),
-               NameOfPeaks = c("DMRichR_Rep_Males_Hyper", "DMRfinder_Rep_Males_Hyper"), 
-               totalTest = length(GR_background$Rep_Males),
+               NameOfPeaks = c("DMRichR", "DMRfinder"), 
                file = "Figures/Replication Males Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(190, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 3.690528e-125 
-
+               rotation.degree = 180, cat.pos = c(170, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Rep_Males, GR_DMRfinder_DMRs_Hypo$Rep_Males),
-               NameOfPeaks = c("DMRichR_Rep_Males_Hypo", "DMRfinder_Rep_Males_Hypo"), 
-               totalTest = length(GR_background$Rep_Males),
+               NameOfPeaks = c("DMRichR", "DMRfinder"), 
                file = "Figures/Replication Males Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
                rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 1.032171e-100 
 
 # Replication Females
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hyper$Rep_Females, GR_DMRfinder_DMRs_Hyper$Rep_Females),
-               NameOfPeaks = c("DMRichR_Rep_Females_Hyper", "DMRfinder_Rep_Females_Hyper"), 
-               totalTest = length(GR_background$Rep_Females),
+               NameOfPeaks = c("DMRichR", "DMRfinder"), 
                file = "Figures/Replication Females Hyper DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 180, cat.pos = c(170, 190), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 1.3363e-267 
-
+               rotation.degree = 180, cat.pos = c(180, 180), cat.dist = c(0.03, 0.03), ext.text = FALSE)
 DMRoverlapVenn(list(GR_DMRichR_DMRs_Hypo$Rep_Females, GR_DMRfinder_DMRs_Hypo$Rep_Females),
-               NameOfPeaks = c("DMRichR_Rep_Females_Hypo", "DMRfinder_Rep_Females_Hypo"), 
-               totalTest = length(GR_background$Rep_Females),
+               NameOfPeaks = c("DMRichR", "DMRfinder"), 
                file = "Figures/Replication Females Hypo DMR Overlap DMRfinder DMRichR Comparison Venn.pdf",
-               rotation.degree = 0, cat.pos = c(350, 10), cat.dist = c(0.03, 0.03), ext.text = FALSE)
-# Hypergeometric Test p = 0 
+               rotation.degree = 0, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03), ext.text = FALSE)
+
+# RegioneR Stats ####
+options("mc.cores" = 12) # sets 12 cores for parallelization
+set.seed(5)
+hg38_XY <- getGenomeAndMask("hg38", mask = NULL)$genome %>%
+        filterChromosomes(keep.chr = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"))
+hg38_X <- getGenomeAndMask("hg38", mask = NULL)$genome %>%
+        filterChromosomes(keep.chr = c(paste("chr", 1:22, sep = ""), "chrX", "chrM"))
+
+# Discovery Males
+stats_Disc_Males_Hyper <- DMRpermTest(A = redefineUserSets(GRangesList(GR_DMRichR_DMRs_Hyper$Disc_Males), 
+                                                           GR_background$Disc_Males)[[1]], 
+                                      B = redefineUserSets(GRangesList(GR_DMRfinder_DMRs_Hyper$Disc_Males), 
+                                                           GR_background$Disc_Males)[[1]],
+                                      genome = hg38_XY, universe = GR_background$Disc_Males, Comparison = "Disc_Males_Hyper",
+                                      file = "Figures/Hyper DMR Overlap Discovery Males DMRichR vs DMRfinder RegioneR Plots.pdf")
+stats_Disc_Males_Hypo <- DMRpermTest(A = redefineUserSets(GRangesList(GR_DMRichR_DMRs_Hypo$Disc_Males), 
+                                                          GR_background$Disc_Males)[[1]], 
+                                     B = redefineUserSets(GRangesList(GR_DMRfinder_DMRs_Hypo$Disc_Males), 
+                                                          GR_background$Disc_Males)[[1]],
+                                     genome = hg38_XY, universe = GR_background$Disc_Males, Comparison = "Disc_Males_Hypo",
+                                     file = "Figures/Hypo DMR Overlap Discovery Males DMRichR vs DMRfinder RegioneR Plots.pdf")
+# Discovery Females
+stats_Disc_Females_Hyper <- DMRpermTest(A = redefineUserSets(GRangesList(GR_DMRichR_DMRs_Hyper$Disc_Females), 
+                                                             GR_background$Disc_Females)[[1]], 
+                                        B = redefineUserSets(GRangesList(GR_DMRfinder_DMRs_Hyper$Disc_Females), 
+                                                             GR_background$Disc_Females)[[1]],
+                                        genome = hg38_X, universe = GR_background$Disc_Females, Comparison = "Disc_Females_Hyper",
+                                        file = "Figures/Hyper DMR Overlap Discovery Females DMRichR vs DMRfinder RegioneR Plots.pdf")
+stats_Disc_Females_Hypo <- DMRpermTest(A = redefineUserSets(GRangesList(GR_DMRichR_DMRs_Hypo$Disc_Females), 
+                                                            GR_background$Disc_Females)[[1]], 
+                                       B = redefineUserSets(GRangesList(GR_DMRfinder_DMRs_Hypo$Disc_Females), 
+                                                            GR_background$Disc_Females)[[1]],
+                                       genome = hg38_X, universe = GR_background$Disc_Females, Comparison = "Disc_Females_Hypo",
+                                       file = "Figures/Hypo DMR Overlap Discovery Females DMRichR vs DMRfinder RegioneR Plots.pdf")
+# Replication Males
+stats_Rep_Males_Hyper <- DMRpermTest(A = redefineUserSets(GRangesList(GR_DMRichR_DMRs_Hyper$Rep_Males), 
+                                                          GR_background$Rep_Males)[[1]], 
+                                     B = redefineUserSets(GRangesList(GR_DMRfinder_DMRs_Hyper$Rep_Males), 
+                                                          GR_background$Rep_Males)[[1]],
+                                     genome = hg38_XY, universe = GR_background$Rep_Males, Comparison = "Rep_Males_Hyper",
+                                     file = "Figures/Hyper DMR Overlap Replication Males DMRichR vs DMRfinder RegioneR Plots.pdf")
+stats_Rep_Males_Hypo <- DMRpermTest(A = redefineUserSets(GRangesList(GR_DMRichR_DMRs_Hypo$Rep_Males), 
+                                                         GR_background$Rep_Males)[[1]], 
+                                    B = redefineUserSets(GRangesList(GR_DMRfinder_DMRs_Hypo$Rep_Males), 
+                                                         GR_background$Rep_Males)[[1]],
+                                    genome = hg38_XY, universe = GR_background$Rep_Males, Comparison = "Rep_Males_Hypo",
+                                    file = "Figures/Hypo DMR Overlap Replication Males DMRichR vs DMRfinder RegioneR Plots.pdf")
+# Replication Females
+stats_Rep_Females_Hyper <- DMRpermTest(A = redefineUserSets(GRangesList(GR_DMRichR_DMRs_Hyper$Rep_Females), 
+                                                            GR_background$Rep_Females)[[1]], 
+                                       B = redefineUserSets(GRangesList(GR_DMRfinder_DMRs_Hyper$Rep_Females), 
+                                                            GR_background$Rep_Females)[[1]],
+                                       genome = hg38_X, universe = GR_background$Rep_Females, Comparison = "Rep_Females_Hyper",
+                                       file = "Figures/Hyper DMR Overlap Replication Females DMRichR vs DMRfinder RegioneR Plots.pdf")
+stats_Rep_Females_Hypo <- DMRpermTest(A = redefineUserSets(GRangesList(GR_DMRichR_DMRs_Hypo$Rep_Females), 
+                                                           GR_background$Rep_Females)[[1]], 
+                                      B = redefineUserSets(GRangesList(GR_DMRfinder_DMRs_Hypo$Rep_Females), 
+                                                           GR_background$Rep_Females)[[1]],
+                                      genome = hg38_X, universe = GR_background$Rep_Females, Comparison = "Rep_Females_Hypo",
+                                      file = "Figures/Hypo DMR Overlap Replication Females DMRichR vs DMRfinder RegioneR Plots.pdf")
+# Combine
+stats_All <- rbind(stats_Disc_Males_Hyper, stats_Disc_Males_Hypo, stats_Disc_Females_Hyper, stats_Disc_Females_Hypo,
+                   stats_Rep_Males_Hyper, stats_Rep_Males_Hypo, stats_Rep_Females_Hyper, stats_Rep_Females_Hypo)
+write.csv(stats_All, file = "Tables/DMR Overlap DMRichR vs DMRfinder RegioneR Stats.csv", quote = FALSE, row.names = FALSE)
 
 

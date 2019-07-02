@@ -91,10 +91,10 @@ DMRoverlapVenn(list(GR_DisRegions$DisDxAllHypo, GR_RepRegions$RepDxAllHypo),
 # Diagnosis Sex All DMRs
 DMRoverlapVenn(list(GR_DisRegions$DisDxSexAllHyper, GR_RepRegions$RepDxSexAllHyper), 
                NameOfPeaks = c("Discovery", "Replication"), file = "Figures/Hyper DMR Overlap DxSex All Dis vs Rep Venn.pdf",
-               rotation.degree = 180, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03))
+               rotation.degree = 180, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03), cat.cex = 3, cex = 2.75)
 DMRoverlapVenn(list(GR_DisRegions$DisDxSexAllHypo, GR_RepRegions$RepDxSexAllHypo), 
                NameOfPeaks = c("Discovery", "Replication"), file = "Figures/Hypo DMR Overlap DxSex All Dis vs Rep Venn.pdf",
-               rotation.degree = 180, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03))
+               rotation.degree = 180, cat.pos = c(0, 0), cat.dist = c(0.03, 0.03), cat.cex = 3, cex = 2.75)
 
 # Diagnosis Males DMRs
 DMRoverlapVenn(list(GR_DisRegions$DisDxMalesHyper, GR_RepRegions$RepDxMalesHyper), 

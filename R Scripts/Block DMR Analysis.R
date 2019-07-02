@@ -87,7 +87,7 @@ RepDMBsAnno <- mapply(function(x, y) getDMRanno(DMRstats = x, regDomains = regDo
 RepDMBsGenes <- lapply(RepDMBs, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_name")
 RepBackgroundGenes <- lapply(RepBackground, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_name")
 
-# Discovery Block Comparison ----------------------------------------------
+# Discovery vs Replication Block Comparison ----------------------------------------------
 # Region Stats ####
 # Region Stats All Chroms
 regionStats <- getRegionStats(DMRs = append(DiscDMBs, RepDMBs), background = append(DiscBackground, RepBackground),

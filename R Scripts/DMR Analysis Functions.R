@@ -53,9 +53,18 @@ writeBED <- function(regions, file){
 }
 
 makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
-        if(direction == "hyper"){DMRs <- subset(DMRs, percentDifference > 0)}
-        if(direction == "hypo"){DMRs <- subset(DMRs, percentDifference < 0)}
-        GR <- GRanges(seqnames = DMRs$chr, ranges = IRanges(start = DMRs$start, end = DMRs$end))
+        if(direction == "hyper"){
+                DMRs <- subset(DMRs, percentDifference > 0)
+        }
+        if(direction == "hypo"){
+                DMRs <- subset(DMRs, percentDifference < 0)
+        }
+        if("chr" %in% colnames(DMRs)){
+                GR <- GRanges(seqnames = DMRs$chr, ranges = IRanges(start = DMRs$start, end = DMRs$end))
+        } else {
+                GR <- GRanges(seqnames = DMRs$seqnames, ranges = IRanges(start = DMRs$start, end = DMRs$end))
+        }
+        return(GR)
 }
 
 GRangeExtend <- function(x, extend){
@@ -1089,7 +1098,7 @@ plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog",
 # Replication Functions ---------------------------------------------------
 
 DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, totalTest = NULL, rotation.degree = 0, cat.pos = c(0, 0), 
-                           cat.dist = c(0.03, 0.03), cat.cex = 2, fill = c("lightblue", "lightpink"), ext.text = TRUE, 
+                           cat.dist = c(0.03, 0.03), cat.cex = 3, fill = c("lightblue", "lightpink"), ext.text = TRUE, 
                            ext.dist = -0.2, margin = 0.04, cex = 2.5){
         pdf(file = file, width = 10, height = 8, onefile = FALSE)
         if(!is.null(totalTest)){
@@ -1098,7 +1107,7 @@ DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, totalTest = NULL, rotation.
                                                          rotation.degree = rotation.degree, margin = margin, cat.cex = cat.cex, 
                                                          cex = cex, fill = fill, cat.pos = cat.pos, cat.dist = cat.dist, 
                                                          fontfamily = "sans", cat.fontfamily = "sans", ext.dist = ext.dist, 
-                                                         ext.length = 0.85, ext.text = ext.text))
+                                                         ext.length = 0.85, ext.text = ext.text, lwd = 4))
                 message("[DMRoverlapVenn] Hypergeometric test p = ", signif(venn$p.value[3], digits = 6), "\n")
         } else {
                 venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, maxgap = -1, minoverlap = 1, 
@@ -1106,7 +1115,7 @@ DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, totalTest = NULL, rotation.
                                                          margin = margin, cat.cex = cat.cex, cex = cex, fill = fill,
                                                          cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans",
                                                          cat.fontfamily = "sans", ext.dist = ext.dist, ext.length = 0.85, 
-                                                         ext.text = ext.text))
+                                                         ext.text = ext.text, lwd = 4))
         }
         dev.off()
 }
