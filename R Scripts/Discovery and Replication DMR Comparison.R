@@ -7,7 +7,7 @@
 
 # Packages ####
 sapply(c("reshape2", "tidyverse", "ChIPpeakAnno", "annotatr", "GeneOverlap", "UpSetR", "parallel", "regioneR", "LOLA",
-         "rJava", "RDAVIDWebService", "scales"), require, character.only = TRUE)
+         "rJava", "RDAVIDWebService", "scales", "ggforce"), require, character.only = TRUE)
 
 # Functions ####
 source("R Scripts/DMR Analysis Functions.R")
@@ -256,7 +256,6 @@ intersectBack <- intersect(DisDxBackGenes$DisDxAllBack, DisDxBackGenes$DisDxSexA
         intersect(DisDxBackGenes$DisDxMalesBack) %>% intersect(DisDxBackGenes$DisDxFemalesBack) %>% 
         intersect(RepDxBackGenes$RepDxAllBack) %>% intersect(RepDxBackGenes$RepDxSexAllBack) %>%
         intersect(RepDxBackGenes$RepDxMalesBack) %>% intersect(RepDxBackGenes$RepDxFemalesBack) %>% unique %>% sort
-rm(DisDxBackGenes, RepDxBackGenes)
 
 # Gene Overlap Stats ####
 # Intersecting Genes
@@ -474,6 +473,117 @@ upset(fromList(DisRep_MF_genes), nsets = 4, nintersects = NA, order.by = "degree
       sets.x.label = "Total Genes", mainbar.y.label = "Genes", text.scale = c(3, 3, 2.5, 2.5, 3, 2.5), 
       point.size = 3.75, line.size = 1.75) 
 dev.off()
+
+# DMR Gene Length ####
+# Get Gene Lengths
+genesForLength <- list(Genome = unique(regDomains$gene_name %>% sort),
+                       Background = intersect(DisDxBackGenes$DisDxMalesBack, DisDxBackGenes$DisDxFemalesBack) %>%
+                               intersect(RepDxBackGenes$RepDxMalesBack) %>% intersect(RepDxBackGenes$RepDxFemalesBack) %>% sort,
+                       IntDxMales = int_genes$IntDxMales, 
+                       IntDxFemales = int_genes$IntDxFemales)
+regDomainsLength <- regDomains
+regDomainsLength$Length <- regDomains$gene_end - regDomains$gene_start
+table(duplicated(regDomains$gene_name))
+# FALSE  TRUE 
+# 27115    26 
+geneLengths <- lapply(genesForLength, function(x) regDomainsLength$Length[regDomains$gene_name %in% x])
+sapply(geneLengths, length)
+# Genome   Background   IntDxMales IntDxFemales 
+#  27141        26154          537         1762 
+sapply(geneLengths, summary)
+#             Genome Background IntDxMales IntDxFemales
+# Min.         33.00      33.00       49.0        49.00
+# 1st Qu.    4194.00    4402.25     5914.0      6524.75
+# Median    16114.00   16727.50    27200.0     31253.00
+# Mean      49760.71   50932.76   126084.8    105921.69
+# 3rd Qu.   48464.00   49821.75   131071.0    106497.00
+# Max.    2304638.00 2304638.00  2298478.0   2304638.00
+# Replicated DMR genes are longer than background genes
+
+# Plot Gene Lengths
+geneLengthPlot <- data.frame(GeneList = c(rep("Genome", length(geneLengths$Genome)), 
+                                          rep("Background", length(geneLengths$Background)),
+                                          rep("Males DMRs", length(geneLengths$IntDxMales)),
+                                          rep("Females DMRs", length(geneLengths$IntDxFemales))) %>%
+                                     factor(levels = c("Genome", "Background", "Males DMRs", "Females DMRs")),
+                             Length = c(geneLengths$Genome, geneLengths$Background, geneLengths$IntDxMales,
+                                        geneLengths$IntDxFemales))
+g <- ggplot(data = geneLengthPlot, aes(x = GeneList, y = Length/1000, group = GeneList))
+g +
+        geom_sina(color = "#3366CC", size = 1.3, binwidth = 1, method = "density") +
+        stat_summary(fun.data = "median_hilow", fun.args = 0.5,
+                     geom = "crossbar", color = "black", size = 1) +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = "none", panel.grid.major.x = element_blank(),
+              panel.grid.major.y = element_line(size = 0.9), panel.border = element_rect(color = "black", size = 1.25), 
+              axis.ticks = element_line(size = 1.25), panel.grid.minor = element_blank(), 
+              axis.text = element_text(color = "black", size = 20), 
+              axis.text.x = element_text(angle = 45, hjust = 1.02, vjust = 1.04), axis.title.x = element_blank(), 
+              plot.margin = unit(c(1, 1, 1, 1), "lines")) +
+        ylab("Gene Length (kb)") +
+        scale_y_continuous(breaks = pretty_breaks(n = 5))
+ggsave("Figures/Replicated DMR Gene Length Sina Plot.png", dpi = 600, width = 8, height = 7, units = "in")
+
+# Plot log10 Gene Lengths
+g <- ggplot(data = geneLengthPlot, aes(x = GeneList, y = log10(Length), group = GeneList))
+g +
+        geom_sina(color = "#3366CC", size = 1.25, binwidth = 1, method = "density") +
+        stat_summary(fun.data = "median_hilow", fun.args = 0.5,
+                     geom = "crossbar", color = "black", size = 1) +
+        theme_bw(base_size = 25) +
+        theme(legend.direction = 'horizontal', legend.position = "none", panel.grid.major.x = element_blank(),
+              panel.grid.major.y = element_blank(), panel.border = element_rect(color = "black", size = 1.25), 
+              axis.ticks = element_line(size = 1.25), panel.grid.minor = element_blank(), 
+              axis.text = element_text(color = "black", size = 20), axis.title.y = element_text(size = 22),
+              axis.text.x = element_text(angle = 45, hjust = 1.02, vjust = 1.04), axis.title.x = element_blank(), 
+              plot.margin = unit(c(1, 1, 1, 1), "lines")) +
+        ylab(expression(log[10]*"(Gene Length (bp))")) +
+        coord_cartesian(ylim = c(min(log10(geneLengthPlot$Length)), 7.5)) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5))
+ggsave("Figures/Replicated DMR log Gene Length Sina Plot.png", dpi = 600, width = 8, height = 7, units = "in")
+
+# Gene Length Stats (Modified from Vogel Ciernia et al Cerebral Cortex 2019) ####
+set.seed(5)
+getSimDistribution <- function(genes, background){
+        sim <- sample(x = length(background), size = length(genes))
+        return(median(background[sim]))
+}
+
+# Background vs Genome
+genes <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Background"]
+background <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Genome"]
+simMedians <- replicate(n = 10^5, expr = getSimDistribution(genes = genes, background = background))
+(p <- sum(simMedians >= median(genes)) / 10^5) # p < 1E-5 
+
+# Males DMRs vs Genome
+genes <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Males DMRs"]
+background <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Genome"]
+simMedians <- replicate(n = 10^5, expr = getSimDistribution(genes = genes, background = background))
+(p <- sum(simMedians >= median(genes)) / 10^5) # p < 1E-5
+
+# Males DMRs vs Background
+genes <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Males DMRs"]
+background <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Background"]
+simMedians <- replicate(n = 10^5, expr = getSimDistribution(genes = genes, background = background))
+(p <- sum(simMedians >= median(genes)) / 10^5) # p < 1E-5
+
+# Males DMRs vs Females DMRs
+genes <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Males DMRs"]
+background <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Females DMRs"]
+simMedians <- replicate(n = 10^5, expr = getSimDistribution(genes = genes, background = background))
+(p <- sum(simMedians >= median(genes)) / 10^5) # p = 0.94288
+
+# Females DMRs vs Genome
+genes <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Females DMRs"]
+background <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Genome"]
+simMedians <- replicate(n = 10^5, expr = getSimDistribution(genes = genes, background = background))
+(p <- sum(simMedians >= median(genes)) / 10^5) # p < 1E-5
+
+# Females DMRs vs Background
+genes <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Females DMRs"]
+background <- geneLengthPlot$Length[geneLengthPlot$GeneList == "Background"]
+simMedians <- replicate(n = 10^5, expr = getSimDistribution(genes = genes, background = background))
+(p <- sum(simMedians >= median(genes)) / 10^5) # p < 1E-5
 
 # Overlap by GREAT --------------------------------------------------------
 # Term Intersect ####
