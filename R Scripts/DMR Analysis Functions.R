@@ -334,32 +334,34 @@ ggbiplotPCA <- function(data.pca, groups, pc = 1:2, file, xlim = NULL, ylim = NU
         if(!is.null(adj)){
                 adjDataCol <- sampleData[,adj]
         }
-        for(i in 1:length(catVars)){
-                sampleDataCol <- sampleData[,catVars[i]]
-                if(!is.null(adj)){
-                        temp <- tryCatch(summary(lm(methDataCol ~ sampleDataCol + adjDataCol))$coefficients[-1,],
-                                         error = function(x){
-                                                 message("Error with ", meth, " and ", catVars[i])
-                                                 rep(NA, 4) # Returns NA if error in lm
-                                         })
-                        if(!is.na(temp[1])){temp <- temp[-nrow(temp),]} # Remove adj var if temp is not NA
+        if(!is.null(catVars)){
+                for(i in 1:length(catVars)){
+                        sampleDataCol <- sampleData[,catVars[i]]
+                        if(!is.null(adj)){
+                                temp <- tryCatch(summary(lm(methDataCol ~ sampleDataCol + adjDataCol))$coefficients[-1,],
+                                                 error = function(x){
+                                                         message("Error with ", meth, " and ", catVars[i])
+                                                         rep(NA, 4) # Returns NA if error in lm
+                                                 })
+                                if(!is.na(temp[1])){temp <- temp[-nrow(temp),]} # Remove adj var if temp is not NA
+                        }
+                        else {
+                                temp <- tryCatch(summary(lm(methDataCol ~ sampleDataCol))$coefficients[-1,],
+                                                 error = function(x){
+                                                         message("Error with ", meth, " and ", catVars[i])
+                                                         rep(NA, 4) # Returns NA if error in lm
+                                                 })
+                        }
+                        if(length(temp) == 4){
+                                temp <- c(catVars[i], levels(sampleDataCol)[2], temp)
+                        } 
+                        else {
+                                temp <- cbind(rep(catVars[i], nrow(temp)), 
+                                              gsub("sampleDataCol", replacement = "", x = rownames(temp), fixed = TRUE), 
+                                              temp)
+                        }
+                        stats <- rbind(stats, temp)
                 }
-                else {
-                        temp <- tryCatch(summary(lm(methDataCol ~ sampleDataCol))$coefficients[-1,],
-                                         error = function(x){
-                                                 message("Error with ", meth, " and ", catVars[i])
-                                                 rep(NA, 4) # Returns NA if error in lm
-                                         })
-                }
-                if(length(temp) == 4){
-                        temp <- c(catVars[i], levels(sampleDataCol)[2], temp)
-                } 
-                else {
-                        temp <- cbind(rep(catVars[i], nrow(temp)), 
-                                      gsub("sampleDataCol", replacement = "", x = rownames(temp), fixed = TRUE), 
-                                      temp)
-                }
-                stats <- rbind(stats, temp)
         }
         if(!is.null(contVars)){
                 for(i in 1:length(contVars)){
