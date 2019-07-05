@@ -15,6 +15,9 @@ loadRegions <- function(file, chroms = c(paste("chr", 1:22, sep = ""), "chrX", "
         else{
                 regions <- read.csv(file, header = TRUE, stringsAsFactors = FALSE)
         }
+        if(nrow(regions) == 0){
+                stop(c(paste("There are no regions in", file, sep = " ")))
+        }
         if("seqnames" %in% colnames(regions)){
                 colnames(regions)[colnames(regions) == "seqnames"] <- "chr"
         }
@@ -1101,7 +1104,7 @@ plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog",
 
 DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, totalTest = NULL, rotation.degree = 0, cat.pos = c(0, 0), 
                            cat.dist = c(0.03, 0.03), cat.cex = 3, fill = c("lightblue", "lightpink"), ext.text = TRUE, 
-                           ext.dist = -0.2, margin = 0.04, cex = 2.5){
+                           ext.dist = -0.2, ext.percent = c(0.01, 0.01, 0.01), margin = 0.04, cex = 2.5){
         pdf(file = file, width = 10, height = 8, onefile = FALSE)
         if(!is.null(totalTest)){
                 venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, totalTest = totalTest, 
@@ -1109,7 +1112,8 @@ DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, totalTest = NULL, rotation.
                                                          rotation.degree = rotation.degree, margin = margin, cat.cex = cat.cex, 
                                                          cex = cex, fill = fill, cat.pos = cat.pos, cat.dist = cat.dist, 
                                                          fontfamily = "sans", cat.fontfamily = "sans", ext.dist = ext.dist, 
-                                                         ext.length = 0.85, ext.text = ext.text, lwd = 4))
+                                                         ext.length = 0.85, ext.text = ext.text, ext.percent = ext.percent, 
+                                                         lwd = 4, ext.line.lwd = 3))
                 message("[DMRoverlapVenn] Hypergeometric test p = ", signif(venn$p.value[3], digits = 6), "\n")
         } else {
                 venn <- suppressMessages(makeVennDiagram(Peaks = Peaks, NameOfPeaks = NameOfPeaks, maxgap = -1, minoverlap = 1, 
@@ -1117,18 +1121,19 @@ DMRoverlapVenn <- function(Peaks, NameOfPeaks, file, totalTest = NULL, rotation.
                                                          margin = margin, cat.cex = cat.cex, cex = cex, fill = fill,
                                                          cat.pos = cat.pos, cat.dist = cat.dist, fontfamily = "sans",
                                                          cat.fontfamily = "sans", ext.dist = ext.dist, ext.length = 0.85, 
-                                                         ext.text = ext.text, lwd = 4))
+                                                         ext.text = ext.text, ext.percent = ext.percent, lwd = 4,
+                                                         ext.line.lwd = 3))
         }
         dev.off()
 }
 
 geneOverlapVenn <- function(x, file, cat.pos = c(150, 180), cat.dist = c(0.04, 0.03), rotation.degree = 180,
-                            ext.dist = -0.1, margin = 0.05, cat.cex = 2.5, fill = c("lightblue", "lightpink"), reverse = FALSE){
+                            ext.dist = -0.1, margin = 0.05, cat.cex = 2.5, cex = 2.75, fill = c("lightblue", "lightpink"), reverse = FALSE){
         futile.logger::flog.threshold(futile.logger::ERROR, name = "VennDiagramLogger") # Suppress log file
         venn.diagram(x = x, file = file, height = 8, width = 10, imagetype = "png", units = "in", fontfamily = "sans", 
-                     cat.fontfamily = "sans", fill = fill, cex = 2.75, lwd = 4, cat.cex = cat.cex, 
+                     cat.fontfamily = "sans", fill = fill, cex = cex, lwd = 4, cat.cex = cat.cex, 
                      cat.pos = cat.pos, cat.dist = cat.dist, rotation.degree = rotation.degree, margin = margin, 
-                     ext.text = TRUE, ext.dist = ext.dist, ext.length = 0.85, ext.line.lwd = 2, 
+                     ext.text = TRUE, ext.dist = ext.dist, ext.length = 0.85, ext.line.lwd = 3, 
                      ext.percent = 0.01, reverse = reverse)
 }
 
