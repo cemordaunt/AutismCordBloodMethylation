@@ -36,6 +36,9 @@ loadRegions <- function(file, chroms = c(paste("chr", 1:22, sep = ""), "chrX", "
 }
 
 writeBED <- function(regions, file){
+        if("seqnames" %in% colnames(regions)){
+                colnames(regions)[colnames(regions) == "seqnames"] <- "chr"
+        }
         if("DMRid" %in% colnames(regions)){
                 bed <- data.frame("chr" = regions$chr, "start" = regions$start, "end" = regions$end, "name" = regions$DMRid, 
                                   "score" = 0, "strand" = 0, "thickStart" = 0, "thickEnd" = 0, 
@@ -679,7 +682,7 @@ prepGREAT <- function(DMRs, Background, fileName, writeBack = FALSE, backName,
         DMRs_hg19$chr <- as.character(DMRs_hg19$chr)
         DMRs_hg19 <- DMRs_hg19[order(DMRs_hg19$chr, DMRs_hg19$start),]
         DMRs_hg19 <- unique(subset(DMRs_hg19, chr %in% chroms))
-        write.table(DMRs_hg19, fileName, quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")
+        write.table(DMRs_hg19, fileName, quote = FALSE, row.names = FALSE, col.names = FALSE, sep = "\t")
         message("[prepGREAT] Writing zipped DMR file to ", fileName)
         gzip(fileName, overwrite=TRUE)
         
@@ -694,9 +697,9 @@ prepGREAT <- function(DMRs, Background, fileName, writeBack = FALSE, backName,
                         message("[prepGREAT] Warning: Background has ", nrow(Background_hg19), 
                                 " regions. Need to reduce background to < 1M regions")
                 }
-                write.table(Background_hg19, backName, quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")
+                write.table(Background_hg19, backName, quote = FALSE, row.names = FALSE, col.names = FALSE, sep="\t")
                 message("[prepGREAT] Writing zipped background file to ", backName)
-                gzip(backName, overwrite=TRUE)
+                gzip(backName, overwrite = TRUE)
         }
         message("[prepGREAT] Complete!")
 }
@@ -1104,6 +1107,48 @@ plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog",
                 }
                 message("[plotLOLAchromHMM] Complete! Writing file")
         }
+}
+
+loadHOMER <- function(file){
+        homer <- read.delim(file, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+        Motif.Name <- strsplit(homer$Motif.Name, split = "/", fixed = TRUE) %>%
+                sapply(function(x) strsplit(x[1], split = "(", fixed = TRUE)[[1]])
+        homer2 <- data.frame(stringsAsFactors = FALSE,
+                             Transcription_Factor = sapply(Motif.Name, function(x) x[1]) %>% str_to_upper() %>% 
+                                     str_replace_all(pattern = fixed(c("UNKNOWN-ESC-ELEMENT" = "Unknown_ESC_Element", 
+                                                                       "DISTAL" = "Distal", "FUSION" = "Fusion", 
+                                                                       "UNKNOWN" = "Unknown", "SHORT" = "Short", 
+                                                                       "HALFSITE" = "Half_Site", "|" = ":",
+                                                                       "MOUSE_RECOMBINATION_HOTSPOT" = "Mouse_Recombination_Hotspot", 
+                                                                       "SATELLITEELEMENT" = "Satellite_Element", "?" = "", 
+                                                                       "BRACHYURY" = "Brachyury"))),
+                             Family = sapply(Motif.Name, function(x) x[2]) %>% 
+                                     str_replace_all(pattern = fixed(c(")" = "", "?," = "", "?" = "", "," = "_"))),
+                             Consensus = homer$Consensus,
+                             Target_with_Motif = homer[,grepl("X..of.Target.Sequences.with.Motif.of." , x = colnames(homer), 
+                                                              fixed = TRUE)],
+                             Target_Sequences = colnames(homer)[grepl("X..of.Target.Sequences.with.Motif.of." , 
+                                                                      x = colnames(homer), fixed = TRUE)] %>% 
+                                     strsplit(split = ".", fixed = TRUE) %>% .[[1]] %>% .[length(.)] %>% as.numeric(),
+                             Background_with_Motif = homer[,grepl("X..of.Background.Sequences.with.Motif.of." , 
+                                                                  x = colnames(homer), fixed = TRUE)],
+                             Background_Sequences = colnames(homer)[grepl("X..of.Background.Sequences.with.Motif.of." , 
+                                                                          x = colnames(homer), fixed = TRUE)] %>% 
+                                     strsplit(split = ".", fixed = TRUE) %>% .[[1]] %>% .[length(.)] %>% as.numeric(),
+                             pvalue = homer$P.value)
+        homer2$Family[homer2$Family == ""] <- "Unknown"
+        homer2$Percent_Target_with_Motif <- homer2$Target_with_Motif * 100 / homer2$Target_Sequences
+        homer2$Percent_Background_with_Motif <- homer2$Background_with_Motif * 100 / homer2$Background_Sequences
+        homer2$Fold_Enrichment <- homer2$Percent_Target_with_Motif / homer2$Percent_Background_with_Motif
+        homer2$log_pvalue <- -log10(homer2$pvalue)
+        homer2$qvalue <- p.adjust(homer2$pvalue, method = "fdr")
+        homer2$log_qvalue <- -log10(homer2$qvalue)
+        homer2 <- homer2[order(homer2$log_qvalue, homer2$Fold_Enrichment, decreasing = TRUE),
+                         c("Transcription_Factor", "Family", "Consensus", "Target_with_Motif", "Target_Sequences", 
+                           "Percent_Target_with_Motif", "Background_with_Motif", "Background_Sequences",
+                           "Percent_Background_with_Motif", "Fold_Enrichment", "pvalue", "log_pvalue", "qvalue", 
+                           "log_qvalue")]
+        return(homer2)
 }
 
 # Replication Functions ---------------------------------------------------
