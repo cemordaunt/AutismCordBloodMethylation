@@ -4,7 +4,7 @@
 # 7/11/19
 
 # Packages ####
-sapply(c("tidyverse", "GenomicRanges", "LOLA"), require, character.only = TRUE)
+sapply(c("tidyverse", "GenomicRanges", "LOLA", "reshape2"), require, character.only = TRUE)
 
 # Functions ####
 source("R Scripts/DMR Analysis Functions.R")
@@ -83,42 +83,218 @@ females_rep <- list(All = loadHOMER("DMRs/Replication/Diagnosis Females 100/HOME
                     Hyper = loadHOMER("DMRs/Replication/Diagnosis Females 100/HOMER_Hyper/knownResults.txt"),
                     Hypo = loadHOMER("DMRs/Replication/Diagnosis Females 100/HOMER_Hypo/knownResults.txt"))
 
-# Workflow ####
-# Melt into data.frame
-# Subset enriched motifs (cutoffs?)
-# Look at distribution of all data
-test <- loadHOMER("DMRs/Discovery/Diagnosis Males 50/HOMER/knownResults.txt")
-hist(test$log_qvalue, breaks = 100)
-quantile(test$log_qvalue, c(0, 0.25, 0.5, 0.75, 0.9, 0.95, 0.975, 0.99, 1))
-#      0%      25%      50%      75%      90%      95%    97.5%      99%     100% 
-# 0.00000 12.88950 16.70934 19.44746 22.07320 22.83016 23.52913 26.72516 29.38300 
+# Combine ####
+id.vars <- colnames(males_disc$All)
+homer <- rbind(melt(males_disc, id.vars = id.vars), melt(males_rep, id.vars = id.vars),
+               melt(females_disc, id.vars = id.vars), melt(females_rep, id.vars = id.vars))
+homer$DMRs <- paste(rep(c("Discovery", "Replication"), each = nrow(males_disc$All) * 3), 
+                    rep(c("Males", "Females"), each = nrow(males_disc$All) * 6),
+                    rep(c("All", "Hyper", "Hypo"), each = nrow(males_disc$All)))
+homer$DMRs <- factor(homer$DMRs, levels = unique(homer$DMRs))
+homer <- homer[,c("DMRs", "Transcription_Factor", "Family", "Consensus", "Target_with_Motif", "Target_Sequences",
+                  "Percent_Target_with_Motif", "Background_with_Motif", "Background_Sequences", "Percent_Background_with_Motif",
+                  "Fold_Enrichment", "pvalue", "log_pvalue", "qvalue", "log_qvalue")]
+homer$log_pvalue[is.infinite(homer$log_pvalue)] <- 1.5 * max(homer$log_pvalue[!is.infinite(homer$log_pvalue)])
+homer$log_qvalue[is.infinite(homer$log_qvalue)] <- 1.5 * max(homer$log_qvalue[!is.infinite(homer$log_qvalue)])
 
-hist(test$Fold_Enrichment, breaks = 100)
-quantile(test$Fold_Enrichment, c(0, 0.25, 0.5, 0.75, 0.9, 0.95, 0.975, 0.99, 1))
-#       0%      25%      50%      75%      90%      95%    97.5%      99%     100% 
-# 1.049823 1.210628 1.341379 1.518910 1.696113 1.824599 1.960478 2.130395 2.661098 
+DMRs <- as.character(homer$DMRs) %>% unique()
+homer$Enriched <- NULL
+for(i in 1:length(DMRs)){ # Enriched motifs are in the top quartile of fold enrichment and log q-value for that comparison
+        Fold_Enrichment <- homer$Fold_Enrichment[homer$DMRs == DMRs[i]]
+        log_qvalue <- homer$log_qvalue[homer$DMRs == DMRs[i]]
+        Enriched <- Fold_Enrichment > quantile(Fold_Enrichment, 0.75) & 
+                log_qvalue > quantile(log_qvalue[!log_qvalue == max(homer$log_qvalue)], 0.75)
+        homer$Enriched[homer$DMRs == DMRs[i]] <- Enriched
+}
+table(homer$Enriched, homer$DMRs)["TRUE",]
+#     Discovery Males All     Discovery Males Hyper      Discovery Males Hypo     Replication Males All 
+#                      15                        11                        17                         9 
+# Replication Males Hyper    Replication Males Hypo     Discovery Females All   Discovery Females Hyper 
+#                      10                        14                        22                        23 
+#  Discovery Females Hypo   Replication Females All Replication Females Hyper  Replication Females Hypo 
+#                      20                        84                        29                        70 
+write.table(homer, file = "Tables/HOMER Motif Enrichments Discovery and Replication DMRs.txt", sep = "\t", quote = FALSE,
+            row.names = FALSE, col.names = TRUE)
+rm(id.vars, males_disc, males_rep, females_disc, females_rep, i, Enriched, Fold_Enrichment, log_qvalue)
 
-table(test$Fold_Enrichment > 1.5, test$log_qvalue > 20) # near 3rd quartile of each
-#       FALSE TRUE
-# FALSE   227   69
-# TRUE     96   22
-# 22 / 414 motifs (5.3% of total)
+# Motif Enrichment Comparison ---------------------------------------------
+# Hypothesis: ASD DMRs are related to transcription factor-mediated regulation and may be upstream or downstream 
+# of altered transcriptional regulation
+# What are the top motifs in ASD DMRs?
+# Do these differ between hyper and hypo DMRs?
+# Do these differ between males and females?
 
-test$Transcription_Factor[test$Fold_Enrichment > 1.5 & test$log_qvalue > 20]
-#  [1] "WT1"         "ZIC3"        "TLX"         "ZNF415"      "ZNF692"      "HIF-1A"      "FXR"         "IRF:BATF"   
-#  [9] "NUR77"       "EGR1"        "ELF1"        "ETS1-Distal" "NF1"         "PAX6"        "TBX20"       "ETS"        
-# [17] "ZNF675"      "VDR"         "HIF2A"       "KLF3"        "TBOX:SMAD"   "ERE"      
+# 413 unique TF motifs, 12 DMR sets
 
-# Subset for motifs enriched in discovery and replication, by direction
+# Enrichment Summary Heatmaps ####
+# Fold Enrichment, alphabetical order
+homer$Transcription_Factor <- factor(homer$Transcription_Factor, levels = unique(homer$Transcription_Factor) %>% 
+                                             sort(decreasing = TRUE))
+gg <- ggplot(data = homer)
+gg +
+        geom_tile(aes(y = Transcription_Factor, x = DMRs, fill = Fold_Enrichment)) +
+        scale_fill_gradientn("Fold\nEnrichment", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             limits = c(0, max(homer$Fold_Enrichment))) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(1, 7, 1, 5), "lines"), axis.ticks.x = element_line(size = 1), 
+              axis.ticks.y = element_blank(), panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 14, color = "Black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.y = element_blank(), axis.title = element_blank(), legend.key = element_blank(),  
+              legend.position = c(1.125, 0.9), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 16), 
+              legend.text = element_text(size = 14))
+ggsave("Figures/HOMER TF Enrichment Summary Fold Enrichment Heatmap.png", dpi = 600, width = 8, height = 10, units = "in")
 
-# Heatmap of replicated motifs, clustered by log pvalues
+# Fold Enrichment, clustered
+homer$Transcription_Factor <- as.character(homer$Transcription_Factor)
+homer <- homer[order(homer$Transcription_Factor),]
+clusterData <- reshape::cast(homer[,c("Transcription_Factor", "DMRs", "Fold_Enrichment")], formula = Transcription_Factor ~ DMRs, 
+                             fun.aggregate = mean, value = "Fold_Enrichment", add.missing = TRUE, fill = 0)
+clusterOrder <- hclust(dist(clusterData[,2:ncol(clusterData)], method = "euclidean"), method = "ward.D")$order %>% rev()
+homer$Transcription_Factor <- factor(homer$Transcription_Factor, levels = unique(homer$Transcription_Factor)[clusterOrder], ordered = TRUE)
 
+gg <- ggplot(data = homer)
+gg +
+        geom_tile(aes(y = Transcription_Factor, x = DMRs, fill = Fold_Enrichment)) +
+        scale_fill_gradientn("Fold\nEnrichment", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             limits = c(0, max(homer$Fold_Enrichment))) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(1, 7, 1, 5), "lines"), axis.ticks.x = element_line(size = 1), 
+              axis.ticks.y = element_blank(), panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 14, color = "Black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.y = element_blank(), axis.title = element_blank(), legend.key = element_blank(),  
+              legend.position = c(1.125, 0.9), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 16), 
+              legend.text = element_text(size = 14))
+ggsave("Figures/HOMER TF Enrichment Summary Fold Enrichment Heatmap clustered.png", dpi = 600, width = 8, height = 10, units = "in")
 
+# log q-value, alphabetical order
+homer$Transcription_Factor <- factor(homer$Transcription_Factor, levels = unique(homer$Transcription_Factor) %>% 
+                                             sort(decreasing = TRUE))
+gg <- ggplot(data = homer)
+gg +
+        geom_tile(aes(y = Transcription_Factor, x = DMRs, fill = log_qvalue)) +
+        scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             limits = c(0, max(homer$log_qvalue))) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(1, 7, 1, 5), "lines"), axis.ticks.x = element_line(size = 1), 
+              axis.ticks.y = element_blank(), panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 14, color = "Black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.y = element_blank(), axis.title = element_blank(), legend.key = element_blank(),  
+              legend.position = c(1.135, 0.915), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 16), 
+              legend.text = element_text(size = 14))
+ggsave("Figures/HOMER TF Enrichment Summary log qvalue Heatmap.png", dpi = 600, width = 8, height = 10, units = "in")
 
+# log qvalue, clustered
+homer$Transcription_Factor <- as.character(homer$Transcription_Factor)
+homer <- homer[order(homer$Transcription_Factor),]
+clusterData <- reshape::cast(homer[,c("Transcription_Factor", "DMRs", "log_qvalue")], formula = Transcription_Factor ~ DMRs, 
+                             fun.aggregate = mean, value = "log_qvalue", add.missing = TRUE, fill = 0)
+clusterOrder <- hclust(dist(clusterData[,2:ncol(clusterData)], method = "euclidean"), method = "ward.D")$order %>% rev()
+homer$Transcription_Factor <- factor(homer$Transcription_Factor, levels = unique(homer$Transcription_Factor)[clusterOrder], ordered = TRUE)
 
+gg <- ggplot(data = homer)
+gg +
+        geom_tile(aes(y = Transcription_Factor, x = DMRs, fill = log_qvalue)) +
+        scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             limits = c(0, max(homer$log_qvalue))) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(1, 7, 1, 5), "lines"), axis.ticks.x = element_line(size = 1), 
+              axis.ticks.y = element_blank(), panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 14, color = "Black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.y = element_blank(), axis.title = element_blank(), legend.key = element_blank(),  
+              legend.position = c(1.135, 0.915), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 16), 
+              legend.text = element_text(size = 14))
+ggsave("Figures/HOMER TF Enrichment Summary log qvalue Heatmap clustered.png", dpi = 600, width = 8, height = 10, units = "in")
 
+# Top Enriched Motifs ####
+# Enriched if in top quartile of log_qvalue and fold change within that data set
+top <- lapply(DMRs, function(x) homer$Transcription_Factor[homer$DMRs == x & homer$Enriched])
+names(top) <- DMRs
 
+replicated <- list(Males_Hyper = intersect(top$'Discovery Males Hyper', top$'Replication Males Hyper'),
+                   Males_Hypo = intersect(top$'Discovery Males Hypo', top$'Replication Males Hypo'),
+                   Females_Hyper = intersect(top$'Discovery Females Hyper', top$'Replication Females Hyper'),
+                   Females_Hypo = intersect(top$'Discovery Females Hypo', top$'Replication Females Hypo'))
+# $Males_Hyper "ETS"
+# $Males_Hypo "IRF:BATF" "HIF-1A"   "TBX20"    "ZNF675"  
+# $Females_Hyper "GATA:SCL" "ZNF675"   "ARE"      "CRE"     
+# Females_Hypo "TBX20"    "EBF"      "ZNF675"   "IRF2"     "FOXA1:AR" "PKNOX1"   "ZNF519"   "ZFP281"   "JUN-AP1"  "ZFP809"  
 
+replicated_v <- unlist(replicated, use.names = FALSE) %>% unique()
+homer_top <- subset(homer, Transcription_Factor %in% replicated_v & !grepl("All", homer$DMRs, fixed = TRUE))
+homer_top$DMRs <- as.character(homer_top$DMRs) %>% 
+        factor(levels = c("Discovery Males Hyper", "Replication Males Hyper", "Discovery Males Hypo", 
+                          "Replication Males Hypo", "Discovery Females Hyper", "Replication Females Hyper", 
+                          "Discovery Females Hypo", "Replication Females Hypo"))
+
+# Heatmap of Fold Enrichment, clustered
+homer_top$Transcription_Factor <- as.character(homer_top$Transcription_Factor)
+homer_top <- homer_top[order(homer_top$Transcription_Factor),]
+clusterData <- reshape::cast(homer_top[,c("Transcription_Factor", "DMRs", "Fold_Enrichment")], formula = Transcription_Factor ~ DMRs, 
+                             fun.aggregate = mean, value = "Fold_Enrichment", add.missing = TRUE, fill = 0)
+clusterOrder <- hclust(dist(clusterData[,2:ncol(clusterData)], method = "euclidean"), method = "ward.D")$order %>% rev()
+homer_top$Transcription_Factor <- factor(homer_top$Transcription_Factor, levels = unique(homer_top$Transcription_Factor)[clusterOrder], ordered = TRUE)
+homer_top$Enriched <- factor(homer_top$Enriched, levels = c("TRUE", "FALSE"))
+
+gg <- ggplot(data = homer_top)
+gg +
+        geom_tile(aes(y = Transcription_Factor, x = DMRs, fill = Fold_Enrichment)) +
+        geom_text(aes(y = Transcription_Factor, x = DMRs, alpha = Enriched, label = "*"), color = "white", size = 14, 
+                  nudge_y = -0.35) +
+        scale_fill_gradientn("Fold\nEnrichment", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             limits = c(0, max(homer_top$Fold_Enrichment))) +
+        scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c(1, 0), guide = FALSE) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(1, 8.5, 1, 1), "lines"), axis.ticks = element_line(size = 1), 
+              panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 15, color = "black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.y = element_text(size = 14, color = "black"), axis.title = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.19, 0.86), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
+              legend.text = element_text(size = 16))
+ggsave("Figures/HOMER TF Enrichment Top Fold Enrichment Heatmap clustered.png", dpi = 600, width = 7, height = 8, units = "in")
+
+# Heatmap of log qvalue, clustered
+homer_top$Transcription_Factor <- as.character(homer_top$Transcription_Factor)
+homer_top <- homer_top[order(homer_top$Transcription_Factor),]
+clusterData <- reshape::cast(homer_top[,c("Transcription_Factor", "DMRs", "log_qvalue")], formula = Transcription_Factor ~ DMRs, 
+                             fun.aggregate = mean, value = "log_qvalue", add.missing = TRUE, fill = 0)
+clusterOrder <- hclust(dist(clusterData[,2:ncol(clusterData)], method = "euclidean"), method = "ward.D")$order %>% rev()
+homer_top$Transcription_Factor <- factor(homer_top$Transcription_Factor, levels = unique(homer_top$Transcription_Factor)[clusterOrder], ordered = TRUE)
+homer_top$Enriched <- factor(homer_top$Enriched, levels = c("TRUE", "FALSE"))
+
+gg <- ggplot(data = homer_top)
+gg +
+        geom_tile(aes(y = Transcription_Factor, x = DMRs, fill = log_qvalue)) +
+        geom_text(aes(y = Transcription_Factor, x = DMRs, alpha = Enriched, label = "*"), color = "white", size = 14, 
+                  nudge_y = -0.35) +
+        scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             limits = c(0, quantile(x = homer_top$log_qvalue, probs = 0.6, names = FALSE, na.rm = TRUE))) +
+        scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c(1, 0), guide = FALSE) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(1, 8.5, 1, 1), "lines"), axis.ticks = element_line(size = 1), 
+              panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 15, color = "black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.y = element_text(size = 14, color = "black"), axis.title = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.21, 0.885), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
+              legend.text = element_text(size = 16))
+ggsave("Figures/HOMER TF Enrichment Top log qvalue Heatmap clustered.png", dpi = 600, width = 7, height = 8, units = "in")
 
 
 

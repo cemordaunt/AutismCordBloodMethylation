@@ -1110,7 +1110,8 @@ plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog",
 }
 
 loadHOMER <- function(file){
-        homer <- read.delim(file, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+        homer <- read.delim(file, sep = "\t", header = TRUE, stringsAsFactors = FALSE) %>% unique()
+        homer <- homer[order(homer$Motif.Name, homer$Consensus),]
         Motif.Name <- strsplit(homer$Motif.Name, split = "/", fixed = TRUE) %>%
                 sapply(function(x) strsplit(x[1], split = "(", fixed = TRUE)[[1]])
         homer2 <- data.frame(stringsAsFactors = FALSE,
@@ -1136,6 +1137,13 @@ loadHOMER <- function(file){
                                                                           x = colnames(homer), fixed = TRUE)] %>% 
                                      strsplit(split = ".", fixed = TRUE) %>% .[[1]] %>% .[length(.)] %>% as.numeric(),
                              pvalue = homer$P.value)
+        dups <- homer2$Transcription_Factor[duplicated(homer2$Transcription_Factor)] %>% unique()
+        for(i in 1:length(dups)){
+                homer2$Transcription_Factor[homer2$Transcription_Factor == dups[i]] <- 
+                        paste(homer2$Transcription_Factor[homer2$Transcription_Factor == dups[i]],
+                              1:length(homer2$Transcription_Factor[homer2$Transcription_Factor == dups[i]]),
+                              sep = "_")
+        }
         homer2$Family[homer2$Family == ""] <- "Unknown"
         homer2$Percent_Target_with_Motif <- homer2$Target_with_Motif * 100 / homer2$Target_Sequences
         homer2$Percent_Background_with_Motif <- homer2$Background_with_Motif * 100 / homer2$Background_Sequences
