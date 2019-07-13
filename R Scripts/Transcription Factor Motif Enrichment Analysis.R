@@ -103,7 +103,7 @@ for(i in 1:length(DMRs)){ # Enriched motifs are in the top quartile of fold enri
         Fold_Enrichment <- homer$Fold_Enrichment[homer$DMRs == DMRs[i]]
         log_qvalue <- homer$log_qvalue[homer$DMRs == DMRs[i]]
         Enriched <- Fold_Enrichment > quantile(Fold_Enrichment, 0.75) & 
-                log_qvalue > quantile(log_qvalue[!log_qvalue == max(homer$log_qvalue)], 0.75)
+                log_qvalue > quantile(log_qvalue[!log_qvalue == max(homer$log_qvalue)], 0.75) # Exclude infinite qvalues from quantile
         homer$Enriched[homer$DMRs == DMRs[i]] <- Enriched
 }
 table(homer$Enriched, homer$DMRs)["TRUE",]
@@ -238,7 +238,7 @@ homer_top$DMRs <- as.character(homer_top$DMRs) %>%
                           "Replication Males Hypo", "Discovery Females Hyper", "Replication Females Hyper", 
                           "Discovery Females Hypo", "Replication Females Hypo"))
 
-# Heatmap of Fold Enrichment, clustered
+# Heatmap of Fold Enrichment, clustered by Fold Enrichment
 homer_top$Transcription_Factor <- as.character(homer_top$Transcription_Factor)
 homer_top <- homer_top[order(homer_top$Transcription_Factor),]
 clusterData <- reshape::cast(homer_top[,c("Transcription_Factor", "DMRs", "Fold_Enrichment")], formula = Transcription_Factor ~ DMRs, 
@@ -267,15 +267,7 @@ gg +
               legend.text = element_text(size = 16))
 ggsave("Figures/HOMER TF Enrichment Top Fold Enrichment Heatmap clustered.png", dpi = 600, width = 7, height = 8, units = "in")
 
-# Heatmap of log qvalue, clustered
-homer_top$Transcription_Factor <- as.character(homer_top$Transcription_Factor)
-homer_top <- homer_top[order(homer_top$Transcription_Factor),]
-clusterData <- reshape::cast(homer_top[,c("Transcription_Factor", "DMRs", "log_qvalue")], formula = Transcription_Factor ~ DMRs, 
-                             fun.aggregate = mean, value = "log_qvalue", add.missing = TRUE, fill = 0)
-clusterOrder <- hclust(dist(clusterData[,2:ncol(clusterData)], method = "euclidean"), method = "ward.D")$order %>% rev()
-homer_top$Transcription_Factor <- factor(homer_top$Transcription_Factor, levels = unique(homer_top$Transcription_Factor)[clusterOrder], ordered = TRUE)
-homer_top$Enriched <- factor(homer_top$Enriched, levels = c("TRUE", "FALSE"))
-
+# Heatmap of log qvalue, clustered by Fold Enrichment
 gg <- ggplot(data = homer_top)
 gg +
         geom_tile(aes(y = Transcription_Factor, x = DMRs, fill = log_qvalue)) +
@@ -296,5 +288,50 @@ gg +
               legend.text = element_text(size = 16))
 ggsave("Figures/HOMER TF Enrichment Top log qvalue Heatmap clustered.png", dpi = 600, width = 7, height = 8, units = "in")
 
+# Heatmap of Percent DMRs, clustered by Fold Enrichment
+gg <- ggplot(data = homer_top)
+gg +
+        geom_tile(aes(y = Transcription_Factor, x = DMRs, fill = Percent_Target_with_Motif)) +
+        geom_text(aes(y = Transcription_Factor, x = DMRs, alpha = Enriched, label = "*"), color = "white", size = 14, 
+                  nudge_y = -0.35) +
+        scale_fill_gradientn("DMRs with\nMotif (%)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             limits = c(0, max(homer_top$Percent_Target_with_Motif))) +
+        scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c(1, 0), guide = FALSE) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(1, 8.5, 1, 1), "lines"), axis.ticks = element_line(size = 1), 
+              panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 15, color = "black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.y = element_text(size = 14, color = "black"), axis.title = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.19, 0.86), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
+              legend.text = element_text(size = 16))
+ggsave("Figures/HOMER TF Enrichment Top Percent DMRs Heatmap clustered.png", dpi = 600, width = 7, height = 8, units = "in")
+
+# Heatmap of Fold Enrichment, manual order by replicated DMR set
+homer_top$Transcription_Factor <- factor(homer_top$Transcription_Factor, 
+                                         levels = rev(c("TBX20", "ZNF675", "ETS", "HIF-1A", "IRF:BATF", "ARE", "CRE", 
+                                                        "GATA:SCL", "EBF", "FOXA1:AR", "IRF2", "JUN-AP1", "PKNOX1",
+                                                        "ZFP281", "ZFP809", "ZNF519")), ordered = TRUE)
+gg <- ggplot(data = homer_top)
+gg +
+        geom_tile(aes(y = Transcription_Factor, x = DMRs, fill = Fold_Enrichment)) +
+        geom_text(aes(y = Transcription_Factor, x = DMRs, alpha = Enriched, label = "*"), color = "white", size = 14, 
+                  nudge_y = -0.35) +
+        scale_fill_gradientn("Fold\nEnrichment", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             limits = c(0, max(homer_top$Fold_Enrichment))) +
+        scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c(1, 0), guide = FALSE) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(1, 8.5, 1, 1), "lines"), axis.ticks = element_line(size = 1), 
+              panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 15, color = "black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.y = element_text(size = 14, color = "black"), axis.title = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.19, 0.86), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
+              legend.text = element_text(size = 16))
+ggsave("Figures/HOMER TF Enrichment Top Fold Enrichment Heatmap manual order.png", dpi = 600, width = 7, height = 8, units = "in")
 
 
