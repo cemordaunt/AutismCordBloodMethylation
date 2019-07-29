@@ -519,7 +519,7 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
 
 # Annotation Functions ----------------------------------------------------
 
-getDMRanno <- function(DMRstats, regDomains, file){
+getDMRanno <- function(DMRstats, regDomains, file = NULL){
         message("[getDMRanno] Adding genes to DMRs by regulatory domains")
         GR_regDomains <- GRanges(seqnames = regDomains$gene_chr, ranges = IRanges(start = regDomains$distal_start, end = regDomains$distal_end))
         GR_DMRstats <- GRanges(seqnames = DMRstats$chr, ranges = IRanges(start = DMRstats$start, end = DMRstats$end))
@@ -595,7 +595,9 @@ getDMRanno <- function(DMRstats, regDomains, file){
         if(sum(grepl(pattern = "DMB", x = DMRstats_annotated$DMRid, fixed = TRUE)) > 0){
                 colnames(DMRstats_annotated)[colnames(DMRstats_annotated) == "DMRid"] <- "DMBid"
         }
-        write.table(DMRstats_annotated, file, sep = "\t", quote = FALSE, row.names = FALSE)
+        if(!is.null(file)){
+                write.table(DMRstats_annotated, file, sep = "\t", quote = FALSE, row.names = FALSE)
+        }
         message("[getDMRanno] Complete!")
         return(DMRstats_annotated)
 }
@@ -684,7 +686,7 @@ prepGREAT <- function(DMRs, Background, fileName, writeBack = FALSE, backName,
         DMRs_hg19 <- unique(subset(DMRs_hg19, chr %in% chroms))
         write.table(DMRs_hg19, fileName, quote = FALSE, row.names = FALSE, col.names = FALSE, sep = "\t")
         message("[prepGREAT] Writing zipped DMR file to ", fileName)
-        gzip(fileName, overwrite=TRUE)
+        gzip(fileName, overwrite = TRUE)
         
         if(writeBack){
                 message("[prepGREAT] Preparing background table")
