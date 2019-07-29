@@ -805,18 +805,24 @@ prepLOLAhistone <- function(histone, index, regions, file){
         } 
         histone$pct_DMRs <- histone$support * 100 / (histone$support[1] + histone$c[1])
         
+        if(!is.na(table(is.infinite(histone$oddsRatio))["TRUE"]) & table(is.infinite(histone$oddsRatio))["TRUE"] > 0){
+                message("[prepLOLAhistone] Replacing infinite odds ratios with max")
+                histone$oddsRatio[is.infinite(histone$oddsRatio)] <- NA
+                histone$oddsRatio[is.na(histone$oddsRatio)] <- max(histone$OddsRatio, na.rm = TRUE)
+        }
+        
         if(!is.na(table(is.infinite(histone$pValueLog))["TRUE"]) & table(is.infinite(histone$pValueLog))["TRUE"] > 0){
-                message("[prepLOLAhistone] Replacing infinite log(p-values) with 1.5 * max")
+                message("[prepLOLAhistone] Replacing infinite log(p-values) with max")
                 histone$pValueLog[is.infinite(histone$pValueLog)] <- NA
-                histone$pValueLog[is.na(histone$pValueLog)] <- 1.5 * max(histone$pValueLog, na.rm = TRUE)
+                histone$pValueLog[is.na(histone$pValueLog)] <- max(histone$pValueLog, na.rm = TRUE)
         }
         
         histone$pValue <- 10^(-histone$pValueLog)
         histone$qValueLog <- -log10(histone$qValue)
         if(!is.na(table(is.infinite(histone$qValueLog))["TRUE"]) & table(is.infinite(histone$qValueLog))["TRUE"] > 0){
-                message("[prepLOLAhistone] Replacing infinite log(q-values) with 1.5 * max")
+                message("[prepLOLAhistone] Replacing infinite log(q-values) with max")
                 histone$qValueLog[is.infinite(histone$qValueLog)] <- NA
-                histone$qValueLog[is.na(histone$qValueLog)] <- 1.5 * max(histone$qValueLog, na.rm = TRUE)
+                histone$qValueLog[is.na(histone$qValueLog)] <- max(histone$qValueLog, na.rm = TRUE)
         }
         
         histone <- histone[,c("userSet", "dbSet", "antibody", "cellType", "tissue", "type", "pValue", "qValue", "pValueLog", "qValueLog", 
@@ -947,6 +953,33 @@ plotLOLAhistone <- function(histone, title, type = c("oddsRatio", "qValueLog", "
         }
 }
 
+plotLOLAhistoneBox <- function(histone, file, facet = NULL, breaks = c("Autosomes", "ChrX"), 
+                               values = c("Autosomes" = "#3366CC", "ChrX" = "#FF3366"), plot.margin = c(1.5, 0.5, 0.5, 1.15),
+                               legend.position = c(0.82, 1.12), ylim = NULL){
+        gg <- ggplot()
+        gg +
+                geom_abline(slope = 0, intercept = 1, lwd = 1.25, lty = 2) +
+                stat_summary(data = histone, aes(x = antibody, y = oddsRatio, color = chroms), fun.data = "mean_cl_boot",
+                             geom = "crossbar", size = 0.7, position = position_dodge2(width = 0.5, padding = 0.15), fill = "white") +
+                theme_bw(base_size = 24) +
+                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                      panel.border = element_rect(color = "black", size = 1.25),
+                      axis.ticks = element_line(size = 1.25), legend.direction = "horizontal",
+                      legend.key = element_blank(), legend.position = legend.position, legend.text = element_text(size = 20),
+                      legend.background = element_blank(), legend.title = element_blank(), legend.spacing.x = unit(0.5, "lines"),
+                      plot.margin = unit(plot.margin, "lines"), strip.text = element_text(size = 20), 
+                      axis.text.x = element_text(size = 16, color = "black", angle = 90, hjust = 1, vjust = 0.5),
+                      axis.text.y = element_text(size = 18, color = "black"), axis.title.x = element_blank(),
+                      axis.title.y = element_text(size = 20, color = "black"),
+                      strip.background = element_blank()) +
+                scale_color_manual(breaks = breaks, values = values) +
+                scale_y_continuous(breaks = pretty_breaks(6)) +
+                coord_cartesian(ylim = ylim) +
+                ylab("Odds Ratio") +
+                facet_grid(cols = facet, scales = "fixed")
+        ggsave(file, dpi = 600, width = 9, height = 7, units = "in")
+}
+
 prepLOLAchromHMM <- function(chromHMM, index, regions, file){
         message("[prepLOLAchromHMM] Preparing chromHMM enrichment results for ", regions)
         chromHMM <- subset(chromHMM, userSet == regions)
@@ -966,18 +999,24 @@ prepLOLAchromHMM <- function(chromHMM, index, regions, file){
         } 
         chromHMM$pct_DMRs <- chromHMM$support * 100 / (chromHMM$support[1] + chromHMM$c[1])
         
+        if(!is.na(table(is.infinite(chromHMM$oddsRatio))["TRUE"]) & table(is.infinite(chromHMM$oddsRatio))["TRUE"] > 0){
+                message("[prepLOLAchromHMM] Replacing infinite odds ratios with max")
+                chromHMM$oddsRatio[is.infinite(chromHMM$oddsRatio)] <- NA
+                chromHMM$oddsRatio[is.na(chromHMM$oddsRatio)] <- max(chromHMM$oddsRatio, na.rm = TRUE)
+        }
+        
         if(!is.na(table(is.infinite(chromHMM$pValueLog))["TRUE"]) & table(is.infinite(chromHMM$pValueLog))["TRUE"] > 0){
-                message("[prepLOLAchromHMM] Replacing infinite log(p-values) with 1.5 * max")
+                message("[prepLOLAchromHMM] Replacing infinite log(p-values) with max")
                 chromHMM$pValueLog[is.infinite(chromHMM$pValueLog)] <- NA
-                chromHMM$pValueLog[is.na(chromHMM$pValueLog)] <- 1.5 * max(chromHMM$pValueLog, na.rm = TRUE)
+                chromHMM$pValueLog[is.na(chromHMM$pValueLog)] <- max(chromHMM$pValueLog, na.rm = TRUE)
         }
         
         chromHMM$pValue <- 10^(-chromHMM$pValueLog)
         chromHMM$qValueLog <- -log10(chromHMM$qValue)
         if(!is.na(table(is.infinite(chromHMM$qValueLog))["TRUE"]) & table(is.infinite(chromHMM$qValueLog))["TRUE"] > 0){
-                message("[prepLOLAchromHMM] Replacing infinite log(q-values) with 1.5 * max")
+                message("[prepLOLAchromHMM] Replacing infinite log(q-values) with max")
                 chromHMM$qValueLog[is.infinite(chromHMM$qValueLog)] <- NA
-                chromHMM$qValueLog[is.na(chromHMM$qValueLog)] <- 1.5 * max(chromHMM$qValueLog, na.rm = TRUE)
+                chromHMM$qValueLog[is.na(chromHMM$qValueLog)] <- max(chromHMM$qValueLog, na.rm = TRUE)
         }
         
         chromHMM <- chromHMM[,c("userSet", "dbSet", "antibody", "cellType", "tissue", "type", "pValue", "qValue", "pValueLog", "qValueLog", 
@@ -1109,6 +1148,33 @@ plotLOLAchromHMM <- function(chromHMM, title, type = c("oddsRatio", "qValueLog",
                 }
                 message("[plotLOLAchromHMM] Complete! Writing file")
         }
+}
+
+plotLOLAchromHMMBox <- function(chromHMM, file, facet = NULL, breaks = c("Autosomes", "ChrX"), 
+                                values = c("Autosomes" = "#3366CC", "ChrX" = "#FF3366"), plot.margin = c(1.5, 0.5, 0.75, 0.5),
+                                legend.position = c(0.82, 1.12), ylim = NULL){
+        gg <- ggplot()
+        gg +
+                geom_abline(slope = 0, intercept = 1, lwd = 1.25, lty = 2) +
+                stat_summary(data = chromHMM, aes(x = chromState, y = oddsRatio, color = chroms), fun.data = "mean_cl_boot",
+                             geom = "crossbar", size = 0.7, position = position_dodge2(width = 0.5, padding = 0.15), fill = "white") +
+                theme_bw(base_size = 24) +
+                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                      panel.border = element_rect(color = "black", size = 1.25),
+                      axis.ticks = element_line(size = 1.25), legend.direction = "horizontal",
+                      legend.key = element_blank(), legend.position = legend.position, legend.text = element_text(size = 20),
+                      legend.background = element_blank(), legend.title = element_blank(), legend.spacing.x = unit(0.5, "lines"),
+                      plot.margin = unit(plot.margin, "lines"), strip.text = element_text(size = 20), 
+                      axis.text.x = element_text(size = 16, color = "black", angle = 90, hjust = 1, vjust = 0.5),
+                      axis.text.y = element_text(size = 18, color = "black"), axis.title.x = element_blank(),
+                      axis.title.y = element_text(size = 20, color = "black"),
+                      strip.background = element_blank()) +
+                scale_color_manual(breaks = breaks, values = values) +
+                scale_y_continuous(breaks = pretty_breaks(6)) +
+                coord_cartesian(ylim = ylim) +
+                ylab("Odds Ratio") +
+                facet_grid(cols = facet, scales = "fixed")
+        ggsave(file, dpi = 600, width = 9, height = 7, units = "in")
 }
 
 loadHOMER <- function(file){
