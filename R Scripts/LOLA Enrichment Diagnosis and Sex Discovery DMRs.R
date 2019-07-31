@@ -149,11 +149,39 @@ plotLOLAchromHMM(chromHMM = chromHMM_combined, facet = vars(userSet), title = NU
                  width = 9, height = 7, legend.position = c(1.12, 0.855),
                  file = "Figures/LOLA chromHMM Dx Discovery 50 Males log qvalue Heatmap.png")
 
-# Enriched ####
-table(histone_hyper$qValue < 0.05, histone_hyper$antibody)["TRUE",] > 127 * 0.5 # All TRUE
-table(histone_hypo$qValue < 0.05, histone_hypo$antibody)["TRUE",] > 127 * 0.5 # All TRUE
-table(chromHMM_hyper$qValue < 0.05, chromHMM_hyper$chromState)["TRUE",] > 127 * 0.5 # All TRUE
-table(chromHMM_hypo$qValue < 0.05, chromHMM_hypo$chromState)["TRUE",] > 127 * 0.5 # All TRUE
+# Top Enriched ####
+# Top enriched if regions in at least 50% of cell types are above the median of odds ratio and log(qvalue) for that DMR set
+table(histone_hyper$oddsRatio >= median(histone_hyper$oddsRatio) &
+              histone_hyper$qValueLog >= median(histone_hyper$qValueLog) &
+              histone_hyper$qValue < 0.05,
+      histone_hyper$antibody)["TRUE",] > length(unique(histone_hyper$cellType)) * 0.5
+# H3K4me1  H3K4me3  H3K9me3 H3K27me3 H3K36me3 
+#    TRUE     TRUE    FALSE     TRUE    FALSE
+
+table(histone_hypo$oddsRatio >= median(histone_hypo$oddsRatio) &
+              histone_hypo$qValueLog >= median(histone_hypo$qValueLog) &
+              histone_hypo$qValue < 0.05,
+      histone_hypo$antibody)["TRUE",] > length(unique(histone_hypo$cellType)) * 0.5
+# H3K4me1  H3K4me3  H3K9me3 H3K27me3 H3K36me3 
+#   FALSE     TRUE    FALSE     TRUE    FALSE 
+
+table(chromHMM_hyper$oddsRatio >= median(chromHMM_hyper$oddsRatio) &
+              chromHMM_hyper$qValueLog >= median(chromHMM_hyper$qValueLog) &
+              chromHMM_hyper$qValue < 0.05,
+      chromHMM_hyper$chromState)["TRUE",] > length(unique(chromHMM_hyper$cellType)) * 0.5
+#     TssA TssAFlnk   TxFlnk       Tx     TxWk     EnhG      Enh  ZnfRpts      Het   TssBiv  BivFlnk   EnhBiv   ReprPC 
+#     TRUE     TRUE     TRUE    FALSE    FALSE     TRUE    FALSE    FALSE    FALSE     TRUE     TRUE     TRUE     TRUE 
+# ReprPCwk    Quies 
+#    FALSE    FALSE 
+
+table(chromHMM_hypo$oddsRatio >= median(chromHMM_hypo$oddsRatio) &
+              chromHMM_hypo$qValueLog >= median(chromHMM_hypo$qValueLog) &
+              chromHMM_hypo$qValue < 0.05,
+      chromHMM_hypo$chromState)["TRUE",] > length(unique(chromHMM_hypo$cellType)) * 0.5
+#     TssA TssAFlnk   TxFlnk       Tx     TxWk     EnhG      Enh  ZnfRpts      Het   TssBiv  BivFlnk   EnhBiv   ReprPC 
+#     TRUE     TRUE    FALSE    FALSE    FALSE    FALSE    FALSE    FALSE    FALSE     TRUE     TRUE     TRUE     TRUE 
+# ReprPCwk    Quies 
+#    FALSE    FALSE 
 
 # Analyze Discovery Diagnosis Females DMRs LOLA ------------------------------------
 # Load Data ####
@@ -205,11 +233,39 @@ plotLOLAchromHMM(chromHMM = chromHMM_combined, facet = vars(userSet), title = NU
                  width = 9, height = 7, legend.position = c(1.12, 0.855),
                  file = "Figures/LOLA chromHMM Dx Discovery 50 Females log qvalue Heatmap.png")
 
-# Enriched ####
-table(histone_hyper$qValue < 0.05, histone_hyper$antibody)["TRUE",] > 127 * 0.5 # All TRUE
-table(histone_hypo$qValue < 0.05, histone_hypo$antibody)["TRUE",] > 127 * 0.5 # All TRUE
-table(chromHMM_hyper$qValue < 0.05, chromHMM_hyper$chromState)["TRUE",] > 127 * 0.5 # All TRUE
-table(chromHMM_hypo$qValue < 0.05, chromHMM_hypo$chromState)["TRUE",] > 127 * 0.5 # All TRUE
+# Top Enriched ####
+# Top enriched if regions in at least 50% of cell types are above the median of odds ratio and log(qvalue) for that DMR set
+table(histone_hyper$oddsRatio >= median(histone_hyper$oddsRatio) &
+              histone_hyper$qValueLog >= median(histone_hyper$qValueLog) &
+              histone_hyper$qValue < 0.05,
+      histone_hyper$antibody)["TRUE",] > length(unique(histone_hyper$cellType)) * 0.5
+# H3K4me1  H3K4me3  H3K9me3 H3K27me3 H3K36me3 
+#    TRUE     TRUE    FALSE     TRUE    FALSE
+
+table(histone_hypo$oddsRatio >= median(histone_hypo$oddsRatio) &
+              histone_hypo$qValueLog >= median(histone_hypo$qValueLog) &
+              histone_hypo$qValue < 0.05,
+      histone_hypo$antibody)["TRUE",] > length(unique(histone_hypo$cellType)) * 0.5
+# H3K4me1  H3K4me3  H3K9me3 H3K27me3 H3K36me3 
+#    TRUE     TRUE    FALSE     TRUE    FALSE 
+
+table(chromHMM_hyper$oddsRatio >= median(chromHMM_hyper$oddsRatio) &
+              chromHMM_hyper$qValueLog >= median(chromHMM_hyper$qValueLog) &
+              chromHMM_hyper$qValue < 0.05,
+      chromHMM_hyper$chromState)["TRUE",] > length(unique(chromHMM_hyper$cellType)) * 0.5
+#     TssA TssAFlnk   TxFlnk       Tx     TxWk     EnhG      Enh  ZnfRpts      Het   TssBiv  BivFlnk   EnhBiv   ReprPC 
+#     TRUE     TRUE    FALSE    FALSE    FALSE     TRUE    FALSE    FALSE    FALSE    FALSE     TRUE     TRUE     TRUE 
+# ReprPCwk    Quies 
+#    FALSE    FALSE 
+
+table(chromHMM_hypo$oddsRatio >= median(chromHMM_hypo$oddsRatio) &
+              chromHMM_hypo$qValueLog >= median(chromHMM_hypo$qValueLog) &
+              chromHMM_hypo$qValue < 0.05,
+      chromHMM_hypo$chromState)["TRUE",] > length(unique(chromHMM_hypo$cellType)) * 0.5
+#     TssA TssAFlnk   TxFlnk       Tx     TxWk     EnhG      Enh  ZnfRpts      Het   TssBiv  BivFlnk   EnhBiv   ReprPC 
+#     TRUE     TRUE    FALSE    FALSE    FALSE     TRUE    FALSE    FALSE    FALSE    FALSE     TRUE     TRUE     TRUE 
+# ReprPCwk    Quies 
+#    FALSE    FALSE 
 
 # Analyze Replication Diagnosis Males DMRs LOLA ------------------------------------
 # Load Data ####
@@ -261,11 +317,39 @@ plotLOLAchromHMM(chromHMM = chromHMM_combined, facet = vars(userSet), title = NU
                  width = 9, height = 7, legend.position = c(1.12, 0.855),
                  file = "Figures/LOLA chromHMM Dx Replication 50 Males log qvalue Heatmap.png")
 
-# Enriched ####
-table(histone_hyper$qValue < 0.05, histone_hyper$antibody)["TRUE",] > 127 * 0.5 # All TRUE
-table(histone_hypo$qValue < 0.05, histone_hypo$antibody)["TRUE",] > 127 * 0.5 # All TRUE
-table(chromHMM_hyper$qValue < 0.05, chromHMM_hyper$chromState)["TRUE",] > 127 * 0.5 # All TRUE
-table(chromHMM_hypo$qValue < 0.05, chromHMM_hypo$chromState)["TRUE",] > 127 * 0.5 # All TRUE
+# Top Enriched ####
+# Top enriched if regions in at least 50% of cell types are above the median of odds ratio and log(qvalue) for that DMR set
+table(histone_hyper$oddsRatio >= median(histone_hyper$oddsRatio) &
+              histone_hyper$qValueLog >= median(histone_hyper$qValueLog) &
+              histone_hyper$qValue < 0.05,
+      histone_hyper$antibody)["TRUE",] > length(unique(histone_hyper$cellType)) * 0.5
+# H3K4me1  H3K4me3  H3K9me3 H3K27me3 H3K36me3 
+#    TRUE     TRUE    FALSE    FALSE    FALSE 
+
+table(histone_hypo$oddsRatio >= median(histone_hypo$oddsRatio) &
+              histone_hypo$qValueLog >= median(histone_hypo$qValueLog) &
+              histone_hypo$qValue < 0.05,
+      histone_hypo$antibody)["TRUE",] > length(unique(histone_hypo$cellType)) * 0.5
+# H3K4me1  H3K4me3  H3K9me3 H3K27me3 H3K36me3 
+#   FALSE     TRUE    FALSE     TRUE    FALSE 
+
+table(chromHMM_hyper$oddsRatio >= median(chromHMM_hyper$oddsRatio) &
+              chromHMM_hyper$qValueLog >= median(chromHMM_hyper$qValueLog) &
+              chromHMM_hyper$qValue < 0.05,
+      chromHMM_hyper$chromState)["TRUE",] > length(unique(chromHMM_hyper$cellType)) * 0.5
+#     TssA TssAFlnk   TxFlnk       Tx     TxWk     EnhG      Enh  ZnfRpts      Het   TssBiv  BivFlnk   EnhBiv   ReprPC 
+#     TRUE     TRUE    FALSE    FALSE    FALSE     TRUE    FALSE    FALSE    FALSE    FALSE    FALSE     TRUE    FALSE 
+# ReprPCwk    Quies 
+#    FALSE    FALSE
+
+table(chromHMM_hypo$oddsRatio >= median(chromHMM_hypo$oddsRatio) &
+              chromHMM_hypo$qValueLog >= median(chromHMM_hypo$qValueLog) &
+              chromHMM_hypo$qValue < 0.05,
+      chromHMM_hypo$chromState)["TRUE",] > length(unique(chromHMM_hypo$cellType)) * 0.5
+#     TssA TssAFlnk   TxFlnk       Tx     TxWk     EnhG      Enh  ZnfRpts      Het   TssBiv  BivFlnk   EnhBiv   ReprPC 
+#     TRUE     TRUE    FALSE    FALSE    FALSE    FALSE    FALSE    FALSE    FALSE    FALSE     TRUE     TRUE     TRUE 
+# ReprPCwk    Quies 
+#    FALSE    FALSE 
 
 # Analyze Replication Diagnosis Females DMRs LOLA ------------------------------------
 # Load Data ####
@@ -317,8 +401,36 @@ plotLOLAchromHMM(chromHMM = chromHMM_combined, facet = vars(userSet), title = NU
                  width = 9, height = 7, legend.position = c(1.12, 0.855),
                  file = "Figures/LOLA chromHMM Dx Replication 100 Females log qvalue Heatmap.png")
 
-# Enriched ####
-table(histone_hyper$qValue < 0.05, histone_hyper$antibody)["TRUE",] > 127 * 0.5 # All TRUE
-table(histone_hypo$qValue < 0.05, histone_hypo$antibody)["TRUE",] > 127 * 0.5 # All TRUE
-table(chromHMM_hyper$qValue < 0.05, chromHMM_hyper$chromState)["TRUE",] > 127 * 0.5 # All TRUE, except Quies
-table(chromHMM_hypo$qValue < 0.05, chromHMM_hypo$chromState)["TRUE",] > 127 * 0.5 # All TRUE, except Quies
+# Top Enriched ####
+# Top enriched if regions in at least 50% of cell types are above the median of odds ratio and log(qvalue) for that DMR set
+table(histone_hyper$oddsRatio >= median(histone_hyper$oddsRatio) &
+              histone_hyper$qValueLog >= median(histone_hyper$qValueLog) &
+              histone_hyper$qValue < 0.05,
+      histone_hyper$antibody)["TRUE",] > length(unique(histone_hyper$cellType)) * 0.5
+# H3K4me1  H3K4me3  H3K9me3 H3K27me3 H3K36me3 
+#    TRUE     TRUE    FALSE    FALSE    FALSE 
+
+table(histone_hypo$oddsRatio >= median(histone_hypo$oddsRatio) &
+              histone_hypo$qValueLog >= median(histone_hypo$qValueLog) &
+              histone_hypo$qValue < 0.05,
+      histone_hypo$antibody)["TRUE",] > length(unique(histone_hypo$cellType)) * 0.5
+# H3K4me1  H3K4me3  H3K9me3 H3K27me3 H3K36me3 
+#    TRUE     TRUE    FALSE     TRUE    FALSE 
+
+table(chromHMM_hyper$oddsRatio >= median(chromHMM_hyper$oddsRatio) &
+              chromHMM_hyper$qValueLog >= median(chromHMM_hyper$qValueLog) &
+              chromHMM_hyper$qValue < 0.05,
+      chromHMM_hyper$chromState)["TRUE",] > length(unique(chromHMM_hyper$cellType)) * 0.5
+#     TssA TssAFlnk   TxFlnk       Tx     TxWk     EnhG      Enh  ZnfRpts      Het   TssBiv  BivFlnk   EnhBiv   ReprPC 
+#     TRUE     TRUE    FALSE    FALSE    FALSE     TRUE    FALSE    FALSE    FALSE    FALSE     TRUE     TRUE     TRUE 
+# ReprPCwk    Quies 
+#    FALSE    FALSE 
+
+table(chromHMM_hypo$oddsRatio >= median(chromHMM_hypo$oddsRatio) &
+              chromHMM_hypo$qValueLog >= median(chromHMM_hypo$qValueLog) &
+              chromHMM_hypo$qValue < 0.05,
+      chromHMM_hypo$chromState)["TRUE",] > length(unique(chromHMM_hypo$cellType)) * 0.5
+#     TssA TssAFlnk   TxFlnk       Tx     TxWk     EnhG      Enh  ZnfRpts      Het   TssBiv  BivFlnk   EnhBiv   ReprPC 
+#     TRUE     TRUE    FALSE    FALSE    FALSE     TRUE    FALSE    FALSE    FALSE    FALSE     TRUE     TRUE     TRUE 
+# ReprPCwk    Quies 
+#    FALSE    FALSE 
