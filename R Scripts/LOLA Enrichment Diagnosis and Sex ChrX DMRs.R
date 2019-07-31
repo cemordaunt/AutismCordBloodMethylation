@@ -9,28 +9,28 @@ sapply(c("tidyverse", "LOLA", "simpleCache", "GenomicRanges", "qvalue", "RColorB
 
 # Functions ####
 # Epigenerate
-loadRegions <- function(file, chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"), sort = TRUE){
-        if(grepl("txt", file, fixed = TRUE)){
-                regions <- read.delim(file, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-        }
-        else{
-                regions <- read.csv(file, header = TRUE, stringsAsFactors = FALSE)
-        }
-        if("seqnames" %in% colnames(regions)){
-                colnames(regions)[colnames(regions) == "seqnames"] <- "chr"
-        }
-        regions <- subset(regions, chr %in% chroms)
-        regions$chr <- factor(regions$chr, levels = chroms)
-        if(sort){
-                regions <- regions[order(regions$chr, regions$start),]
-        }
-        return(regions)
-}
-makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
-        if(direction == "hyper"){DMRs <- subset(DMRs, percentDifference > 0)}
-        if(direction == "hypo"){DMRs <- subset(DMRs, percentDifference < 0)}
-        GR <- GRanges(seqnames = DMRs$chr, ranges = IRanges(start = DMRs$start, end = DMRs$end))
-}
+# loadRegions <- function(file, chroms = c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM"), sort = TRUE){
+#         if(grepl("txt", file, fixed = TRUE)){
+#                 regions <- read.delim(file, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+#         }
+#         else{
+#                 regions <- read.csv(file, header = TRUE, stringsAsFactors = FALSE)
+#         }
+#         if("seqnames" %in% colnames(regions)){
+#                 colnames(regions)[colnames(regions) == "seqnames"] <- "chr"
+#         }
+#         regions <- subset(regions, chr %in% chroms)
+#         regions$chr <- factor(regions$chr, levels = chroms)
+#         if(sort){
+#                 regions <- regions[order(regions$chr, regions$start),]
+#         }
+#         return(regions)
+# }
+# makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
+#         if(direction == "hyper"){DMRs <- subset(DMRs, percentDifference > 0)}
+#         if(direction == "hypo"){DMRs <- subset(DMRs, percentDifference < 0)}
+#         GR <- GRanges(seqnames = DMRs$chr, ranges = IRanges(start = DMRs$start, end = DMRs$end))
+# }
 
 # Laptop
 source("R Scripts/DMR Analysis Functions.R")

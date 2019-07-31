@@ -806,9 +806,13 @@ prepLOLAhistone <- function(histone, index, regions, file){
         histone$pct_DMRs <- histone$support * 100 / (histone$support[1] + histone$c[1])
         
         if(!is.na(table(is.infinite(histone$oddsRatio))["TRUE"]) & table(is.infinite(histone$oddsRatio))["TRUE"] > 0){
-                message("[prepLOLAhistone] Replacing infinite odds ratios with max")
+                message("[prepLOLAhistone] Replacing infinite odds ratios with max odds ratio for that antibody")
                 histone$oddsRatio[is.infinite(histone$oddsRatio)] <- NA
-                histone$oddsRatio[is.na(histone$oddsRatio)] <- max(histone$OddsRatio, na.rm = TRUE)
+                replace <- unique(as.character(histone$antibody[is.na(histone$oddsRatio)]))
+                for(i in 1:length(replace)){
+                        histone$oddsRatio[histone$antibody == replace[i] & is.na(histone$oddsRatio)] <- 
+                                max(histone$oddsRatio[histone$antibody == replace[i]], na.rm = TRUE)
+                }
         }
         
         if(!is.na(table(is.infinite(histone$pValueLog))["TRUE"]) & table(is.infinite(histone$pValueLog))["TRUE"] > 0){
@@ -1000,9 +1004,13 @@ prepLOLAchromHMM <- function(chromHMM, index, regions, file){
         chromHMM$pct_DMRs <- chromHMM$support * 100 / (chromHMM$support[1] + chromHMM$c[1])
         
         if(!is.na(table(is.infinite(chromHMM$oddsRatio))["TRUE"]) & table(is.infinite(chromHMM$oddsRatio))["TRUE"] > 0){
-                message("[prepLOLAchromHMM] Replacing infinite odds ratios with max")
+                message("[prepLOLAchromHMM] Replacing infinite odds ratios with max odds ratio for that antibody")
                 chromHMM$oddsRatio[is.infinite(chromHMM$oddsRatio)] <- NA
-                chromHMM$oddsRatio[is.na(chromHMM$oddsRatio)] <- max(chromHMM$oddsRatio, na.rm = TRUE)
+                replace <- unique(as.character(chromHMM$antibody[is.na(chromHMM$oddsRatio)]))
+                for(i in 1:length(replace)){
+                        chromHMM$oddsRatio[chromHMM$antibody == replace[i] & is.na(chromHMM$oddsRatio)] <- 
+                                max(chromHMM$oddsRatio[chromHMM$antibody == replace[i]], na.rm = TRUE)
+                }
         }
         
         if(!is.na(table(is.infinite(chromHMM$pValueLog))["TRUE"]) & table(is.infinite(chromHMM$pValueLog))["TRUE"] > 0){
