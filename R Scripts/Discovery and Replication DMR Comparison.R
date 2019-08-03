@@ -1,7 +1,7 @@
 # Discovery and Replication DMR Comparison --------------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 6/6/19
+# 8/3/19
 # Excluded JLCM032B and JLCM050B
 # Removed DxAdjSex
 
@@ -794,6 +794,45 @@ gg <- gg +
               legend.text = element_text(size = 14), panel.background = element_rect(fill = "black"))
 ggsave("Figures/Discovery and Replication Males Females DAVID Expression logp Heatmap.png", plot = gg, dpi = 600, width = 8, 
        height = 6.5, units = "in")
+
+# ChrX DAVID Analysis --------------------------------------------------------
+# Get IDs ####
+# Get DMR Gene IDs
+chrX_regions_IDs <- lapply(chrX_regions[c("DisDxMales", "DisDxFemales", "RepDxMales", "RepDxFemales")], function(x){
+        getDMRgeneList(x, regDomains = regDomains, direction = "all", type = "gene_entrezID")})
+
+# Get Background IDs
+chrX_Back_IDs <- lapply(chrX_Back[c("DisDxMalesBack", "DisDxFemalesBack", "RepDxMalesBack", "RepDxFemalesBack")], function(x){
+        getDMRgeneList(x, regDomains = regDomains, direction = "all", type = "gene_entrezID")})
+
+# Run DAVID ####
+david <- DAVIDWebService$new(url = "https://david.abcc.ncifcrf.gov/webservice/services/DAVIDWebService.DAVIDWebServiceHttpSoap12Endpoint/",
+                             email = "cemordaunt@ucdavis.edu")
+categories <- getAllAnnotationCategoryNames(david)
+categories <- c("BBID", "BIOCARTA", "BIOGRID_INTERACTION", "CGAP_EST_QUARTILE", "CGAP_SAGE_QUARTILE", "CHROMOSOME",                
+                "COG_ONTOLOGY", "CYTOBAND", "DIP", "EC_NUMBER", "GAD_DISEASE", "GENE3D", "GNF_U133A_QUARTILE", 
+                "GENERIF_SUMMARY", "GOTERM_BP_DIRECT", "GOTERM_CC_DIRECT", "GOTERM_MF_DIRECT", "KEGG_PATHWAY", "INTERPRO", 
+                "INTACT", "OMIM_DISEASE", "MINT", "PIR_SEQ_FEATURE", "PIR_SUMMARY", "PIR_SUPERFAMILY", "PFAM", 
+                "REACTOME_PATHWAY", "SMART", "PRINTS", "PRODOM", "PROSITE", "UP_KEYWORDS", "UNIGENE_EST_QUARTILE", 
+                "SP_COMMENT_TYPE", "SP_COMMENT", "TIGRFAMS", "SUPFAM", "UP_TISSUE", "UP_SEQ_FEATURE")  
+
+chrX_DAVID <- mapply(getDAVID, genes = chrX_regions_IDs, background = chrX_Back_IDs, 
+                   file = c("Tables/Discovery Males chrX DMR Genes DAVID Results.txt", 
+                            "Tables/Discovery Females chrX DMR Genes DAVID Results.txt", 
+                            "Tables/Replication Males chrX DMR Genes DAVID Results.txt",
+                            "Tables/Replication Females chrX DMR Genes DAVID Results.txt"),
+                   MoreArgs = list(categories = categories), SIMPLIFY = FALSE)
+
+# Overlap DAVID Results ####
+# Add Matching Term
+chrX_DAVID <- lapply(chrX_DAVID, function(x){
+        x$Category_Term <- paste(x$Category, x$Term, sep = " ")
+        return(x)})
+
+# Merge
+chrX_DAVID_int <- list(Males = merge(x = chrX_DAVID$DisDxMales, y = chrX_DAVID$RepDxMales, by = "Category_Term", all = FALSE),
+                       Females = merge(x = chrX_DAVID$DisDxFemales, y = chrX_DAVID$RepDxFemales, by = "Category_Term", all = FALSE))
+# No overlapping terms, not enough genes after subsetting for chrX
 
 # DMR Percent of Background by Direction Stacked Barplots -----------------
 # DMR Percent of Background Hyper and Hypomethylated All Chroms ####
