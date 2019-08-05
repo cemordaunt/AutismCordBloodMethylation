@@ -1,7 +1,7 @@
 # Transcription Factor Motif Enrichment Analysis -----------------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 7/31/19
+# 8/5/19
 
 # Packages ####
 sapply(c("tidyverse", "GenomicRanges", "LOLA", "reshape2"), require, character.only = TRUE)
@@ -45,7 +45,19 @@ reHypoDMRs <- mapply(function(x, y){
         makeGRange(x, direction = "hypo") %>% GRangesList() %>% redefineUserSets(userUniverse = y) %>% as.data.frame()
 }, x = DMRs, y = GR_Background, SIMPLIFY = FALSE)
 
+# Split Autosome and ChrX DMRs ####
+Background_auto <- lapply(Background, subset, chr %in% paste("chr", 1:22, sep = ""))
+reDMRs_auto <- lapply(reDMRs, subset, seqnames %in% paste("chr", 1:22, sep = ""))
+reHyperDMRs_auto <- lapply(reHyperDMRs, subset, seqnames %in% paste("chr", 1:22, sep = ""))
+reHypoDMRs_auto <- lapply(reHypoDMRs, subset, seqnames %in% paste("chr", 1:22, sep = ""))
+
+Background_chrX <- lapply(Background, subset, chr == "chrX")
+reDMRs_chrX <- lapply(reDMRs, subset, seqnames == "chrX")
+reHyperDMRs_chrX <- lapply(reHyperDMRs, subset, seqnames == "chrX")
+reHypoDMRs_chrX <- lapply(reHypoDMRs, subset, seqnames == "chrX")
+
 # Write BED Files ####
+# All DMRs
 mapply(writeBED, regions = reDMRs, 
        file = paste("UCSC Tracks/", c("Discovery_Males", "Discovery_Females", "Replication_Males", "Replication_Females"),
                     "_Diagnosis_DMRs_HOMER.bed", sep = ""))
@@ -58,6 +70,34 @@ mapply(writeBED, regions = reHypoDMRs,
 mapply(writeBED, regions = Background, 
        file = paste("UCSC Tracks/", c("Discovery_Males", "Discovery_Females", "Replication_Males", "Replication_Females"),
                     "_background.bed", sep = ""))
+
+# Autosome DMRs
+mapply(writeBED, regions = reDMRs_auto, 
+       file = paste("UCSC Tracks/", c("Discovery_Males", "Discovery_Females", "Replication_Males", "Replication_Females"),
+                    "_Diagnosis_DMRs_auto_HOMER.bed", sep = ""))
+mapply(writeBED, regions = reHyperDMRs_auto, 
+       file = paste("UCSC Tracks/", c("Discovery_Males", "Discovery_Females", "Replication_Males", "Replication_Females"),
+                    "_Diagnosis_Hyper_DMRs_auto_HOMER.bed", sep = ""))
+mapply(writeBED, regions = reHypoDMRs_auto, 
+       file = paste("UCSC Tracks/", c("Discovery_Males", "Discovery_Females", "Replication_Males", "Replication_Females"),
+                    "_Diagnosis_Hypo_DMRs_auto_HOMER.bed", sep = ""))
+mapply(writeBED, regions = Background_auto, 
+       file = paste("UCSC Tracks/", c("Discovery_Males", "Discovery_Females", "Replication_Males", "Replication_Females"),
+                    "_background_auto.bed", sep = ""))
+
+# ChrX DMRs
+mapply(writeBED, regions = reDMRs_chrX, 
+       file = paste("UCSC Tracks/", c("Discovery_Males", "Discovery_Females", "Replication_Males", "Replication_Females"),
+                    "_Diagnosis_DMRs_chrX_HOMER.bed", sep = ""))
+mapply(writeBED, regions = reHyperDMRs_chrX, 
+       file = paste("UCSC Tracks/", c("Discovery_Males", "Discovery_Females", "Replication_Males", "Replication_Females"),
+                    "_Diagnosis_Hyper_DMRs_chrX_HOMER.bed", sep = ""))
+mapply(writeBED, regions = reHypoDMRs_chrX, 
+       file = paste("UCSC Tracks/", c("Discovery_Males", "Discovery_Females", "Replication_Males", "Replication_Females"),
+                    "_Diagnosis_Hypo_DMRs_chrX_HOMER.bed", sep = ""))
+mapply(writeBED, regions = Background_chrX, 
+       file = paste("UCSC Tracks/", c("Discovery_Males", "Discovery_Females", "Replication_Males", "Replication_Females"),
+                    "_background_chrX.bed", sep = ""))
 
 # Get HOMER Enrichments ---------------------------------------------------
 # HOMER Version v4.10

@@ -1,15 +1,61 @@
 # Autism Gene Overlap -----------------------------------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 7/23/19
+# 8/5/19
 
 # Packages ####
-sapply(c("reshape2", "tidyverse", "GenomicRanges", "annotatr", "GeneOverlap", "rlist", "biomaRt"), require, character.only = TRUE)
+sapply(c("reshape2", "tidyverse", "GenomicRanges", "annotatr", "GeneOverlap", "rlist", "biomaRt", "rtracklayer"), require, character.only = TRUE)
 
 # Functions ####
 source("R Scripts/DMR Analysis Functions.R")
 regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 
+# Get DMR ENSGs -----------------------------------------------------------
+# Load Regions ####
+chromsXY <- c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")
+chromsX <- c(paste("chr", 1:22, sep = ""), "chrX", "chrM")
+DMRs <- list(MalesDisc = loadRegions("DMRs/Discovery/Diagnosis Males 50/DMRs_Dx_Discovery50_males.csv",
+                                     chroms = chromsXY, sort = TRUE, DMRid = TRUE),
+             FemalesDisc = loadRegions("DMRs/Discovery/Diagnosis Females 50/DMRs_Dx_Discovery50_females.csv",
+                                       chroms = chromsX, sort = TRUE, DMRid = TRUE),
+             MalesRep = loadRegions("DMRs/Replication/Diagnosis Males 50/DMRs_Dx_Replication50_males.csv",
+                                    chroms = chromsXY, sort = TRUE, DMRid = TRUE),
+             FemalesRep = loadRegions("DMRs/Replication/Diagnosis Females 100/DMRs_Dx_Replication100_females.csv",
+                                      chroms = chromsX, sort = TRUE, DMRid = TRUE))
+Background <- list(MalesDisc = loadRegions("DMRs/Discovery/Diagnosis Males 50/bsseq_background_Discovery50_males.csv",
+                                           chroms = chromsXY, sort = TRUE),
+                   FemalesDisc = loadRegions("DMRs/Discovery/Diagnosis Females 50/bsseq_background_Discovery50_females.csv",
+                                             chroms = chromsX, sort = TRUE),
+                   MalesRep = loadRegions("DMRs/Replication/Diagnosis Males 50/bsseq_background_Replication50_males.csv",
+                                          chroms = chromsXY, sort = TRUE),
+                   FemalesRep = loadRegions("DMRs/Replication/Diagnosis Females 100/bsseq_background_Replication100_females.csv",
+                                            chroms = chromsX, sort = TRUE))
+
+# Get Entrez Gene IDs
+DMRs_entrez <- lapply(DMRs, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_entrezID")
+Background_entrez <- lapply(Background, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_entrezID")
+
+# Write Files
+names(DMRs_entrez) <- c("Males_Discovery", "Females_Discovery", "Males_Replication", "Females_Replication")
+mapply(write.table, x = DMRs_entrez, file = paste("Tables/EntrezIDs_", names(DMRs_entrez), "_DMRs.txt", sep = ""), 
+       MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
+
+names(Background_entrez) <- c("Males_Discovery", "Females_Discovery", "Males_Replication", "Females_Replication")
+mapply(write.table, x = Background_entrez, file = paste("Tables/EntrezIDs_", names(Background_entrez), "_Background.txt", sep = ""), 
+       MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
+
+# Use entrez IDs instead of ENSGs
+# Many DMR genes are lost after converting from entrez to ensembl
+# Used entrez IDs for DAVID enrichment
+# Used entrez IDs/NCBI refseq for gene assignment
+
+sapply(DMRs_entrez, length)
+# MalesDisc FemalesDisc    MalesRep  FemalesRep 
+#       949        2912        5429        9496 
+
+sapply(DMRs_ENSGs, nrow)
+# MalesDisc FemalesDisc    MalesRep  FemalesRep 
+#       591        1984        3735        6890 
 
 # Get Gene Lists ----------------------------------------------------------
 # Load Regions ####
@@ -58,19 +104,17 @@ DMRs <- append(DMRs_hg18tohg38, DMRs_hg19tohg38) %>% append(DMRs_hg38)
 genes <- lapply(DMRs, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_name")
 genes <- genes[sort(names(genes), decreasing = TRUE)]
 
-# Get ENSGs ####
-ensembl <- useEnsembl("ensembl", dataset = "hsapiens_gene_ensembl")
-ENSGs <- lapply(genes, getBM, attributes = "ensembl_gene_id", filters = "external_gene_name", mart = ensembl)
-ENSGs <- lapply(ENSGs, unlist)
-names(ENSGs) <- c("VisualCortex_Ellis_mCpH", "VisualCortex_Ellis_mCpG", "TemporalCortex_Wong_mCpG", 
+# Get EntrezIDs ####
+entrezIDs <- lapply(DMRs, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_entrezID")
+entrezIDs <- entrezIDs[sort(names(entrezIDs), decreasing = TRUE)]
+names(entrezIDs) <- c("VisualCortex_Ellis_mCpH", "VisualCortex_Ellis_mCpG", "TemporalCortex_Wong_mCpG", 
                   "TemporalCortex_Sun_H3K27Ac", "TemporalCortex_LaddAcosta_mCpG", "Sperm_Feinberg_mCpG", "Placenta_Zhu_mCpG",
                   "PFCneurons_Shulha_H3K4me3", "PFCneurons_Nardone_mCpG", "PFC_Wong_mCpG", "PFC_VogelCiernia_mCpG",
                   "PFC_Sun_H3K27Ac", "PFC_Nardone_mCpG", "LCL_Nguyen_mCpG", "CingulateCortex_Nardone_mCpG", 
                   "Cerebellum_Wong_mCpG", "Cerebellum_Sun_H3K27Ac", "Cerebellum_LaddAcosta_mCpG", "Buccal_Berko_mCpG",
                   "Bloodspot_Hannon_mCpG", "Blood_Wong_mCpG", "Blood_Andrews_mCpG")
-mapply(write.table, x = ENSGs, file = paste("Tables/ENSGs_", names(ENSGs), ".txt", sep = ""), 
+mapply(write.table, x = entrezIDs, file = paste("Tables/EntrezIDs_", names(entrezIDs), ".txt", sep = ""), 
        MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
-
 
 # Overlap Genes -----------------------------------------------------------
 # Compare Gene Lists ####
@@ -238,7 +282,6 @@ intersectRegions_topGenes <- getDMRgeneList(intersectRegions_top, regDomains = r
 # [1] "ABHD12"       "COL8A2"       "ITGB7"        "ITIH1"        "ITIH3"        "LOC100130238" "LOC101928416" "LOC102724467"
 # [9] "MIR6775"      "PRSS37"       "PYGB"         "RBMS2"        "TAS2R5"      
 
-# Direction?
 
 
 
