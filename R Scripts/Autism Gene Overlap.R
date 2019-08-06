@@ -10,7 +10,7 @@ sapply(c("reshape2", "tidyverse", "GenomicRanges", "annotatr", "GeneOverlap", "r
 source("R Scripts/DMR Analysis Functions.R")
 regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 
-# Get DMR ENSGs -----------------------------------------------------------
+# Get DMR EntrezIDs -----------------------------------------------------------
 # Load Regions ####
 chromsXY <- c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")
 chromsX <- c(paste("chr", 1:22, sep = ""), "chrX", "chrM")
@@ -31,7 +31,7 @@ Background <- list(MalesDisc = loadRegions("DMRs/Discovery/Diagnosis Males 50/bs
                    FemalesRep = loadRegions("DMRs/Replication/Diagnosis Females 100/bsseq_background_Replication100_females.csv",
                                             chroms = chromsX, sort = TRUE))
 
-# Get Entrez Gene IDs
+# Get Entrez Gene IDs ####
 DMRs_entrez <- lapply(DMRs, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_entrezID")
 Background_entrez <- lapply(Background, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_entrezID")
 
@@ -57,7 +57,24 @@ sapply(DMRs_ENSGs, nrow)
 # MalesDisc FemalesDisc    MalesRep  FemalesRep 
 #       591        1984        3735        6890 
 
-# Get Gene Lists ----------------------------------------------------------
+# Convert ENSGs to Entrez IDs Overlaps from Vogel Ciernia et al 2019 ---------------
+# Read in Files
+files <- list.files("ENSG ID Lists")
+files <- files[!grepl("CpG", files, fixed = TRUE) & !grepl("CpH", files, fixed = TRUE) & !grepl("H3K", files, fixed = TRUE)]
+files <- paste("ENSG ID Lists/", files, sep = "")
+ENSG <- lapply(files, read.delim, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
+ENSG <- lapply(ENSG, unlist, use.names = TRUE)
+
+# Convert to Entrez IDs
+ensembl <- useEnsembl("ensembl", dataset = "hsapiens_gene_ensembl")
+entrezIDs <- lapply(ENSG, getBM, attributes = "entrezgene_id", filters = "ensembl_gene_id", mart = ensembl)
+entrezIDs <- lapply(entrezIDs, unlist, use.names = TRUE)
+
+# Write Files
+newFiles <- gsub("ENSG ID Lists/ENSGs", replacement = "Entrez ID Lists/EntrezIDs", x = files, fixed = TRUE)
+mapply(write.table, x = entrezIDs, file = newFiles, MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
+
+# Get EWAS Gene Lists ----------------------------------------------------------
 # Load Regions ####
 DMRs_hg18 <- lapply(c("Tables/Nguyen LCL DMRs hg18.csv", "Tables/Wong Blood DMPs hg18.csv"), read.csv, header = TRUE, 
                     stringsAsFactors = FALSE)
@@ -80,9 +97,10 @@ names(DMRs_hg19) <- c("CingulateCortex_Nardone", "PFC_Nardone", "PFCneurons_Shul
                       "PFC_Wong")
 DMRs_hg19$Bloodspot_Hannon$chr <- gsub(" ", replacement = "", DMRs_hg19$Bloodspot_Hannon$chr) # Remove spaces
 
-DMRs_hg38 <- lapply(c("Tables/Zhu Placenta DMRs hg38.csv", "Tables/Vogel Ciernia Brain DMRs hg38.csv"), read.csv,
-                    header = TRUE, stringsAsFactors = FALSE)
-names(DMRs_hg38) <- c("Placenta_Zhu", "PFC_VogelCiernia")
+DMRs_hg38 <- lapply(c("Tables/Zhu Placenta DMRs hg38.csv", "Tables/Vogel Ciernia Brain DMRs hg38.csv",
+                      "Tables/Vogel Ciernia Dup15q Brain DMRs hg38.csv", "Tables/Vogel Ciernia RTT Brain DMRs hg38.csv"),
+                    read.csv, header = TRUE, stringsAsFactors = FALSE)
+names(DMRs_hg38) <- c("Placenta_Zhu", "PFC_VogelCiernia_ASD", "PFC_VogelCiernia_Dup15", "PFC_VogelCiernia_RTT")
 
 # LiftOver to hg38 ####
 liftOverDMRs <- function(DMRs, chainFile){
@@ -109,14 +127,15 @@ entrezIDs <- lapply(DMRs, getDMRgeneList, regDomains = regDomains, direction = "
 entrezIDs <- entrezIDs[sort(names(entrezIDs), decreasing = TRUE)]
 names(entrezIDs) <- c("VisualCortex_Ellis_mCpH", "VisualCortex_Ellis_mCpG", "TemporalCortex_Wong_mCpG", 
                   "TemporalCortex_Sun_H3K27Ac", "TemporalCortex_LaddAcosta_mCpG", "Sperm_Feinberg_mCpG", "Placenta_Zhu_mCpG",
-                  "PFCneurons_Shulha_H3K4me3", "PFCneurons_Nardone_mCpG", "PFC_Wong_mCpG", "PFC_VogelCiernia_mCpG",
-                  "PFC_Sun_H3K27Ac", "PFC_Nardone_mCpG", "LCL_Nguyen_mCpG", "CingulateCortex_Nardone_mCpG", 
-                  "Cerebellum_Wong_mCpG", "Cerebellum_Sun_H3K27Ac", "Cerebellum_LaddAcosta_mCpG", "Buccal_Berko_mCpG",
-                  "Bloodspot_Hannon_mCpG", "Blood_Wong_mCpG", "Blood_Andrews_mCpG")
+                  "PFCneurons_Shulha_H3K4me3", "PFCneurons_Nardone_mCpG", "PFC_Wong_mCpG", "PFC_VogelCiernia_RTT_mCpG",
+                  "PFC_VogelCiernia_Dup15_mCpG", "PFC_VogelCiernia_ASD_mCpG", "PFC_Sun_H3K27Ac", "PFC_Nardone_mCpG", 
+                  "LCL_Nguyen_mCpG", "CingulateCortex_Nardone_mCpG", "Cerebellum_Wong_mCpG", "Cerebellum_Sun_H3K27Ac", 
+                  "Cerebellum_LaddAcosta_mCpG", "Buccal_Berko_mCpG", "Bloodspot_Hannon_mCpG", "Blood_Wong_mCpG", 
+                  "Blood_Andrews_mCpG")
 mapply(write.table, x = entrezIDs, file = paste("Tables/EntrezIDs_", names(entrezIDs), ".txt", sep = ""), 
        MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
 
-# Overlap Genes -----------------------------------------------------------
+# Overlap EWAS Genes -----------------------------------------------------------
 # Compare Gene Lists ####
 allGenes <- unique(regDomains$gene_name) %>% sort()
 gom <- newGOM(genes, genome.size = length(allGenes))
@@ -227,7 +246,7 @@ table(geneCounts$Sum_TemporalCortex)
 # 10036    72 
 # No genes replicated in 2 temporal cortex differential CpG methylation lists
 
-# Overlap Regions ---------------------------------------------------------
+# Overlap EWAS Regions ---------------------------------------------------------
 # Get Overlaps ####
 GR_DMRs <- lapply(DMRs, makeGRange, direction = "all")
 
@@ -281,6 +300,33 @@ intersectRegions_top <- getDMRanno(intersectRegions_top, regDomains = regDomains
 intersectRegions_topGenes <- getDMRgeneList(intersectRegions_top, regDomains = regDomains, direction = "all", type = "gene_name")
 # [1] "ABHD12"       "COL8A2"       "ITGB7"        "ITIH1"        "ITIH3"        "LOC100130238" "LOC101928416" "LOC102724467"
 # [9] "MIR6775"      "PRSS37"       "PYGB"         "RBMS2"        "TAS2R5"      
+
+# Gene Lists to Add ####
+#' Julia
+#' SFARI (Annie's table)
+#' Gandal et al 2018 DEGs and DTEs (Annie's table)
+#' Tylee et al 2017 Blood
+#' Tylee et al 2017 LCL
+#' Maternal and Paternal imprinted genes (geneimprint.com)
+#' Parikshak 2016 Dup15 > Ctrl
+#' Lin et al 2016 Rett DEGs
+#' Doan et al 2019
+#' Grove et al 2019
+#' Other ASD GWAS?
+
+#' Me
+#' Rett and Dup15 DMR genes from Annie's paper
+#' Parikshak 2016
+#' Other Dup15 EWAS 
+#' ASD mQTL targets
+#' Control gene list?
+
+
+
+
+
+
+
 
 
 
