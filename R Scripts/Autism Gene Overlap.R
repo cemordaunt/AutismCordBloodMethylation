@@ -37,11 +37,11 @@ Background_entrez <- lapply(Background, getDMRgeneList, regDomains = regDomains,
 
 # Write Files
 names(DMRs_entrez) <- c("Males_Discovery", "Females_Discovery", "Males_Replication", "Females_Replication")
-mapply(write.table, x = DMRs_entrez, file = paste("Tables/EntrezIDs_", names(DMRs_entrez), "_DMRs.txt", sep = ""), 
+mapply(write.table, x = DMRs_entrez, file = paste("Entrez ID Lists/EntrezIDs_", names(DMRs_entrez), "_DMRs.txt", sep = ""), 
        MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
 
 names(Background_entrez) <- c("Males_Discovery", "Females_Discovery", "Males_Replication", "Females_Replication")
-mapply(write.table, x = Background_entrez, file = paste("Tables/EntrezIDs_", names(Background_entrez), "_Background.txt", sep = ""), 
+mapply(write.table, x = Background_entrez, file = paste("Entrez ID Lists/EntrezIDs_", names(Background_entrez), "_Background.txt", sep = ""), 
        MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
 
 # Use entrez IDs instead of ENSGs
@@ -57,22 +57,38 @@ sapply(DMRs_ENSGs, nrow)
 # MalesDisc FemalesDisc    MalesRep  FemalesRep 
 #       591        1984        3735        6890 
 
-# Convert ENSGs to Entrez IDs Overlaps from Vogel Ciernia et al 2019 ---------------
+# Get Genetic and Expression Study Gene Lists -----------------------------
+# Convert ENSGs to Entrez IDs Overlaps from Vogel Ciernia et al 2019 ####
 # Read in Files
 files <- list.files("ENSG ID Lists")
 files <- files[!grepl("CpG", files, fixed = TRUE) & !grepl("CpH", files, fixed = TRUE) & !grepl("H3K", files, fixed = TRUE)]
 files <- paste("ENSG ID Lists/", files, sep = "")
 ENSG <- lapply(files, read.delim, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
-ENSG <- lapply(ENSG, unlist, use.names = TRUE)
+ENSG <- lapply(ENSG, unlist, use.names = FALSE)
 
 # Convert to Entrez IDs
 ensembl <- useEnsembl("ensembl", dataset = "hsapiens_gene_ensembl")
 entrezIDs <- lapply(ENSG, getBM, attributes = "entrezgene_id", filters = "ensembl_gene_id", mart = ensembl)
-entrezIDs <- lapply(entrezIDs, unlist, use.names = TRUE)
+entrezIDs <- lapply(entrezIDs, unlist, use.names = FALSE)
 
 # Write Files
 newFiles <- gsub("ENSG ID Lists/ENSGs", replacement = "Entrez ID Lists/EntrezIDs", x = files, fixed = TRUE)
 mapply(write.table, x = entrezIDs, file = newFiles, MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
+
+# Mordaunt 2019 Cord Expression Gene Lists ####
+probes <- list(ASD = read.csv("Tables/Mordaunt 2019 Cord Expression ASD vs TD.csv", header = TRUE, 
+                              stringsAsFactors = FALSE),
+               NonTD = read.csv("Tables/Mordaunt 2019 Cord Expression NonTD vs TD.csv", header = TRUE,
+                                stringsAsFactors = FALSE)) %>%
+        lapply(function(x) x$Probe[x$Meta_diff])
+
+ensembl <- useEnsembl("ensembl", dataset = "hsapiens_gene_ensembl")
+entrezIDs <- lapply(probes, getBM, attributes = "entrezgene_id", filters = "affy_hugene_2_0_st_v1", mart = ensembl) %>%
+        lapply(unlist, use.names = FALSE)
+
+mapply(write.table, x = entrezIDs, file = c("Entrez ID Lists/EntrezIDs_CordBlood_Mordaunt_ASDvsTD_DEG.txt",
+                                            "Entrez ID Lists/EntrezIDs_CordBlood_Mordaunt_NonTDvsTD_DEG.txt"), 
+       MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
 
 # Get EWAS Gene Lists ----------------------------------------------------------
 # Load Regions ####
@@ -88,13 +104,15 @@ DMRs_hg19 <- lapply(c("Tables/Nardone BA24 DMPs hg19.csv", "Tables/Nardone BA10 
                       "Tables/Ellis BA19 CpH DMRs hg19.csv", "Tables/Ellis BA19 CpG DMRs hg19.csv",
                       "Tables/Nardone Cortex Neuron DMRs hg19.csv", "Tables/Hannon Bloodspot DMPs hg19.csv",
                       "Tables/Andrews Blood DMPs hg19.csv", "Tables/Wong Cerebellum DMPs hg19.csv",
-                      "Tables/Wong Temporal Cortex DMPs hg19.csv", "Tables/Wong BA9 DMPs hg19.csv"),
+                      "Tables/Wong Temporal Cortex DMPs hg19.csv", "Tables/Wong BA9 DMPs hg19.csv",
+                      "Tables/Wong Cerebellum DMPs Dup15 hg19.csv", "Tables/Wong Temporal Cortex DMPs Dup15 hg19.csv",
+                      "Tables/Wong BA9 DMPs Dup15 hg19.csv"),
                     read.csv, header = TRUE, stringsAsFactors = FALSE)
 names(DMRs_hg19) <- c("CingulateCortex_Nardone", "PFC_Nardone", "PFCneurons_Shulha_H3K4me3", "TemporalCortex_LaddAcosta",
                       "Cerebellum_LaddAcosta", "Buccal_Berko", "Sperm_Feinberg", "Cerebellum_Sun_H3K27Ac", 
                       "TemporalCortex_Sun_H3K27Ac", "PFC_Sun_H3K27Ac", "VisualCortex_Ellis_CpH", "VisualCortex_Ellis", 
                       "PFCneurons_Nardone", "Bloodspot_Hannon", "Blood_Andrews", "Cerebellum_Wong", "TemporalCortex_Wong", 
-                      "PFC_Wong")
+                      "PFC_Wong", "Cerebellum_Wong_Dup15", "TemporalCortex_Wong_Dup15", "PFC_Wong_Dup15")
 DMRs_hg19$Bloodspot_Hannon$chr <- gsub(" ", replacement = "", DMRs_hg19$Bloodspot_Hannon$chr) # Remove spaces
 
 DMRs_hg38 <- lapply(c("Tables/Zhu Placenta DMRs hg38.csv", "Tables/Vogel Ciernia Brain DMRs hg38.csv",
@@ -125,14 +143,15 @@ genes <- genes[sort(names(genes), decreasing = TRUE)]
 # Get EntrezIDs ####
 entrezIDs <- lapply(DMRs, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_entrezID")
 entrezIDs <- entrezIDs[sort(names(entrezIDs), decreasing = TRUE)]
-names(entrezIDs) <- c("VisualCortex_Ellis_mCpH", "VisualCortex_Ellis_mCpG", "TemporalCortex_Wong_mCpG", 
-                  "TemporalCortex_Sun_H3K27Ac", "TemporalCortex_LaddAcosta_mCpG", "Sperm_Feinberg_mCpG", "Placenta_Zhu_mCpG",
-                  "PFCneurons_Shulha_H3K4me3", "PFCneurons_Nardone_mCpG", "PFC_Wong_mCpG", "PFC_VogelCiernia_RTT_mCpG",
-                  "PFC_VogelCiernia_Dup15_mCpG", "PFC_VogelCiernia_ASD_mCpG", "PFC_Sun_H3K27Ac", "PFC_Nardone_mCpG", 
-                  "LCL_Nguyen_mCpG", "CingulateCortex_Nardone_mCpG", "Cerebellum_Wong_mCpG", "Cerebellum_Sun_H3K27Ac", 
-                  "Cerebellum_LaddAcosta_mCpG", "Buccal_Berko_mCpG", "Bloodspot_Hannon_mCpG", "Blood_Wong_mCpG", 
-                  "Blood_Andrews_mCpG")
-mapply(write.table, x = entrezIDs, file = paste("Tables/EntrezIDs_", names(entrezIDs), ".txt", sep = ""), 
+names(entrezIDs) <- c("VisualCortex_Ellis_mCpH", "VisualCortex_Ellis_mCpG", "TemporalCortex_Wong_Dup15_mCpG", 
+                      "TemporalCortex_Wong_ASD_mCpG", "TemporalCortex_Sun_H3K27Ac", "TemporalCortex_LaddAcosta_mCpG", 
+                      "Sperm_Feinberg_mCpG", "Placenta_Zhu_mCpG", "PFCneurons_Shulha_H3K4me3", 
+                      "PFCneurons_Nardone_mCpG", "PFC_Wong_Dup15_mCpG", "PFC_Wong_ASD_mCpG", "PFC_VogelCiernia_RTT_mCpG",
+                      "PFC_VogelCiernia_Dup15_mCpG", "PFC_VogelCiernia_ASD_mCpG", "PFC_Sun_H3K27Ac", "PFC_Nardone_mCpG", 
+                      "LCL_Nguyen_mCpG", "CingulateCortex_Nardone_mCpG", "Cerebellum_Wong_Dup15_mCpG", 
+                      "Cerebellum_Wong_ASD_mCpG", "Cerebellum_Sun_H3K27Ac", "Cerebellum_LaddAcosta_mCpG", 
+                      "Buccal_Berko_mCpG", "Bloodspot_Hannon_mCpG", "Blood_Wong_mCpG", "Blood_Andrews_mCpG")
+mapply(write.table, x = entrezIDs, file = paste("Entrez ID Lists/EntrezIDs_", names(entrezIDs), ".txt", sep = ""), 
        MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
 
 # Overlap EWAS Genes -----------------------------------------------------------
@@ -315,11 +334,9 @@ intersectRegions_topGenes <- getDMRgeneList(intersectRegions_top, regDomains = r
 #' Other ASD GWAS?
 
 #' Me
-#' Rett and Dup15 DMR genes from Annie's paper
-#' Parikshak 2016
 #' Other Dup15 EWAS 
-#' ASD mQTL targets
 #' Control gene list?
+
 
 
 
