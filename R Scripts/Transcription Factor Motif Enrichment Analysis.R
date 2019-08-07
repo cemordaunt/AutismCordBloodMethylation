@@ -611,7 +611,7 @@ replicated_v <- str_replace_all(replicated_v, pattern = c("_1" = "", "_2" = ""))
 homer_top$Transcription_Factor <- as.character(homer_top$Transcription_Factor) %>% 
         str_replace_all(pattern = c("_1" = "", "_2" = "")) %>%
         factor(levels = rev(c("GATA3", "PAX5", "GRE", "KLF4", "PGR", "PBX3", "E2F4", "JUN-AP1", "ARE", "HINFP", "ZNF322", 
-                              "CRE", "EBF", "BACH2", "MAFK", "GATA:SCL", "E2F1", "E2F6", "RORA", "TBX20", "PU.1:IRF8",
+                              "CRE", "EBF", "BACH2", "MAFK", "GATA:SCL", "RORA", "E2F1", "E2F6", "TBX20", "PU.1:IRF8",
                               "RAR:RXR")), ordered = TRUE)
 homer_top$Enriched <- factor(homer_top$Enriched, levels = c("TRUE", "FALSE"))
 homer_top$DMRs <- as.character(homer_top$DMRs)
@@ -639,9 +639,3 @@ gg +
               legend.text = element_text(size = 16), strip.background = element_blank(), 
               strip.text = element_text(size = 20))
 ggsave("Figures/HOMER TF Enrichment Top Fold Enrichment Heatmap manual order ChrX.png", dpi = 600, width = 7, height = 8, units = "in")
-
-# Update figures and slides with new plots
-
-
-
-
