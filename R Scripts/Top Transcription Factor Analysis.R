@@ -46,7 +46,6 @@ write.csv(TFs, "Tables/HOMER Top Enriched TF Motif Info with Brain Expression.cs
 # Get Motif Locations from HOMER (Epigenerate) ####
 # See HOMER_TF_scanMotifGenomeWide.sh
 # BED files in hg38
-# Background?
 
 # Get Enrichment with LOLA (Epigenerate) ####
 # Functions
@@ -56,13 +55,15 @@ makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
          GR <- GRanges(seqnames = DMRs$chr, ranges = IRanges(start = DMRs$start, end = DMRs$end))
 }
 
+# Made new RegionDB: FetalBrain_ChromHMM
+
 # Load Region Data
 setwd("/share/lasallelab/Charles/CM_WGBS_ASD_CordBlood/HOMER")
 regionDB <- loadRegionDB(dbLocation = "/share/lasallelab/programs/LOLA/hg38", useCache = TRUE, limit = NULL, 
-                         collections = "Roadmap_ChromHMM")
+                         collections = "FetalBrain_ChromHMM")
 files <- list.files("BED") %>% paste("BED/", ., sep = "")
 motifs <- lapply(files, fread, sep = "\t", header = FALSE, stringsAsFactors = FALSE, verbose = FALSE, data.table = FALSE,
-                 nThread = 48)
+                 nThread = 60)
 names(motifs) <- str_replace_all(files, pattern = c("BED/" = "", "_motif_locations.bed" = ""))
 motifs <- lapply(motifs, function(x){
         x <- x[,1:3]
@@ -71,7 +72,7 @@ motifs <- lapply(motifs, function(x){
         return(x)
 })
 Background <- fread(file = "homer_knownMotifs_hg38.bed", sep = "\t", header = FALSE, stringsAsFactors = FALSE, 
-                    verbose = FALSE, data.table = FALSE, nThread = 48) # data.table::fread() for much faster reading of 23GB file
+                    verbose = FALSE, data.table = FALSE, nThread = 60) # data.table::fread() for much faster reading of 23GB file
 Background <- Background[,1:3]
 colnames(Background) <- c("chr", "start", "end")
 Background <- subset(Background, chr %in% c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")) %>%
@@ -80,14 +81,19 @@ length(Background) # 88 854 866
 summary(width(Background))
 # Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
 # 8.00    11.00    16.00    20.34    25.00 20564.00 
-rm(files, makeGRange)
+Background_df <- as.data.frame(Background)
+Background_df <- Background_df[,c("seqnames", "start", "end")]
+colnames(Background_df)[colnames(Background_df) == "seqnames"] <- "chr"
+fwrite(Background_df, file = "homer_knownMotifs_hg38_merged_background.bed", sep = "\t", quote = FALSE, row.names = FALSE,
+            col.names = TRUE, nThread = 60, verbose = FALSE)
+rm(files, makeGRange, Background_df)
 
 # Run LOLA
 Results <- runLOLA(userSets = motifs, userUniverse = Background, regionDB = regionDB, cores = 1, redefineUserSets = TRUE)
 writeCombinedEnrichment(combinedResults = Results, outFolder = "LOLA", includeSplits = FALSE)
 file.copy(from = "LOLA/allEnrichments.tsv", to = "LOLA/Top_TF_Motif_LOLA_ChromHMM_Enrichments.tsv", overwrite = TRUE)
 
-# Enrichment Design ####
+# LOLA Enrichment Stats Info ####
 # support is the number of regions in the userSet that overlap a region in the testSet
 # b is the number of regions in the userUniverse that overlap a region in the testSet, 
 #     minus the number of regions in the userSet that overlap a region in the testSet
@@ -100,100 +106,93 @@ file.copy(from = "LOLA/allEnrichments.tsv", to = "LOLA/Top_TF_Motif_LOLA_ChromHM
 # Multiple regions in the userSet overlapping one userUniverse region would decrease b, and decrease d
 # userUniverse must be comparable to userSet
 
-#' userSet: TF motif locations
-#' testSet: chromHMM chromatin state segmentations
-#' userUniverse: restricted universe (regions covered in at least one set, combines all userSets and disjoins them to fix overlapping)
-#' 
-#' Example:
-#' userSet: ARE motif locations
-#' testSet: Enhancer regions in male fetal brain
-#' userUniverse: All motif locations of these 37 factors
-#' Redefine ARE motif locations in terms of restricted universe
-#' Question: Do ARE motifs overlap enhancers in male fetal brain more than would be expected for top motifs?
-#' Would miss a common enrichment among all top motifs...
-#' Use locations for all known motifs to create a restricted universe, removes bias for homer tfs
-
-
-
-
-
-
-
-
 # Analysis ####
 # Load Results
 lola <- read.delim("Tables/Top_TF_Motif_LOLA_ChromHMM_Enrichments.tsv", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 index <- read.delim("Tables/LOLA Roadmap ChromHMM index.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-chromHMM <- split(lola, f = lola$userSets) %>%
+chromHMM <- split(lola, f = lola$userSet) %>%
         lapply(function(x) prepLOLAchromHMM(x, index = index, regions = unique(x$userSet)))
-names(chromHMM) <- unique(lola$userSet)
 chromHMM <- list.rbind(chromHMM)
+rownames(chromHMM) <- 1:nrow(chromHMM)
 write.csv(chromHMM, file = "Tables/Top TF Motif LOLA ChromHMM Enrichments.csv", quote = FALSE, row.names = FALSE)
 
-# Subset Fetal Brain Enrichments
-brain <- subset(chromHMM, cellType %in% c("Fetal Brain Male", "Fetal Brain Female"))
-
 # Get Top Ranked
-motifs <- unique(lola$userSet)
+motifs <- unique(chromHMM$userSet)
 top_chromStates <- NULL
 for(i in 1:length(motifs)){
-        sub <- subset(lola, userSet == motifs[i] & cellType == "Fetal Brain Male")
-        maleTop <- sub$chromState[sub$maxRnk == min(sub$maxRnk)]
-        sub <- subset(lola, userSet == motifs[i] & cellType == "Fetal Brain Female")
-        femaleTop <- sub$chromState[sub$maxRnk == min(sub$maxRnk)]
+        sub <- subset(chromHMM, userSet == motifs[i] & cellType == "Fetal Brain Male")
+        maleTop <- sub$chromState[sub$maxRnk == min(sub$maxRnk) & sub$qValue < 0.05] %>% as.character() %>% 
+                paste(collapse = "_")
+        sub <- subset(chromHMM, userSet == motifs[i] & cellType == "Fetal Brain Female")
+        femaleTop <- sub$chromState[sub$maxRnk == min(sub$maxRnk) & sub$qValue < 0.05] %>% as.character() %>% 
+                paste(collapse = "_")
         temp <- c(motifs[i], maleTop, femaleTop)
         top_chromStates <- rbind(top_chromStates, temp)
 }
+top_chromStates <- as.data.frame(top_chromStates)
+rownames(top_chromStates) <- 1:nrow(top_chromStates)
 colnames(top_chromStates) <- c("Motif", "Top_FetalBrainMale", "Top_FetalBrainFemale")
 
+top_chromStates$Motif[grepl("_", top_chromStates$Top_FetalBrainMale, fixed = TRUE)] %>% as.character() 
+# None with multiple top
+top_chromStates$Motif[grepl("_", top_chromStates$Top_FetalBrainFemale, fixed = TRUE)] %>% as.character()
+# "ebf"      "ets-ebox" "pbx3"
+# ebf: ReprPC has higher odds ratio
+# ets-ebox: Enh has higher odds ratio
+# pbx3: Enh has higher odds ratio
+
+top_chromStates$Top_FetalBrainFemale[top_chromStates$Motif == "ebf"] <- "ReprPC"
+top_chromStates$Top_FetalBrainFemale[top_chromStates$Motif == "ets-ebox"] <- "Enh"
+top_chromStates$Top_FetalBrainFemale[top_chromStates$Motif == "pbx3"] <- "Enh"
+top_chromStates$Same <- as.character(top_chromStates$Top_FetalBrainMale) == 
+        as.character(top_chromStates$Top_FetalBrainFemale)
+write.csv(top_chromStates, file = "Tables/Top TF Motif Chromatin States LOLA ChromHMM Enrichments.csv", quote = FALSE, 
+          row.names = FALSE)
+
 # Plot Odds Ratio
-hm.max <- quantile(brain$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
-gg <- ggplot(data = brain)
+hm.max <- quantile(chromHMM$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+chromHMM$userSet <- factor(chromHMM$userSet, levels = rev(unique(chromHMM$userSet)))
+chromHMM$cellType <- factor(chromHMM$cellType, levels = c("Fetal Brain Male", "Fetal Brain Female"))
+gg <- ggplot(data = chromHMM)
 gg +
         geom_tile(aes(x = chromState, y = userSet, fill = oddsRatio)) +
         facet_grid(cols = vars(cellType)) +
         scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
                              na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+        scale_y_discrete(labels = function(x) str_to_upper(x)) +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
               panel.border = element_rect(color = "black", size = 1.25), 
               panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
-              axis.ticks.y = element_line(size = 1.25), legend.key = element_blank(), legend.position = c(1.21, 0.855), 
+              axis.ticks.y = element_line(size = 1.25), legend.key = element_blank(), legend.position = c(1.13, 0.89), 
               legend.background = element_blank(), legend.title = element_text(size = 18), 
               plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = element_text(size = 15, color = "black"), 
               axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
               axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0),
               strip.background = element_blank(), strip.text = element_text(size = 18)) +
         scale_x_discrete(expand = c(0, 0))
-ggsave("Figures/Top TF Motif LOLA Fetal Brain ChromHMM Enrichments Odds Ratio Heatmap.png", dpi = 600, width = 5.5, height = 7, units = "in")
+ggsave("Figures/Top TF Motif LOLA Fetal Brain ChromHMM Enrichments Odds Ratio Heatmap.png", dpi = 600, width = 9, height = 9, 
+       units = "in")
 
 # Plot log q-value
-hm.max <- quantile(brain$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
-gg <- ggplot(data = brain)
+hm.max <- quantile(chromHMM$qValueLog, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
+gg <- ggplot(data = chromHMM)
 gg +
-        geom_tile(aes(x = chromState, y = userSet, fill = oddsRatio)) +
+        geom_tile(aes(x = chromState, y = userSet, fill = qValueLog)) +
         facet_grid(cols = vars(cellType)) +
-        scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
+        scale_fill_gradientn("-log(q-value)", colors = c("black", "#FF0000"), values = c(0, 1), 
                              na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+        scale_y_discrete(labels = function(x) str_to_upper(x)) +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
               panel.border = element_rect(color = "black", size = 1.25), 
               panel.background = element_rect(fill = "black"), axis.ticks.x = element_line(size = 1.25), 
-              axis.ticks.y = element_line(size = 1.25), legend.key = element_blank(), legend.position = c(1.21, 0.855), 
+              axis.ticks.y = element_line(size = 1.25), legend.key = element_blank(), legend.position = c(1.14, 0.89), 
               legend.background = element_blank(), legend.title = element_text(size = 18), 
               plot.margin = unit(c(0.5, 8, 0.5, 0.5), "lines"), axis.text.y = element_text(size = 15, color = "black"), 
               axis.text.x = element_text(size = 15, color = "black", angle = 90, hjust = 1, vjust = 0.5), 
               axis.title = element_blank(), plot.title = element_text(size = 18, hjust = 0.5, vjust = 0),
               strip.background = element_blank(), strip.text = element_text(size = 18)) +
         scale_x_discrete(expand = c(0, 0))
-ggsave("Figures/Top TF Motif LOLA Fetal Brain ChromHMM Enrichments log qvalue Heatmap.png", dpi = 600, width = 5.5, height = 7, units = "in")
-
-
-
-
-
-
-
-
-
-
+ggsave("Figures/Top TF Motif LOLA Fetal Brain ChromHMM Enrichments log qvalue Heatmap.png", dpi = 600, width = 9, height = 9, 
+       units = "in")
