@@ -1,10 +1,11 @@
 # Autism Gene Overlap -----------------------------------------------------
 # Autism Cord Blood Methylation
 # Charles Mordaunt
-# 8/5/19
+# 8/14/19
 
 # Packages ####
-sapply(c("reshape2", "tidyverse", "GenomicRanges", "annotatr", "GeneOverlap", "rlist", "biomaRt", "rtracklayer"), require, character.only = TRUE)
+sapply(c("reshape2", "tidyverse", "GenomicRanges", "annotatr", "GeneOverlap", "rlist", "biomaRt", "rtracklayer",
+         "scales"), require, character.only = TRUE)
 
 # Functions ####
 source("R Scripts/DMR Analysis Functions.R")
@@ -320,31 +321,105 @@ intersectRegions_topGenes <- getDMRgeneList(intersectRegions_top, regDomains = r
 # [1] "ABHD12"       "COL8A2"       "ITGB7"        "ITIH1"        "ITIH3"        "LOC100130238" "LOC101928416" "LOC102724467"
 # [9] "MIR6775"      "PRSS37"       "PYGB"         "RBMS2"        "TAS2R5"      
 
-# Gene Lists to Add ####
-#' Julia
-#' SFARI (Annie's table)
-#' Gandal et al 2018 DEGs and DTEs (Annie's table)
-#' Tylee et al 2017 Blood
-#' Tylee et al 2017 LCL
-#' Maternal and Paternal imprinted genes (geneimprint.com)
-#' Parikshak 2016 Dup15 > Ctrl
-#' Lin et al 2016 Rett DEGs
-#' Doan et al 2019
-#' Grove et al 2019
-#' Other ASD GWAS?
+# DMR Gene Autism Gene Overlap Analysis -----------------------------------
+# Load Gene Lists ####
+# Autism Gene Lists
+files <- list.files(c("Entrez ID Lists/Genetic Studies", "Entrez ID Lists/Gene Expression Studies",
+                      "Entrez ID Lists/Epigenetic Studies"), full.names = TRUE)
+ASDgenes <- sapply(files, read.delim, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
+names(ASDgenes) <- gsub(pattern = ".*EntrezIDs_", replacement = "", x = names(ASDgenes)) %>%
+        gsub(pattern = ".txt.V1", replacement = "", fixed = TRUE)
+ASDgenes <- ASDgenes[sort(names(ASDgenes))]
 
-#' Me
-#' Other Dup15 EWAS 
-#' Control gene list?
+# DMR Gene Lists
+files <- list.files("Entrez ID Lists/Cord Blood DMRs", full.names = TRUE)
+DMRfiles <- files[!grepl("Background", files, fixed = TRUE)]
+DMRgenes <- sapply(DMRfiles, read.delim, header = FALSE, sep = "\t", stringsAsFactors = FALSE) %>% lapply(list)
+names(DMRgenes) <- gsub(pattern = ".*EntrezIDs_", replacement = "", x = names(DMRgenes)) %>%
+        gsub(pattern = "_DMRs.txt.V1", replacement = "", fixed = TRUE)
+DMRgenes <- DMRgenes[c("Males_Discovery", "Males_Replication", "Females_Discovery", "Females_Replication")]
 
+# Background Gene Lists
+BackgroundFiles <- files[grepl("Background", files, fixed = TRUE)]
+BackgroundGenes <- sapply(BackgroundFiles, read.delim, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
+names(BackgroundGenes) <- gsub(pattern = ".*EntrezIDs_", replacement = "", x = names(BackgroundGenes)) %>%
+        gsub(pattern = "_Background.txt.V1", replacement = "", fixed = TRUE)
+BackgroundGenes <- BackgroundGenes[c("Males_Discovery", "Males_Replication", "Females_Discovery", "Females_Replication")]
+BackgroundGeneCount <- sapply(BackgroundGenes, length)
+rm(files, DMRfiles, BackgroundFiles, BackgroundGenes)
 
+# Run GeneOverlap Stats ####
+gom <- mapply(newGOM, gsetA = DMRgenes, genome.size = BackgroundGeneCount, MoreArgs = list(gsetB = ASDgenes))
+gomResults <- sapply(gom, getMatrix, name = "intersection") %>% melt()
+colnames(gomResults) <- c("ASD_GeneList", "DMR_GeneList", "Intersection")
+gomResults$OddsRatio <- sapply(gom, getMatrix, name = "odds.ratio") %>% melt() %>% .[,"value"]
+gomResults$pValue <- sapply(gom, getMatrix, name = "pval") %>% melt() %>% .[,"value"]
+gomResults$ASD_GeneCount <- sapply(ASDgenes, length)
+gomResults$DMR_GeneCount <- sapply(DMRgenes, function(x) length(x[[1]])) %>% rep(each = length(ASDgenes))
+gomResults$Per_ASDgenes <- gomResults$Intersection * 100 / gomResults$ASD_GeneCount
+gomResults$Per_DMRgenes <- gomResults$Intersection * 100 / gomResults$DMR_GeneCount
+gomResults$qValue <- split(gomResults$pValue, f = gomResults$DMR_GeneList) %>% sapply(p.adjust, method = "fdr") %>% 
+        melt() %>% .[,"value"] # Correct for number of ASD gene lists
+gomResults$Significant <- factor(gomResults$qValue < 0.05, levels = c("TRUE", "FALSE"))
+gomResults <- gomResults[,c("DMR_GeneList", "ASD_GeneList", "DMR_GeneCount", "ASD_GeneCount", "Intersection",
+                            "Per_DMRgenes", "Per_ASDgenes", "OddsRatio", "pValue", "qValue", "Significant")]
+write.table(gomResults, file = "Tables/DMR Gene Autism Gene Overlap Analysis Results.txt", sep = "\t", quote = FALSE, 
+            row.names = FALSE)
 
+# Plot Heatmap for All Overlaps ####
+gomResults$OddsRatio[is.infinite(gomResults$OddsRatio)] <- max(gomResults$OddsRatio[!is.infinite(gomResults$OddsRatio)])
+gomResults$ASD_GeneList <- factor(gomResults$ASD_GeneList, levels = rev(unique(gomResults$ASD_GeneList)))
+gg <- ggplot(data = gomResults)
+gg +
+        geom_tile(aes(x = DMR_GeneList, y = ASD_GeneList, fill = OddsRatio)) +
+        geom_text(aes(x = DMR_GeneList, y = ASD_GeneList, alpha = Significant), label = "*", color = "white", size = 10,
+                  nudge_y = -0.4) +
+        scale_fill_gradientn("Odds Ratio", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             limits = c(0, max(gomResults$OddsRatio[gomResults$ASD_GeneCount >= 5])),
+                             breaks = pretty_breaks(n = 3)) +
+        scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c(1, 0), guide = FALSE) +
+        scale_x_discrete(expand = c(0.18, 0), labels = function(x) str_replace_all(x, pattern = c("_" = " "))) +
+        scale_y_discrete(expand = c(0.017, 0), labels = function(x) str_replace_all(x, pattern = c("_" = " "))) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 8, 0.5, 1), "lines"), axis.ticks = element_line(size = 1), 
+              panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 16, color = "black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.y = element_text(size = 13, color = "black"), axis.title = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.225, 0.925), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
+              legend.text = element_text(size = 16))
+ggsave("Figures/DMR Gene Autism Gene Overlap Odds Ratio Heatmap All.png", dpi = 600, width = 11, height = 11, units = "in")
 
-
-
-
-
-
-
+# Plot Heatmap for Replicated Overlaps ####
+replicatedMales <- gomResults$Significant[gomResults$DMR_GeneList == "Males_Discovery"] == "TRUE" &
+        gomResults$Significant[gomResults$DMR_GeneList == "Males_Replication"] == "TRUE"
+replicatedFemales <- gomResults$Significant[gomResults$DMR_GeneList == "Females_Discovery"] == "TRUE" &
+        gomResults$Significant[gomResults$DMR_GeneList == "Females_Replication"] == "TRUE"
+gomResults_rep <- subset(gomResults, replicatedMales | replicatedFemales)
+gg <- ggplot(data = gomResults_rep)
+gg +
+        geom_tile(aes(x = DMR_GeneList, y = ASD_GeneList, fill = OddsRatio)) +
+        geom_text(aes(x = DMR_GeneList, y = ASD_GeneList, alpha = Significant), label = "*", color = "white", size = 12,
+                  nudge_y = -0.3) +
+        scale_fill_gradientn("Odds Ratio", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             limits = c(0, max(gomResults_rep$OddsRatio[gomResults_rep$ASD_GeneCount >= 5])),
+                             breaks = pretty_breaks(n = 3)) +
+        scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c(1, 0), guide = FALSE) +
+        scale_x_discrete(expand = c(0.18, 0), labels = function(x) str_replace_all(x, pattern = c("_" = " "))) +
+        scale_y_discrete(expand = c(0.017, 0), labels = function(x) str_replace_all(x, pattern = c("_" = " "))) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 8, 0.5, 1), "lines"), axis.ticks = element_line(size = 1), 
+              panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 16, color = "black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.y = element_text(size = 15, color = "black"), axis.title = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.28, 0.89), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
+              legend.text = element_text(size = 17))
+ggsave("Figures/DMR Gene Autism Gene Overlap Odds Ratio Heatmap Replicated.png", dpi = 600, width = 8, height = 8, 
+       units = "in")
 
 

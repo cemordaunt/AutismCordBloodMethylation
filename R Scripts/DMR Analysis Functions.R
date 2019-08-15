@@ -786,7 +786,7 @@ plotGREAT <- function(greatCombined, file, axis.text.y.size = 7.5, axis.text.y.w
         ggsave(file, plot = gg, dpi = 600, width = width, height = height, units = "in")
 }
 
-prepLOLAhistone <- function(histone, index, regions, file){
+prepLOLAhistone <- function(histone, index, regions, file = NULL){
         message("[prepLOLAhistone] Preparing histone enrichment results for ", regions)
         histone <- subset(histone, userSet == regions & antibody %in% c("H3K27me3", "H3K36me3", "H3K4me1", "H3K4me3", "H3K9me3"))
         histone$EID <- strsplit(as.character(histone$filename), "-") %>% sapply(function(x){x[1]})
@@ -837,8 +837,12 @@ prepLOLAhistone <- function(histone, index, regions, file){
                                    ordered = TRUE)
         histone <- histone[order(histone$order, histone$antibody), ]
         histone$tissue <- factor(histone$tissue, levels = rev(as.character(unique(histone$tissue))), ordered = TRUE)
-        message("[prepLOLAhistone] Complete! Writing file")
-        write.csv(x = histone, file = file, quote = FALSE, row.names = FALSE)
+        if(!is.null(file)){
+                message("[prepLOLAhistone] Complete! Writing file")
+                write.csv(x = histone, file = file, quote = FALSE, row.names = FALSE)
+        } else {
+                message("[prepLOLAhistone] Complete!")
+        }
         return(histone)
 }
 
@@ -984,7 +988,7 @@ plotLOLAhistoneBox <- function(histone, file, facet = NULL, breaks = c("Autosome
         ggsave(file, dpi = 600, width = 9, height = 7, units = "in")
 }
 
-prepLOLAchromHMM <- function(chromHMM, index, regions, file){
+prepLOLAchromHMM <- function(chromHMM, index, regions, file = NULL){
         message("[prepLOLAchromHMM] Preparing chromHMM enrichment results for ", regions)
         chromHMM <- subset(chromHMM, userSet == regions)
         chromHMM$EID <- strsplit(as.character(chromHMM$filename), "_") %>% sapply(function(x){x[1]})
@@ -1038,8 +1042,12 @@ prepLOLAchromHMM <- function(chromHMM, index, regions, file){
                                                                       "ReprPCwk", "Quies"), ordered = TRUE)
         chromHMM <- chromHMM[order(chromHMM$order, chromHMM$chromState),]
         chromHMM$tissue <- factor(chromHMM$tissue, levels = rev(as.character(unique(chromHMM$tissue))), ordered = TRUE)
-        message("[prepLOLAchromHMM] Complete! Writing file")
-        write.csv(x = chromHMM, file = file, quote = FALSE, row.names = FALSE)
+        if(!is.null(file)){
+                message("[prepLOLAchromHMM] Complete! Writing file")
+                write.csv(x = chromHMM, file = file, quote = FALSE, row.names = FALSE)
+        } else {
+                message("[prepLOLAhistone] Complete!")
+        }
         return(chromHMM)
 }
 
