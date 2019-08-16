@@ -46,7 +46,6 @@ write.csv(TFs, "Tables/HOMER Top Enriched TF Motif Info with Brain Expression.cs
 # Get Motif Locations from HOMER (Epigenerate) ####
 # See HOMER_TF_scanMotifGenomeWide.sh
 # BED files in hg38
-
 # Get Enrichment with LOLA (Epigenerate) ####
 # Functions
 makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
@@ -196,3 +195,122 @@ gg +
         scale_x_discrete(expand = c(0, 0))
 ggsave("Figures/Top TF Motif LOLA Fetal Brain ChromHMM Enrichments log qvalue Heatmap.png", dpi = 600, width = 9, height = 9, 
        units = "in")
+rm(gg, index, lola, sub, femaleTop, hm.max, i, maleTop, motifs, temp, chromHMM)
+
+# Combined Transcription Factor Info Heatmap ------------------------------
+# Merge Tables and Setup for Plot ####
+TFs$Motif_Match <- gsub(".motif", replacement = "", x = TFs$Motif_File, fixed = TRUE)
+TFs <- merge(x = TFs, y = top_chromStates, by.x = "Motif_Match", by.y = "Motif", all = TRUE, sort = FALSE)
+write.csv(TFs, file = "Tables/HOMER Top Enriched TF Motif Info with Brain Expression and ChromHMM.csv", quote = FALSE, 
+          row.names = FALSE)
+
+TFplot <- TFs[,c("Motif", "Gene_Name", "M_DFC_13pcw_12820_RPKM", "F_DFC_13pcw_12834_RPKM", "Unmethylated_Percent",
+                 "HeterogeneouslyMethylated_Percent", "Methylated_Percent", "Top_FetalBrainMale", "Top_FetalBrainFemale")]
+colnames(TFplot) <- str_replace_all(colnames(TFplot), pattern = c("M_DFC_13pcw_12820_RPKM" = "Exp_MaleFetalBrain",
+                                                                  "F_DFC_13pcw_12834_RPKM" = "Exp_FemaleFetalBrain",
+                                                                  "Unmethylated_Percent" = "Unmethylated",
+                                                                  "HeterogeneouslyMethylated_Percent" = "Partially_Methylated",
+                                                                  "Methylated_Percent" = "Methylated",
+                                                                  "Top_FetalBrainMale" = "ChromState_MaleFetalBrain",
+                                                                  "Top_FetalBrainFemale" = "ChromState_FemaleFetalBrain"))
+TFplot$ChromState_MaleFetalBrain <- as.character(TFplot$ChromState_MaleFetalBrain)
+TFplot$ChromState_FemaleFetalBrain <- as.character(TFplot$ChromState_FemaleFetalBrain)
+TFplot[TFplot == ""] <- NA
+TFplot$Gene_Name <- str_replace_all(TFplot$Gene_Name, pattern = c("NR3C1" = "GR", "HIF1A" = "HIF-1A", "NR1D2" = "REVERB"))
+TFplot$Motif_Gene <- mapply(function(x,y){ 
+        if(x == y){ return(x) 
+        } else { return(paste(x, " (", y, ")", sep = ""))}}, 
+        x = TFplot$Motif, y = TFplot$Gene_Name) %>%
+        factor(levels = sort(unique(.), decreasing = TRUE))
+TFplot <- TFplot[,c("Motif_Gene", "Exp_MaleFetalBrain", "Exp_FemaleFetalBrain", "Unmethylated", "Partially_Methylated",
+                    "Methylated", "ChromState_MaleFetalBrain", "ChromState_FemaleFetalBrain")]
+TFplot <- melt(TFplot, id.vars = "Motif_Gene")
+TFplot$Datatype <- c(rep("Expression", 
+                         length(TFplot$variable[TFplot$variable %in% c("Exp_MaleFetalBrain", "Exp_FemaleFetalBrain")])),
+                     rep("Methylation", 
+                         length(TFplot$variable[TFplot$variable %in% c("Unmethylated", "Partially_Methylated", "Methylated")])),
+                     rep("ChromState", 
+                         length(TFplot$variable[TFplot$variable %in% c("ChromState_MaleFetalBrain", "ChromState_FemaleFetalBrain")]))) %>%
+        factor(levels = c("Expression", "Methylation", "ChromState"))
+TFplot$Category = c(rep("Male", length(TFplot$variable[TFplot$variable == "Exp_MaleFetalBrain"])),
+                    rep("Female", length(TFplot$variable[TFplot$variable == "Exp_FemaleFetalBrain"])),
+                    rep("Unmethylated", length(TFplot$variable[TFplot$variable == "Unmethylated"])),
+                    rep("Partially_Methylated", length(TFplot$variable[TFplot$variable == "Partially_Methylated"])),
+                    rep("Methylated", length(TFplot$variable[TFplot$variable == "Methylated"])),
+                    rep("Male", length(TFplot$variable[TFplot$variable == "ChromState_MaleFetalBrain"])),
+                    rep("Female", length(TFplot$variable[TFplot$variable == "ChromState_FemaleFetalBrain"]))) %>%
+        factor(levels = c("Male", "Female", "Unmethylated", "Partially_Methylated", "Methylated"))
+
+# Heatmap ####
+# Expression
+TFplot_exp <- subset(TFplot, Datatype == "Expression")
+TFplot_exp$value <- as.numeric(TFplot_exp$value)
+TFplot_exp$value <- log2(TFplot_exp$value + 1)
+gg <- ggplot(data = TFplot_exp)
+gg +
+        geom_tile(aes(x = Category, y = Motif_Gene, fill = value)) +
+        scale_fill_gradientn(expression(atop("Expression", "log"[2]*"(RPKM+1)")), 
+                             colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
+                             breaks = pretty_breaks(n = 4)) +
+        scale_x_discrete(expand = c(0.25, 0)) +
+        scale_y_discrete(expand = c(0.01, 0)) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 10.25, 4.05, 1), "lines"), axis.ticks = element_line(size = 1), 
+              panel.background = element_rect(fill = "black"),
+              axis.text.x = element_text(size = 18, color = "black", angle = 90, hjust = 1, vjust = 0.5),
+              axis.text.y = element_text(size = 14, color = "black"), axis.title = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.65, 0.89), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
+              legend.text = element_text(size = 16), legend.title.align = 0)
+ggsave("Figures/HOMER Top Enriched TF Motif Info Expression Heatmap.png", dpi = 600, width = 5.75, height = 10, units = "in")
+
+# Methylation
+TFplot_meth <- subset(TFplot, Datatype == "Methylation")
+TFplot_meth$value <- as.numeric(TFplot_meth$value)
+gg <- ggplot(data = TFplot_meth)
+gg +
+        geom_tile(aes(x = Category, y = Motif_Gene, fill = value)) +
+        scale_fill_gradientn("Binding\nSites (%)", colors = c("Black", "#3366CC"), values = c(0,1), na.value = "Black", 
+                             breaks = pretty_breaks(n = 3), limits = c(0, 100)) +
+        scale_x_discrete(expand = c(0.25, 0), labels = function(x) str_replace_all(x, pattern = c("_" = "\n"))) +
+        scale_y_discrete(expand = c(0.01, 0)) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 6, 0.5, 1), "lines"), axis.ticks.x = element_line(size = 1), 
+              panel.background = element_rect(fill = "black"), axis.ticks.y = element_blank(),
+              axis.text.x = element_text(size = 18, color = "black", angle = 90, hjust = 1, vjust = 0.5),
+              axis.text.y = element_text(size = 14, color = "black"), axis.title = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.25, 0.9), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
+              legend.text = element_text(size = 16), legend.title.align = 0)
+ggsave("Figures/HOMER Top Enriched TF Motif Info Methylation Heatmap.png", dpi = 600, width = 5.75, height = 10, units = "in")
+
+# Chromatin State
+TFplot_chrom <- subset(TFplot, Datatype == "ChromState")
+TFplot_chrom$value <- factor(TFplot_chrom$value, levels = c("TssA", "Tx", "TxWk", "Enh", "Het", "ReprPC", "ReprPCwk", "Quies"))
+chromColors <- c(rgb(255,0,0, maxColorValue = 255), rgb(0,128,0, maxColorValue = 255), rgb(0,100,0, maxColorValue = 255), 
+                 rgb(255,255,0, maxColorValue = 255), rgb(138,145,208, maxColorValue = 255), 
+                 rgb(128,128,128, maxColorValue = 255), rgb(192,192,192, maxColorValue = 255), 
+                 rgb(255,255,255, maxColorValue = 255))
+
+gg <- ggplot(data = TFplot_chrom)
+gg +
+        geom_tile(aes(x = Category, y = Motif_Gene, fill = value)) +
+        scale_fill_manual("Chromatin State", values = chromColors, na.value = "Black") +
+        scale_x_discrete(expand = c(0.25, 0)) +
+        scale_y_discrete(expand = c(0.01, 0)) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 10.25, 4.05, 1), "lines"), axis.ticks.x = element_line(size = 1), 
+              panel.background = element_rect(fill = "black"), axis.ticks.y = element_blank(),
+              axis.text.x = element_text(size = 18, color = "black", angle = 90, hjust = 1, vjust = 0.5),
+              axis.text.y = element_text(size = 14, color = "black"), axis.title = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.65, 0.87), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
+              legend.text = element_text(size = 16), legend.title.align = 0)
+ggsave("Figures/HOMER Top Enriched TF Motif Info Chromatin State Heatmap.png", dpi = 600, width = 5.75, height = 10, units = "in")
+

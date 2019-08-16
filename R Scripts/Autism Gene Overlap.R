@@ -35,6 +35,8 @@ Background <- list(MalesDisc = loadRegions("DMRs/Discovery/Diagnosis Males 50/bs
 # Get Entrez Gene IDs ####
 DMRs_entrez <- lapply(DMRs, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_entrezID")
 Background_entrez <- lapply(Background, getDMRgeneList, regDomains = regDomains, direction = "all", type = "gene_entrezID")
+chrX_DMRs_entrez <- lapply(DMRs, subset, chr == "chrX") %>% lapply(getDMRgeneList, regDomains = regDomains, direction = "all", 
+                                                                   type = "gene_entrezID")
 
 # Write Files
 names(DMRs_entrez) <- c("Males_Discovery", "Females_Discovery", "Males_Replication", "Females_Replication")
@@ -43,6 +45,10 @@ mapply(write.table, x = DMRs_entrez, file = paste("Entrez ID Lists/EntrezIDs_", 
 
 names(Background_entrez) <- c("Males_Discovery", "Females_Discovery", "Males_Replication", "Females_Replication")
 mapply(write.table, x = Background_entrez, file = paste("Entrez ID Lists/EntrezIDs_", names(Background_entrez), "_Background.txt", sep = ""), 
+       MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
+
+names(chrX_DMRs_entrez) <- c("Males_Discovery", "Females_Discovery", "Males_Replication", "Females_Replication")
+mapply(write.table, x = chrX_DMRs_entrez, file = paste("Entrez ID Lists/Cord Blood ChrX DMRs/EntrezIDs_", names(chrX_DMRs_entrez), "_chrX_DMRs.txt", sep = ""), 
        MoreArgs = list(sep = "\n", quote = FALSE, row.names = FALSE, col.names = FALSE))
 
 # Use entrez IDs instead of ENSGs
@@ -368,29 +374,79 @@ write.table(gomResults, file = "Tables/DMR Gene Autism Gene Overlap Analysis Res
 
 # Plot Heatmap for All Overlaps ####
 gomResults$OddsRatio[is.infinite(gomResults$OddsRatio)] <- max(gomResults$OddsRatio[!is.infinite(gomResults$OddsRatio)])
-gomResults$ASD_GeneList <- factor(gomResults$ASD_GeneList, levels = rev(unique(gomResults$ASD_GeneList)))
+Genetic <- list.files("Entrez ID Lists/Genetic Studies/") %>% str_replace_all(pattern = c("EntrezIDs_" = "", ".txt" = ""))
+Epigenetic <- list.files("Entrez ID Lists/Epigenetic Studies/") %>% str_replace_all(pattern = c("EntrezIDs_" = "", ".txt" = ""))
+Expression <- list.files("Entrez ID Lists/Gene Expression Studies//") %>% str_replace_all(pattern = c("EntrezIDs_" = "", ".txt" = ""))
+gomResults$Category <- NA
+gomResults$Category[gomResults$ASD_GeneList %in% Genetic] <- "Genetic"
+gomResults$Category[gomResults$ASD_GeneList %in% Epigenetic] <- "Epigenetic"
+gomResults$Category[gomResults$ASD_GeneList %in% Expression] <- "Expression"
+gomResults$Category <- factor(gomResults$Category, levels = c("Genetic", "Epigenetic", "Expression"))
+pattern <- c("Blood_Gilissen_de_novo_CNV_ID" = "ID de novo CNV Gilissen", 
+             "Blood_Gilissen_Known_Genes" = "ASD Gilissen",
+             "Blood_Iossifov_Genes_With_LGD_Mutations_In_ASD" = "ASD LGD Mutations Iossifov", 
+             "Blood_Iossifov_Genes_With_LGD_Mutations_In_ID" = "ID LGD Mutations Iossifov ", 
+             "Blood_Kochinke_ID_genes" = "ID Kochinke", "Blood_Sanders_High_Risk_ASD" = "ASD High Risk Sanders", 
+             "Grove_GWAS" = "ASD Common Variants Grove", "Lambert" = "Alzheimer's GWAS Lambert", 
+             "SFARI_HighConfidence" = "ASD SFARI High Confidence", "SFARI_Hypothesized" = "ASD SFARI Hypothesized", 
+             "SFARI_Minimal" = "ASD SFARI Minimal Confidence", "SFARI_StrongCandidate" = "ASD SFARI Strong Confidence", 
+             "SFARI_Suggestive" = "ASD SFARI Suggestive", "SFARI_Syndromic" = "ASD SFARI Syndromic", 
+             "TheASD_Consortium_GWAS" = "ASD GWAS PGC", "Blood_Andrews_mCpG" = "ASD mCpG Blood Andrews", 
+             "Blood_Wong_mCpG" = "ASD mCpG Blood Wong", "Bloodspot_Hannon_mCpG" = "ASD mCpG Bloodspot Hannon",         
+             "Buccal_Berko_mCpG" = "ASD mCpG Buccal Berko", "Cerebellum_LaddAcosta_mCpG" = "ASD mCpG Cerebellum Ladd-Acosta", 
+             "Cerebellum_Sun_H3K27Ac" = "ASD H3K27Ac Cerebellum Sun", "Cerebellum_Wong_ASD_mCpG" = "ASD mCpG Cerebellum Wong",
+             "Cerebellum_Wong_Dup15_mCpG" = "Dup15 mCpG Cerebellum Wong", 
+             "CingulateCortex_Nardone_mCpG" = "ASD mCpG Cingulate Cortex Nardone", "LCL_Nguyen_mCpG" = "ASD mCpG LCL Nguyen",
+             "PFC_Nardone_mCpG" = "ASD mCpG PFC Nardone", "PFC_Sun_H3K27Ac" = "ASD H3K27Ac PFC Sun", 
+             "PFC_VogelCiernia_ASD_mCpG" = "ASD mCpG PFC Vogel Ciernia", 
+             "PFC_VogelCiernia_Dup15_mCpG" = "Dup15 mCpG PFC Vogel Ciernia",
+             "PFC_VogelCiernia_RTT_mCpG" = "RTT mCpG PFC Vogel Ciernia", "PFC_Wong_ASD_mCpG" = "ASD mCpG PFC Wong", 
+             "PFC_Wong_Dup15_mCpG" = "Dup15 mCpG PFC Wong", "PFCneurons_Nardone_mCpG" = "ASD mCpG PFC Neurons Nardone",       
+             "PFCneurons_Shulha_H3K4me3" = "ASD H3K4me3 PFC Neurons Shulha", "Placenta_Zhu_mCpG" = "ASD mCpG Placenta Zhu",
+             "Sperm_Feinberg_mCpG" = "ASD mCpG Sperm Feinberg", 
+             "TemporalCortex_LaddAcosta_mCpG" = "ASD mCpG Temporal Cortex Ladd-Acosta", 
+             "TemporalCortex_Sun_H3K27Ac" = "ASD mCpG Temporal Cortex Sun", 
+             "TemporalCortex_Wong_ASD_mCpG" = "ASD mCpG Temporal Cortex Wong",  
+             "TemporalCortex_Wong_Dup15_mCpG" = "Dup15 mCpG Temporal Cortex Wong", 
+             "VisualCortex_Ellis_mCpG" = "ASD mCpG Visual Cortex Ellis", 
+             "VisualCortex_Ellis_mCpH" = "ASD mCpH Visual Cortex Ellis", "Blood_Tylee_Array_DEG" = "ASD Blood Tylee",                                        
+             "CordBlood_Mordaunt_ASDvsTD_DEG" = "ASD Cord Blood Mordaunt", 
+             "CordBlood_Mordaunt_NonTDvsTD_DEG" = "Non-TD Cord Blood Mordaunt", "Cortex_Gupta_ASD_DGE" = "ASD Cortex Gupta",                                         
+             "FrontalAndTemporalCortex_Gandal_ASD_DGE_RNAseq" = "ASD Cortex Gandal RNA-seq",               
+             "FrontalAndTemporalCortex_Gandal_ASD_DGE" = "ASD Cortex Gandal Array",                      
+             "FrontalAndTemporalCortex_Lin_Rett_Vs_Ctrl_DGE" = "RTT Cortex Lin",                
+             "FrontalAndTemporalCortex_Parikshak_ASD_DGE" = "ASD Cortex Parikshak",                   
+             "FrontalAndTemporalCortex_Parikshak_DifferentiallySplicedGenes" = "ASD Cortex Parikshak Splicing",
+             "FrontalAndTemporalCortex_Parikshak_Dup15qVs.Ctrl_Genes" = "Dup15 Cortex Parikshak",       
+             "ImprintedGenes_MaternalExpression" = "Imprinted, Maternally Expressed",                            
+             "ImprintedGenes_PaternalExpression" = "Imprinted, Paternally Expressed",                            
+             "LCL_Tylee_RNAseq_DEG" = "ASD LCL Tylee", "_" = " ")
+gomResults$ASD_GeneList <- as.character(gomResults$ASD_GeneList) %>% str_replace_all(pattern = pattern) %>%
+        factor(., levels = sort(unique(. ), decreasing = TRUE))
+
 gg <- ggplot(data = gomResults)
 gg +
         geom_tile(aes(x = DMR_GeneList, y = ASD_GeneList, fill = OddsRatio)) +
         geom_text(aes(x = DMR_GeneList, y = ASD_GeneList, alpha = Significant), label = "*", color = "white", size = 10,
-                  nudge_y = -0.4) +
+                  nudge_y = -0.44) +
+        facet_grid(rows = vars(Category), scales = "free_y", space = "free_y") +
         scale_fill_gradientn("Odds Ratio", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
                              limits = c(0, max(gomResults$OddsRatio[gomResults$ASD_GeneCount >= 5])),
                              breaks = pretty_breaks(n = 3)) +
         scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c(1, 0), guide = FALSE) +
-        scale_x_discrete(expand = c(0.18, 0), labels = function(x) str_replace_all(x, pattern = c("_" = " "))) +
-        scale_y_discrete(expand = c(0.017, 0), labels = function(x) str_replace_all(x, pattern = c("_" = " "))) +
+        scale_x_discrete(expand = c(0.175, 0), labels = function(x) str_replace_all(x, pattern = c("_" = " "))) +
+        scale_y_discrete(expand = c(0.025, 0)) +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
               panel.border = element_rect(color = "black", size = 1.25), 
-              plot.margin = unit(c(0.5, 8, 0.5, 1), "lines"), axis.ticks = element_line(size = 1), 
+              plot.margin = unit(c(0.5, 7, 0.5, 1), "lines"), axis.ticks = element_line(size = 1), 
               panel.background = element_rect(fill = "black"),
               axis.text.x = element_text(size = 16, color = "black", angle = 45, hjust = 1, vjust = 1),
               axis.text.y = element_text(size = 13, color = "black"), axis.title = element_blank(), 
-              legend.key = element_blank(), legend.position = c(1.225, 0.925), legend.background = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.25, 0.94), legend.background = element_blank(), 
               legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
-              legend.text = element_text(size = 16))
-ggsave("Figures/DMR Gene Autism Gene Overlap Odds Ratio Heatmap All.png", dpi = 600, width = 11, height = 11, units = "in")
+              legend.text = element_text(size = 16), strip.background = element_blank())
+ggsave("Figures/DMR Gene Autism Gene Overlap Odds Ratio Heatmap All.png", dpi = 600, width = 10, height = 13, units = "in")
 
 # Plot Heatmap for Replicated Overlaps ####
 replicatedMales <- gomResults$Significant[gomResults$DMR_GeneList == "Males_Discovery"] == "TRUE" &
@@ -398,28 +454,71 @@ replicatedMales <- gomResults$Significant[gomResults$DMR_GeneList == "Males_Disc
 replicatedFemales <- gomResults$Significant[gomResults$DMR_GeneList == "Females_Discovery"] == "TRUE" &
         gomResults$Significant[gomResults$DMR_GeneList == "Females_Replication"] == "TRUE"
 gomResults_rep <- subset(gomResults, replicatedMales | replicatedFemales)
+gomResults_rep$ASD_GeneList <- str_replace_all(gomResults_rep$ASD_GeneList, 
+                                               pattern = c("ASD Gilissen" = "ASD Genes Gilissen",
+                                                           "ASD SFARI Strong Confidence" = "ASD Genes SFARI Strong Confidence",
+                                                           "RTT Cortex Lin" = "RTT DEG Cortex Lin")) %>%
+        factor(levels = rev(c("ASD H3K27Ac Cerebellum Sun", "ASD H3K27Ac PFC Sun", "ASD mCpG Cingulate Cortex Nardone",  
+                              "ASD mCpG PFC Vogel Ciernia", "ASD mCpG Sperm Feinberg", "ASD mCpG Temporal Cortex Sun", 
+                              "Dup15 mCpG PFC Vogel Ciernia", "RTT mCpG PFC Vogel Ciernia", 
+                              "ASD Genes Gilissen", "ASD Genes SFARI Strong Confidence", "ASD H3K4me3 PFC Neurons Shulha", 
+                              "ASD mCpG Bloodspot Hannon", "ASD mCpG LCL Nguyen", "ASD mCpG PFC Nardone", 
+                              "ASD mCpG Placenta Zhu", "ASD mCpG Temporal Cortex Wong", "ASD mCpH Visual Cortex Ellis",
+                              "Dup15 mCpG Temporal Cortex Wong", "RTT DEG Cortex Lin")))
+
 gg <- ggplot(data = gomResults_rep)
 gg +
         geom_tile(aes(x = DMR_GeneList, y = ASD_GeneList, fill = OddsRatio)) +
         geom_text(aes(x = DMR_GeneList, y = ASD_GeneList, alpha = Significant), label = "*", color = "white", size = 12,
-                  nudge_y = -0.3) +
+                  nudge_y = -0.33) +
         scale_fill_gradientn("Odds Ratio", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
                              limits = c(0, max(gomResults_rep$OddsRatio[gomResults_rep$ASD_GeneCount >= 5])),
                              breaks = pretty_breaks(n = 3)) +
         scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c(1, 0), guide = FALSE) +
         scale_x_discrete(expand = c(0.18, 0), labels = function(x) str_replace_all(x, pattern = c("_" = " "))) +
-        scale_y_discrete(expand = c(0.017, 0), labels = function(x) str_replace_all(x, pattern = c("_" = " "))) +
+        scale_y_discrete(expand = c(0.033, 0)) +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
               panel.border = element_rect(color = "black", size = 1.25), 
               plot.margin = unit(c(0.5, 8, 0.5, 1), "lines"), axis.ticks = element_line(size = 1), 
               panel.background = element_rect(fill = "black"),
-              axis.text.x = element_text(size = 16, color = "black", angle = 45, hjust = 1, vjust = 1),
+              axis.text.x = element_text(size = 17, color = "black", angle = 45, hjust = 1, vjust = 1),
               axis.text.y = element_text(size = 15, color = "black"), axis.title = element_blank(), 
-              legend.key = element_blank(), legend.position = c(1.28, 0.89), legend.background = element_blank(), 
+              legend.key = element_blank(), legend.position = c(1.23, 0.89), legend.background = element_blank(), 
               legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
               legend.text = element_text(size = 17))
-ggsave("Figures/DMR Gene Autism Gene Overlap Odds Ratio Heatmap Replicated.png", dpi = 600, width = 8, height = 8, 
+ggsave("Figures/DMR Gene Autism Gene Overlap Odds Ratio Heatmap Replicated.png", dpi = 600, width = 9, height = 8, 
        units = "in")
 
-
+# Get Replicated ChrX DMR Genes Overlapping ASD Gene Lists ####
+files <- list.files("Entrez ID Lists/Cord Blood ChrX DMRs", full.names = TRUE)
+chrX_DMRgenes <- sapply(files, read.delim, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
+names(chrX_DMRgenes) <- gsub(pattern = ".*EntrezIDs_", replacement = "", x = names(chrX_DMRgenes)) %>%
+        gsub(pattern = "_chrX_DMRs.txt.V1", replacement = "", fixed = TRUE)
+chrX_DMRgenes <-chrX_DMRgenes[c("Males_Discovery", "Males_Replication", "Females_Discovery", "Females_Replication")]
+chrX_DMRgenes$Males_Replicated <- intersect(chrX_DMRgenes$Males_Discovery, chrX_DMRgenes$Males_Replication)
+chrX_DMRgenes$Females_Replicated <- intersect(chrX_DMRgenes$Females_Discovery, chrX_DMRgenes$Females_Replication)
+chrX_DMRgenes$MalesFemales_Replicated <- intersect(chrX_DMRgenes$Males_Replicated, chrX_DMRgenes$Females_Replicated)
+chrX_DMRgenes$MalesOnly_Replicated <- chrX_DMRgenes$Males_Replicated[!chrX_DMRgenes$Males_Replicated %in% chrX_DMRgenes$Females_Replicated]
+chrX_DMRgenes$FemalesOnly_Replicated <- chrX_DMRgenes$Females_Replicated[!chrX_DMRgenes$Females_Replicated %in% chrX_DMRgenes$Males_Replicated]
+chrX_DMRgenes <- chrX_DMRgenes[c("MalesFemales_Replicated", "MalesOnly_Replicated", "FemalesOnly_Replicated")]
+chrX_Overlaps <- melt(chrX_DMRgenes)
+colnames(chrX_Overlaps) <- c("EntrezID", "chrX_DMRs")
+chrX_Overlaps$GeneSymbol <- regDomains$gene_name[match(chrX_Overlaps$EntrezID, regDomains$gene_entrezID)]
+chrX_Overlaps <- chrX_Overlaps[,c("GeneSymbol", "EntrezID", "chrX_DMRs")]
+overlaps <- sapply(ASDgenes, function(x) chrX_Overlaps$EntrezID %in% x)
+chrX_Overlaps <- cbind(chrX_Overlaps, overlaps)
+Genetic <- Genetic[!Genetic %in% c("Blood_Gilissen_de_novo_CNV_ID", "Blood_Iossifov_Genes_With_LGD_Mutations_In_ID",
+                                   "Blood_Kochinke_ID_genes", "Lambert", "SFARI_Hypothesized")]
+chrX_Overlaps$GeneticStudies <- rowSums(chrX_Overlaps[,Genetic])
+Epigenetic <- Epigenetic[!Epigenetic %in% c("TemporalCortex_Wong_Dup15_mCpG", "Cerebellum_Wong_Dup15_mCpG",
+                                            "PFC_VogelCiernia_Dup15_mCpG", "PFC_Wong_Dup15_mCpG", 
+                                            "PFC_VogelCiernia_RTT_mCpG")]
+chrX_Overlaps$EpigeneticStudies <- rowSums(chrX_Overlaps[,Epigenetic])
+Expression <- Expression[!Expression %in% c("CordBlood_Mordaunt_NonTDvsTD_DEG", "FrontalAndTemporalCortex_Lin_Rett_Vs_Ctrl_DGE",
+                                            "FrontalAndTemporalCortex_Parikshak_Dup15qVs.Ctrl_Genes", 
+                                            "ImprintedGenes_MaternalExpression", "ImprintedGenes_PaternalExpression")]
+chrX_Overlaps$ExpressionStudies <- rowSums(chrX_Overlaps[,Expression])
+chrX_Overlaps$AnyStudy <- rowSums(chrX_Overlaps[,c("GeneticStudies", "EpigeneticStudies", "ExpressionStudies")])
+chrX_Overlaps <- chrX_Overlaps[order(chrX_Overlaps$chrX_DMRs, chrX_Overlaps$GeneSymbol),]
+write.csv(chrX_Overlaps, "Tables/ChrX DMR Gene Autism Gene Overlaps.csv", quote = FALSE, row.names = FALSE)
