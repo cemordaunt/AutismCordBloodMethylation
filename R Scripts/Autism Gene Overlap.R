@@ -522,3 +522,48 @@ chrX_Overlaps$ExpressionStudies <- rowSums(chrX_Overlaps[,Expression])
 chrX_Overlaps$AnyStudy <- rowSums(chrX_Overlaps[,c("GeneticStudies", "EpigeneticStudies", "ExpressionStudies")])
 chrX_Overlaps <- chrX_Overlaps[order(chrX_Overlaps$chrX_DMRs, chrX_Overlaps$GeneSymbol),]
 write.csv(chrX_Overlaps, "Tables/ChrX DMR Gene Autism Gene Overlaps.csv", quote = FALSE, row.names = FALSE)
+
+# Get Expression of Replicated ChrX DMR Genes in Fetal Brain ####
+# Data
+DMRbrainExp <- chrX_Overlaps[,c("GeneSymbol", "EntrezID", "chrX_DMRs")]
+brainExp <- read.csv("Tables/Allen_developmental_transcriptome_expression_matrix.csv", header = FALSE, stringsAsFactors = FALSE)
+brainGenes <- read.csv("Tables/Allen_developmental_transcriptome_rows_metadata.csv", header = TRUE, stringsAsFactors = FALSE)
+brainSamples <- read.csv("Tables/Allen_developmental_transcriptome_columns_metadata.csv", header = TRUE, stringsAsFactors = FALSE)
+
+# Subset Samples in Brain Expression Matrix
+brainExp <- brainExp[,2:ncol(brainExp)]
+sampleCols <- brainSamples$column_num[brainSamples$structure_acronym == "DFC" & brainSamples$age == "13 pcw"] # 88  96 107
+brainSamples_sub <- brainSamples[sampleCols,]
+#     column_num donor_id   donor_name    age gender structure_id structure_acronym                 structure_name
+# 88          88    12820 H376.IIIA.50 13 pcw      M        10173               DFC dorsolateral prefrontal cortex
+# 96          96    12834 H376.IIIA.51 13 pcw      F        10173               DFC dorsolateral prefrontal cortex
+# 107        107    12888 H376.IIIA.52 13 pcw      M        10173               DFC dorsolateral prefrontal cortex
+brainExp <- brainExp[,sampleCols]
+colnames(brainExp) <- apply(brainSamples_sub[,c("gender", "structure_acronym", "age", "donor_id")], 1, paste, collapse = "_") %>%
+        gsub(pattern = " ", replacement = "", fixed = TRUE) %>% paste(., "RPKM", sep = "_")
+cor(brainExp$M_DFC_13pcw_12820_RPKM, brainExp$F_DFC_13pcw_12834_RPKM) # 0.9375689 1st male is most similar to female
+cor(brainExp$M_DFC_13pcw_12820_RPKM, brainExp$M_DFC_13pcw_12888_RPKM) # 0.7725906 
+cor(brainExp$F_DFC_13pcw_12834_RPKM, brainExp$M_DFC_13pcw_12888_RPKM) # 0.8378264 
+brainExp <- brainExp[, c("M_DFC_13pcw_12820_RPKM", "F_DFC_13pcw_12834_RPKM")] # Exclude 2nd male
+brainExp$EntrezID <- brainGenes$entrez_id
+
+# Add Brain Expression for DMR genes by Entrez ID
+DMRbrainExp <- merge(x = DMRbrainExp, y = brainExp, by = "EntrezID", all.x = TRUE, all.y = FALSE, sort = FALSE)
+colnames(DMRbrainExp) <- c("EntrezID", "GeneSymbol", "chrX_DMRs", "Male_FetalBrainExp", "Female_FetalBrainExp")
+
+# Fill in Missing by Gene Symbol
+missing <- subset(DMRbrainExp, is.na(DMRbrainExp$Male_FetalBrainExp) | is.na(DMRbrainExp$Female_FetalBrainExp))
+brainExp$GeneSymbol <- brainGenes$gene_symbol
+missing <- merge(x = missing, y = brainExp, by = "GeneSymbol", all.x = TRUE, all.y = FALSE, sort = FALSE)
+missing <- subset(missing, !is.na(missing$M_DFC_13pcw_12820_RPKM) & !is.na(missing$F_DFC_13pcw_12834_RPKM))
+DMRbrainExp$Male_FetalBrainExp[match(missing$EntrezID.x, DMRbrainExp$EntrezID)] <- missing$M_DFC_13pcw_12820_RPKM
+DMRbrainExp$Female_FetalBrainExp[match(missing$EntrezID.x, DMRbrainExp$EntrezID)] <- missing$F_DFC_13pcw_12834_RPKM
+table(is.na(DMRbrainExp$Male_FetalBrainExp) | is.na(DMRbrainExp$Female_FetalBrainExp)) # 33 missing
+
+# Write Table
+DMRbrainExp <- DMRbrainExp[order(DMRbrainExp$GeneSymbol),]
+DMRbrainExp <- DMRbrainExp[,c("GeneSymbol", "EntrezID", "chrX_DMRs", "Male_FetalBrainExp", "Female_FetalBrainExp")]
+write.csv(DMRbrainExp, "Tables/ChrX DMR Gene Fetal Brain 13pcw Expression RPKM.csv", quote = FALSE, row.names = FALSE)
+
+
+
