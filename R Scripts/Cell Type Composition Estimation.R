@@ -663,6 +663,10 @@ variables <- variables[!variables == "Sex"]
 covStats_males <- DMRmethLm(DMRs = celltypes, catVars = catVars, contVars = contVars, sampleData = samples_cov_males, 
                             adj = "Platform", file = "Tables/Estimated Cell Populations by Covariate Stats Males Only.txt")
 
+# Get Stats for nRBCs only
+covStats_males_nRBCs <- DMRmethLm(DMRs = "nRBC", catVars = catVars, contVars = contVars, sampleData = samples_cov_males, 
+                            adj = "Platform", file = "Tables/Estimated nRBCs by Covariate Stats Males Only.txt")
+
 # Covariate Association, Females Only ####
 # Data
 samples_cov_females <- subset(samples_cov, Sex == "F")
@@ -671,6 +675,12 @@ samples_cov_females <- subset(samples_cov, Sex == "F")
 covStats_females <- DMRmethLm(DMRs = celltypes, catVars = catVars, 
                             contVars = contVars, sampleData = samples_cov_females, adj = "Platform",
                             file = "Tables/Estimated Cell Populations by Covariate Stats Females Only.txt")
+
+# Get Stats for nRBCs only
+covStats_females_nRBCs <- DMRmethLm(DMRs = "nRBC", catVars = catVars, 
+                              contVars = contVars, sampleData = samples_cov_females, adj = "Platform",
+                              file = "Tables/Estimated nRBCs by Covariate Stats Females Only.txt")
+
 rm(gaCells, samples_cov_disc, samples_cov_rep, samples_cov_pooled)
 
 # Covariate Association, Discovery Samples --------------------------------

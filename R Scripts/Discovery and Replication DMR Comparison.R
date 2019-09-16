@@ -730,6 +730,34 @@ sapply(IntDAVID, nrow)
 # All  AllSex   Males Females 
 #   9       2      36      78 
 
+# Postsynaptic membrane genes ####
+postsyn_malesDisc <- IntDAVID$Males$GeneIDs.x[grepl("postsynaptic membrane", IntDAVID$Males$Term.x, fixed = TRUE)] %>%
+        str_split(pattern = ", ") %>% unlist()
+postsyn_malesRep <- IntDAVID$Males$GeneIDs.y[grepl("postsynaptic membrane", IntDAVID$Males$Term.y, fixed = TRUE)] %>%
+        str_split(pattern = ", ") %>% unlist()
+postsyn_femalesDisc <- IntDAVID$Females$GeneIDs.x[grepl("postsynaptic membrane", IntDAVID$Females$Term.x, fixed = TRUE)] %>%
+        str_split(pattern = ", ") %>% unlist()
+postsyn_femalesRep <- IntDAVID$Females$GeneIDs.y[grepl("postsynaptic membrane", IntDAVID$Females$Term.y, fixed = TRUE)] %>%
+        str_split(pattern = ", ") %>% unlist()
+postsyn_males <- intersect(postsyn_malesDisc, postsyn_malesRep)
+postsyn_females <- intersect(postsyn_femalesDisc, postsyn_femalesRep)
+postsyn_malesAndFemales <- intersect(postsyn_males, postsyn_females)
+
+# Embryo Development genes ####
+embryo_malesDisc <- IntDAVID$Males$GeneIDs.x[grepl("embryo_development", IntDAVID$Males$Term.x, fixed = TRUE)] %>%
+        str_split(pattern = ", ") %>% unlist()
+embryo_malesRep <- IntDAVID$Males$GeneIDs.y[grepl("embryo_development", IntDAVID$Males$Term.y, fixed = TRUE)] %>%
+        str_split(pattern = ", ") %>% unlist()
+embryo_femalesDisc <- IntDAVID$Females$GeneIDs.x[grepl("embryo_development", IntDAVID$Females$Term.x, fixed = TRUE)] %>%
+        str_split(pattern = ", ") %>% unlist()
+embryo_femalesRep <- IntDAVID$Females$GeneIDs.y[grepl("embryo_development", IntDAVID$Females$Term.y, fixed = TRUE)] %>%
+        str_split(pattern = ", ") %>% unlist()
+embryo_males <- intersect(embryo_malesDisc, embryo_malesRep)
+embryo_females <- intersect(embryo_femalesDisc, embryo_femalesRep)
+embryo_malesAndFemales <- intersect(embryo_males, embryo_females)
+
+intersect(postsyn_malesAndFemales, embryo_malesAndFemales)
+
 # Overlapping Terms Plots ####
 plotDAVID <- read.delim("Tables/Discovery and Replication Males Females DAVID Results for Plot.txt", sep = "\t",
                         header = TRUE, stringsAsFactors = FALSE)
@@ -768,6 +796,36 @@ gg <- gg +
 ggsave("Figures/Discovery and Replication Males Females DAVID logp Heatmap.png", plot = gg, dpi = 600, width = 8, 
        height = 6.5, units = "in")
 
+# Terms, exclude expression, Manual Order, with Stars
+plotDAVID$Term <- factor(plotDAVID$Term, levels = rev(c("Chromosome X", "Plasma membrane", "Postsynaptic membrane", 
+                                                        "Chromosome 4", "Chromosome 8", "Integral component of plasma membrane", 
+                                                        "Neuroactive ligand-receptor interaction", "EGF-like domain",                        
+                                                        "Fibronectin type III domain", "Mental retardation", 
+                                                        "Rap1 signaling pathway", "Dendritic spine", "Transmembrane", 
+                                                        "Cell adhesion", "Membrane", "Cell membrane", "Glycoprotein", 
+                                                        "Calcium", "Chromosome 18", "Synapse", "Postsynaptic cell membrane", 
+                                                        "Cell junction", "Developmental protein")))
+gg <- ggplot()
+gg <- gg +
+        geom_tile(data = plotDAVID, aes(y = Term, x = Comparison, fill = log10Benjamini)) +
+        geom_text(data = plotDAVID, aes(y = Term, x = Comparison), label = "*", size = 9, color = "white", nudge_y = -0.33) +
+        scale_fill_gradientn("-log(q-value)", colors = c("black", "#FF0000"), values = c(0,1), na.value = "#FF0000",
+                             breaks = pretty_breaks(n = 4), limits = c(0, 9)) +
+        scale_x_discrete(expand = c(0,0), drop = FALSE) +
+        scale_y_discrete(expand = c(0,0), drop = FALSE) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 7, 0.5, 0.5), "lines"), axis.ticks = element_line(size = 0.7), 
+              axis.text.x = element_text(size = 15, color = "black", angle = 45, hjust = 1.1, vjust = 1.15), 
+              axis.text.y = element_text(size = 15, color = "black"),
+              axis.title = element_blank(), legend.key = element_blank(),  
+              legend.position = c(1.29, 0.885), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 16), 
+              legend.text = element_text(size = 15), panel.background = element_rect(fill = "black"))
+ggsave("Figures/Discovery and Replication Males Females DAVID logp Heatmap Manual Order.png", plot = gg, dpi = 600, width = 8, 
+       height = 7, units = "in")
+
 # Expression Terms Only
 plotDAVIDexp$Term <- gsub(" expression", replacement = "", plotDAVIDexp$Term, fixed = TRUE)
 plotDAVIDexp <- plotDAVIDexp[order(plotDAVIDexp$Term),]
@@ -794,6 +852,36 @@ gg <- gg +
               legend.text = element_text(size = 14), panel.background = element_rect(fill = "black"))
 ggsave("Figures/Discovery and Replication Males Females DAVID Expression logp Heatmap.png", plot = gg, dpi = 600, width = 8, 
        height = 6.5, units = "in")
+
+# Expression Terms Only, Manual Order, with Stars
+plotDAVIDexp$Term <- factor(plotDAVIDexp$Term, levels = rev(c("Cerebellum", "Testis", "Prefrontal cortex", "Brain", 
+                                                              "Pituitary", "Olfactory bulb", "Occipital lobe",               
+                                                              "Embryo development", "Uterus", "Cingulate cortex", 
+                                                              "Smooth muscle", "Bone marrow", "Temporal lobe",  "Tongue", 
+                                                              "Bone marrow endothelial cells", "Whole blood", "Prostate", 
+                                                              "Appendix", "Cerebellum peduncles", "Kidney", 
+                                                              "Dorsal root ganglia", "Fetal liver", "Uterus corpus",
+                                                              "Ovary", "Ear", "Thymus", "Subthalamic nucleus")))
+gg <- ggplot()
+gg <- gg +
+        geom_tile(data = plotDAVIDexp, aes(y = Term, x = Comparison, fill = log10Benjamini)) +
+        geom_text(data = plotDAVIDexp, aes(y = Term, x = Comparison), label = "*", size = 9, color = "white", nudge_y = -0.4) +
+        scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000",
+                             breaks = pretty_breaks(n = 4), limits = c(0, 9)) +
+        scale_x_discrete(expand = c(0,0), drop = FALSE) +
+        scale_y_discrete(expand = c(0,0), drop = FALSE) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 7, 0.5, 5.6), "lines"), axis.ticks = element_line(size = 0.7), 
+              axis.text.x = element_text(size = 15, color = "black", angle = 45, hjust = 1.1, vjust = 1.15), 
+              axis.text.y = element_text(size = 15, color = "black"),
+              axis.title = element_blank(), legend.key = element_blank(),  
+              legend.position = c(1.29, 0.885), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 16), 
+              legend.text = element_text(size = 15), panel.background = element_rect(fill = "black"))
+ggsave("Figures/Discovery and Replication Males Females DAVID Expression logp Heatmap Manual Order.png", plot = gg, dpi = 600, width = 8, 
+       height = 7, units = "in")
 
 # ChrX DAVID Analysis --------------------------------------------------------
 # Get IDs ####
@@ -833,6 +921,40 @@ chrX_DAVID <- lapply(chrX_DAVID, function(x){
 chrX_DAVID_int <- list(Males = merge(x = chrX_DAVID$DisDxMales, y = chrX_DAVID$RepDxMales, by = "Category_Term", all = FALSE),
                        Females = merge(x = chrX_DAVID$DisDxFemales, y = chrX_DAVID$RepDxFemales, by = "Category_Term", all = FALSE))
 # No overlapping terms, not enough genes after subsetting for chrX
+
+# All ChrX genes vs Whole Genome DAVID ####
+all_chrX_genes <- as.numeric(regDomains$gene_entrezID[regDomains$gene_chr == "chrX"]) # 1112
+all_genes <- as.numeric(regDomains$gene_entrezID)
+categories <- c("BBID", "BIOCARTA", "BIOGRID_INTERACTION", "CGAP_EST_QUARTILE", "CGAP_SAGE_QUARTILE",                
+                "COG_ONTOLOGY", "DIP", "EC_NUMBER", "GAD_DISEASE", "GENE3D", "GNF_U133A_QUARTILE", 
+                "GENERIF_SUMMARY", "GOTERM_BP_DIRECT", "GOTERM_CC_DIRECT", "GOTERM_MF_DIRECT", "KEGG_PATHWAY", "INTERPRO", 
+                "INTACT", "OMIM_DISEASE", "MINT", "PIR_SEQ_FEATURE", "PIR_SUMMARY", "PIR_SUPERFAMILY", "PFAM", 
+                "REACTOME_PATHWAY", "SMART", "PRINTS", "PRODOM", "PROSITE", "UP_KEYWORDS", "UNIGENE_EST_QUARTILE", 
+                "TIGRFAMS", "SUPFAM", "UP_TISSUE")  
+all_chrX_DAVID <- getDAVID(genes = all_chrX_genes, background = all_genes, categories = categories,
+                           file = "Tables/All Chromosome X genes DAVID Results.txt")
+all_chrX_plot <- read.delim("Tables/All Chromosome X genes DAVID Results for Plot.txt", sep = "\t", header = TRUE,
+                            stringsAsFactors = FALSE)
+all_chrX_plot$Term <- factor(all_chrX_plot$Term, levels = rev(unique(all_chrX_plot$Term)))
+
+gg <- ggplot()
+gg <- gg +
+        geom_col(data = all_chrX_plot, aes(x = Term, y = log10Benjamini), fill = "#3366CC") +
+        coord_flip() +
+        scale_y_continuous(expand = expand_scale(mult = c(0.003, 0.05))) +
+        ylab("-log(q-value)") +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 1, 0.5, 0.5), "lines"), axis.ticks = element_line(size = 0.8), 
+              axis.text.x = element_text(size = 13, color = "black"), 
+              axis.text.y = element_text(size = 13, color = "black"),
+              axis.title.x = element_text(size = 14, color = "black"),
+              axis.title.y = element_blank(), legend.key = element_blank(),  
+              legend.position = "none", legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 11), 
+              legend.text = element_text(size = 11))
+ggsave("Figures/All Chromosome X Genes DAVID Barplot.png", dpi = 600, width = 8, height = 7, units = "in")
 
 # DMR Percent of Background by Direction Stacked Barplots -----------------
 # DMR Percent of Background Hyper and Hypomethylated All Chroms ####
@@ -951,4 +1073,9 @@ gg +
         scale_y_continuous(expand = c(0.004, 0), breaks = pretty_breaks(n = 4))
 ggsave("Figures/DMR Percent of Background by Direction chrX Only Stacked Barplot.png", dpi = 600, width = 5, height = 7, 
        units = "in")
+
+
+
+
+
 

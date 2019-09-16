@@ -450,7 +450,7 @@ gg +
         geom_point(aes(y = Transcription_Factor, x = DMRs, alpha = Enriched), color = "white", size = 2.5) +
         facet_grid(cols = vars(Sex)) +
         scale_fill_gradientn("Fold\nEnrichment", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
-                             limits = c(0, max(homer_top$Fold_Enrichment))) +
+                             limits = c(0, 3.5)) +
         scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c(1, 0), guide = FALSE) +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
@@ -625,12 +625,12 @@ gg +
         geom_point(aes(y = Transcription_Factor, x = DMRs, alpha = Enriched), color = "white", size = 2.5) +
         facet_grid(cols = vars(Sex)) +
         scale_fill_gradientn("Fold\nEnrichment", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000", 
-                             limits = c(0, max(homer_top$Fold_Enrichment))) +
+                             limits = c(0, 3.5)) +
         scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c(1, 0), guide = FALSE) +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
               panel.border = element_rect(color = "black", size = 1.25), 
-              plot.margin = unit(c(0.25, 8, 0.5, 1), "lines"), axis.ticks = element_line(size = 1), 
+              plot.margin = unit(c(0.25, 8, 0.5, 1.35), "lines"), axis.ticks = element_line(size = 1), 
               panel.background = element_rect(fill = "black"),
               axis.text.x = element_text(size = 15, color = "black", angle = 45, hjust = 1, vjust = 1),
               axis.text.y = element_text(size = 14, color = "black"), axis.title = element_blank(), 

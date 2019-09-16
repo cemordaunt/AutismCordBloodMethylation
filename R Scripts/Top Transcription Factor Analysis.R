@@ -116,14 +116,15 @@ rownames(chromHMM) <- 1:nrow(chromHMM)
 write.csv(chromHMM, file = "Tables/Top TF Motif LOLA ChromHMM Enrichments.csv", quote = FALSE, row.names = FALSE)
 
 # Get Top Ranked
+chromHMM$rnkORPV <- rowMeans(chromHMM[,c("rnkOR", "rnkPV")])
 motifs <- unique(chromHMM$userSet)
 top_chromStates <- NULL
 for(i in 1:length(motifs)){
         sub <- subset(chromHMM, userSet == motifs[i] & cellType == "Fetal Brain Male")
-        maleTop <- sub$chromState[sub$maxRnk == min(sub$maxRnk) & sub$qValue < 0.05] %>% as.character() %>% 
+        maleTop <- sub$chromState[sub$rnkORPV == min(sub$rnkORPV) & sub$qValue < 0.05] %>% as.character() %>% 
                 paste(collapse = "_")
         sub <- subset(chromHMM, userSet == motifs[i] & cellType == "Fetal Brain Female")
-        femaleTop <- sub$chromState[sub$maxRnk == min(sub$maxRnk) & sub$qValue < 0.05] %>% as.character() %>% 
+        femaleTop <- sub$chromState[sub$rnkORPV == min(sub$rnkORPV) & sub$qValue < 0.05] %>% as.character() %>% 
                 paste(collapse = "_")
         temp <- c(motifs[i], maleTop, femaleTop)
         top_chromStates <- rbind(top_chromStates, temp)
@@ -135,29 +136,43 @@ colnames(top_chromStates) <- c("Motif", "Top_FetalBrainMale", "Top_FetalBrainFem
 top_chromStates$Motif[grepl("_", top_chromStates$Top_FetalBrainMale, fixed = TRUE)] %>% as.character() 
 # None with multiple top
 top_chromStates$Motif[grepl("_", top_chromStates$Top_FetalBrainFemale, fixed = TRUE)] %>% as.character()
-# "ebf"      "ets-ebox" "pbx3"
-# ebf: ReprPC has higher odds ratio
-# ets-ebox: Enh has higher odds ratio
-# pbx3: Enh has higher odds ratio
-
-top_chromStates$Top_FetalBrainFemale[top_chromStates$Motif == "ebf"] <- "ReprPC"
-top_chromStates$Top_FetalBrainFemale[top_chromStates$Motif == "ets-ebox"] <- "Enh"
-top_chromStates$Top_FetalBrainFemale[top_chromStates$Motif == "pbx3"] <- "Enh"
+# vdr, znf675
+# vdr: EnhG has higher odds ratio
+# znf675: Enh has higher odds ratio
+top_chromStates <- sapply(top_chromStates, as.character) %>% as.data.frame(stringsAsFactors = FALSE)
+top_chromStates$Top_FetalBrainFemale[top_chromStates$Motif == "vdr"] <- "EnhG"
+top_chromStates$Top_FetalBrainFemale[top_chromStates$Motif == "znf675"] <- "Enh"
 top_chromStates$Same <- as.character(top_chromStates$Top_FetalBrainMale) == 
         as.character(top_chromStates$Top_FetalBrainFemale)
 write.csv(top_chromStates, file = "Tables/Top TF Motif Chromatin States LOLA ChromHMM Enrichments.csv", quote = FALSE, 
           row.names = FALSE)
 
 # Plot Odds Ratio
-hm.max <- quantile(chromHMM$oddsRatio, probs = 0.975, names = FALSE, na.rm = TRUE) %>% ceiling
 chromHMM$userSet <- factor(chromHMM$userSet, levels = rev(unique(chromHMM$userSet)))
-chromHMM$cellType <- factor(chromHMM$cellType, levels = c("Fetal Brain Male", "Fetal Brain Female"))
+chromHMM$cellType <- str_replace_all(chromHMM$cellType, pattern = c("Fetal Brain Male" = "Male Fetal Brain", 
+                                                                    "Fetal Brain Female" = "Female Fetal Brain"))
+chromHMM$cellType <- factor(chromHMM$cellType, levels = c("Male Fetal Brain", "Female Fetal Brain"))
+
+cellType <- unique(chromHMM$cellType) %>% as.character()
+chromHMM$Enriched <- NULL
+for(i in 1:length(cellType)){ # Enriched motifs are in the top quartile of odds ratio and log q-value for that cellType and q < 0.05
+        oddsRatio <- chromHMM$oddsRatio[chromHMM$cellType == cellType[i]]
+        qValueLog <- chromHMM$qValueLog[chromHMM$cellType == cellType[i]]
+        qValue <- chromHMM$qValue[chromHMM$cellType == cellType[i]]
+        Enriched <- oddsRatio >= quantile(oddsRatio, 0.75) & 
+                qValueLog >= quantile(qValueLog, 0.75) &
+                qValue < 0.05
+        chromHMM$Enriched[chromHMM$cellType == cellType[i]] <- Enriched
+}
+chromHMM$Enriched <- factor(chromHMM$Enriched, levels = c("TRUE", "FALSE"))
 gg <- ggplot(data = chromHMM)
 gg +
         geom_tile(aes(x = chromState, y = userSet, fill = oddsRatio)) +
+        geom_point(aes(x = chromState, y = userSet, alpha = Enriched), color = "white", size = 1.5) +
         facet_grid(cols = vars(cellType)) +
         scale_fill_gradientn("Odds Ratio", colors = c("black", "#FF0000"), values = c(0, 1), 
-                             na.value = "#FF0000", limits = c(0, hm.max), breaks = pretty_breaks(n = 3)) +
+                             na.value = "#FF0000", limits = c(0, 3.5), breaks = pretty_breaks(n = 3)) +
+        scale_alpha_manual(breaks = c("TRUE", "FALSE"), values = c("TRUE" = 1, "FALSE" = 0), guide = FALSE) +
         scale_y_discrete(labels = function(x) str_to_upper(x)) +
         theme_bw(base_size = 24) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
@@ -201,8 +216,8 @@ rm(gg, index, lola, sub, femaleTop, hm.max, i, maleTop, motifs, temp, chromHMM)
 # Merge Tables and Setup for Plot ####
 TFs$Motif_Match <- gsub(".motif", replacement = "", x = TFs$Motif_File, fixed = TRUE)
 TFs <- merge(x = TFs, y = top_chromStates, by.x = "Motif_Match", by.y = "Motif", all = TRUE, sort = FALSE)
-write.csv(TFs, file = "Tables/HOMER Top Enriched TF Motif Info with Brain Expression and ChromHMM.csv", quote = FALSE, 
-          row.names = FALSE)
+write.table(TFs, file = "Tables/HOMER Top Enriched TF Motif Info with Brain Expression and ChromHMM.txt", sep = "\t", 
+            quote = FALSE, row.names = FALSE)
 
 TFplot <- TFs[,c("Motif", "Gene_Name", "M_DFC_13pcw_12820_RPKM", "F_DFC_13pcw_12834_RPKM", "Unmethylated_Percent",
                  "HeterogeneouslyMethylated_Percent", "Methylated_Percent", "Top_FetalBrainMale", "Top_FetalBrainFemale")]
@@ -215,7 +230,7 @@ colnames(TFplot) <- str_replace_all(colnames(TFplot), pattern = c("M_DFC_13pcw_1
                                                                   "Top_FetalBrainFemale" = "ChromState_FemaleFetalBrain"))
 TFplot$ChromState_MaleFetalBrain <- as.character(TFplot$ChromState_MaleFetalBrain)
 TFplot$ChromState_FemaleFetalBrain <- as.character(TFplot$ChromState_FemaleFetalBrain)
-TFplot[TFplot == ""] <- NA
+TFplot[TFplot == ""] <- "None Enriched"
 TFplot$Gene_Name <- str_replace_all(TFplot$Gene_Name, pattern = c("NR3C1" = "GR", "HIF1A" = "HIF-1A", "NR1D2" = "REVERB"))
 TFplot$Motif_Gene <- mapply(function(x,y){ 
         if(x == y){ return(x) 
@@ -290,11 +305,14 @@ ggsave("Figures/HOMER Top Enriched TF Motif Info Methylation Heatmap.png", dpi =
 
 # Chromatin State
 TFplot_chrom <- subset(TFplot, Datatype == "ChromState")
-TFplot_chrom$value <- factor(TFplot_chrom$value, levels = c("TssA", "Tx", "TxWk", "Enh", "Het", "ReprPC", "ReprPCwk", "Quies"))
-chromColors <- c(rgb(255,0,0, maxColorValue = 255), rgb(0,128,0, maxColorValue = 255), rgb(0,100,0, maxColorValue = 255), 
-                 rgb(255,255,0, maxColorValue = 255), rgb(138,145,208, maxColorValue = 255), 
-                 rgb(128,128,128, maxColorValue = 255), rgb(192,192,192, maxColorValue = 255), 
-                 rgb(255,255,255, maxColorValue = 255))
+TFplot_chrom$value <- factor(TFplot_chrom$value, levels = c("TssA", "TssAFlnk", "Tx", "TxWk", "EnhG", "Enh",
+                                                            "ZnfRpts", "Het", "TssBiv", "EnhBiv", 
+                                                            "ReprPCwk", "Quies", "None Enriched"))
+chromColors <- c(rgb(255,0,0, maxColorValue = 255), rgb(255,69,0, maxColorValue = 255), rgb(0,128,0, maxColorValue = 255), 
+                 rgb(0,100,0, maxColorValue = 255), rgb(194,225,5, maxColorValue = 255), rgb(255,255,0, maxColorValue = 255), 
+                 rgb(102,205,170, maxColorValue = 255), rgb(138,145,208, maxColorValue = 255), 
+                 rgb(205,92,92, maxColorValue = 255), rgb(189,183,107, maxColorValue = 255),
+                 rgb(192,192,192, maxColorValue = 255), rgb(255,255,255, maxColorValue = 255), "black")
 
 gg <- ggplot(data = TFplot_chrom)
 gg +
@@ -309,7 +327,7 @@ gg +
               panel.background = element_rect(fill = "black"), axis.ticks.y = element_blank(),
               axis.text.x = element_text(size = 18, color = "black", angle = 90, hjust = 1, vjust = 0.5),
               axis.text.y = element_text(size = 14, color = "black"), axis.title = element_blank(), 
-              legend.key = element_blank(), legend.position = c(1.65, 0.87), legend.background = element_blank(), 
+              legend.key = element_rect(color = "black"), legend.position = c(1.66, 0.82), legend.background = element_blank(), 
               legend.key.size = unit(1, "lines"), legend.title = element_text(size = 18), 
               legend.text = element_text(size = 16), legend.title.align = 0)
 ggsave("Figures/HOMER Top Enriched TF Motif Info Chromatin State Heatmap.png", dpi = 600, width = 5.75, height = 10, units = "in")

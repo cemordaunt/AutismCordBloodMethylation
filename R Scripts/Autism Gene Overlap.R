@@ -523,6 +523,42 @@ chrX_Overlaps$AnyStudy <- rowSums(chrX_Overlaps[,c("GeneticStudies", "Epigenetic
 chrX_Overlaps <- chrX_Overlaps[order(chrX_Overlaps$chrX_DMRs, chrX_Overlaps$GeneSymbol),]
 write.csv(chrX_Overlaps, "Tables/ChrX DMR Gene Autism Gene Overlaps.csv", quote = FALSE, row.names = FALSE)
 
+# Get Replicated All DMR Genes Overlapping ASD Gene Lists ####
+DMRgenes <- lapply(DMRgenes, unlist)
+DMRgenes$Males_Replicated <- intersect(DMRgenes$Males_Discovery, DMRgenes$Males_Replication)
+DMRgenes$Females_Replicated <- intersect(DMRgenes$Females_Discovery, DMRgenes$Females_Replication)
+DMRgenes$MalesFemales_Replicated <- intersect(DMRgenes$Males_Replicated, DMRgenes$Females_Replicated)
+DMRgenes$MalesOnly_Replicated <- DMRgenes$Males_Replicated[!DMRgenes$Males_Replicated %in% DMRgenes$Females_Replicated]
+DMRgenes$FemalesOnly_Replicated <- DMRgenes$Females_Replicated[!DMRgenes$Females_Replicated %in% DMRgenes$Males_Replicated]
+DMRgenes <- DMRgenes[c("MalesFemales_Replicated", "MalesOnly_Replicated", "FemalesOnly_Replicated")]
+Overlaps <- melt(DMRgenes)
+colnames(Overlaps) <- c("EntrezID", "DMRs")
+Overlaps$GeneSymbol <- regDomains$gene_name[match(Overlaps$EntrezID, regDomains$gene_entrezID)]
+Overlaps <- Overlaps[,c("GeneSymbol", "EntrezID", "DMRs")]
+overlaps <- sapply(ASDgenes, function(x) Overlaps$EntrezID %in% x)
+Overlaps <- cbind(Overlaps, overlaps)
+Genetic <- list.files("Entrez ID Lists/Genetic Studies/") %>% str_replace_all(pattern = c("EntrezIDs_" = "", ".txt" = ""))
+Epigenetic <- list.files("Entrez ID Lists/Epigenetic Studies/") %>% str_replace_all(pattern = c("EntrezIDs_" = "", ".txt" = ""))
+Expression <- list.files("Entrez ID Lists/Gene Expression Studies//") %>% str_replace_all(pattern = c("EntrezIDs_" = "", ".txt" = ""))
+Genetic <- Genetic[!Genetic %in% c("Blood_Gilissen_de_novo_CNV_ID", "Blood_Iossifov_Genes_With_LGD_Mutations_In_ID",
+                                   "Blood_Kochinke_ID_genes", "Lambert", "SFARI_Hypothesized")]
+Overlaps$GeneticStudies <- rowSums(Overlaps[,Genetic])
+Epigenetic <- Epigenetic[!Epigenetic %in% c("TemporalCortex_Wong_Dup15_mCpG", "Cerebellum_Wong_Dup15_mCpG",
+                                            "PFC_VogelCiernia_Dup15_mCpG", "PFC_Wong_Dup15_mCpG", 
+                                            "PFC_VogelCiernia_RTT_mCpG")]
+Overlaps$EpigeneticStudies <- rowSums(Overlaps[,Epigenetic])
+BrainEpigenetic <- Epigenetic[!Epigenetic %in% c("Blood_Andrews_mCpG", "Buccal_Berko_mCpG", "Placenta_Zhu_mCpG",
+                                                 "Blood_Wong_mCpG", "Sperm_Feinberg_mCpG", "Bloodspot_Hannon_mCpG",
+                                                 "LCL_Nguyen_mCpG")]
+Overlaps$BrainEpigeneticStudies <- rowSums(Overlaps[,BrainEpigenetic])
+Expression <- Expression[!Expression %in% c("CordBlood_Mordaunt_NonTDvsTD_DEG", "FrontalAndTemporalCortex_Lin_Rett_Vs_Ctrl_DGE",
+                                            "FrontalAndTemporalCortex_Parikshak_Dup15qVs.Ctrl_Genes", 
+                                            "ImprintedGenes_MaternalExpression", "ImprintedGenes_PaternalExpression")]
+Overlaps$ExpressionStudies <- rowSums(Overlaps[,Expression])
+Overlaps$AnyStudy <- rowSums(Overlaps[,c("GeneticStudies", "EpigeneticStudies", "ExpressionStudies")])
+Overlaps <- Overlaps[order(Overlaps$DMRs, Overlaps$GeneSymbol),]
+write.csv(Overlaps, "Tables/All DMR Gene Autism Gene Overlaps.csv", quote = FALSE, row.names = FALSE)
+
 # Get Expression of Replicated ChrX DMR Genes in Fetal Brain ####
 # Data
 DMRbrainExp <- chrX_Overlaps[,c("GeneSymbol", "EntrezID", "chrX_DMRs")]

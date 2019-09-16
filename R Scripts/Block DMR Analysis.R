@@ -419,6 +419,38 @@ gg <- gg +
 ggsave("Figures/Discovery and Replication Males Females DMB Genes DAVID All logp Heatmap.png", plot = gg, dpi = 600, width = 8, 
        height = 6.5, units = "in")
 
+# All Terms, Manual Order
+plotDAVIDall$Term <- factor(plotDAVIDall$Term, levels = rev(c("Chromosome 5", "Glycoprotein",
+                                                              "Cell membrane", "Plasma membrane",                         
+                                                              "Embryo development expression", "Cadherin-like",
+                                                              "Cell adhesion", "Membrane", "Transmembrane",                           
+                                                              "Transmembrane helix", "Calcium", "Brain expression", 
+                                                              "Bone marrow endothelial cells expression", 
+                                                              "Integral component of membrane",
+                                                              "Cadherin, N-terminal", "Cadherins", "Homophilic cell adhesion",
+                                                              "Cadherin signature", "Cadherin domain", "Cadherin",                                
+                                                              "Cadherin conserved site")))
+gg <- ggplot()
+gg <- gg +
+        geom_tile(data = plotDAVIDall, aes(y = Term, x = Comparison, fill = log10Benjamini)) +
+        geom_text(data = plotDAVIDall, aes(y = Term, x = Comparison), label = "*", color = "white", size = 10, nudge_y = -0.38) +
+        scale_fill_gradientn("-log(q-value)", colors = c("Black", "#FF0000"), values = c(0,1), na.value = "#FF0000",
+                             breaks = pretty_breaks(n = 4), limits = c(0, 8)) +
+        scale_x_discrete(expand = c(0,0), drop = FALSE) +
+        scale_y_discrete(expand = c(0,0), drop = FALSE) +
+        theme_bw(base_size = 24) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+              panel.border = element_rect(color = "black", size = 1.25), 
+              plot.margin = unit(c(0.5, 6.5, 2, 0.5), "lines"), axis.ticks = element_line(size = 0.7), 
+              axis.text.x = element_text(size = 14, color = "black", angle = 45, hjust = 1.1, vjust = 1.15), 
+              axis.text.y = element_text(size = 14, color = "black"),
+              axis.title = element_blank(), legend.key = element_blank(),  
+              legend.position = c(1.24, 0.87), legend.background = element_blank(), 
+              legend.key.size = unit(1, "lines"), legend.title = element_text(size = 15), 
+              legend.text = element_text(size = 14), panel.background = element_rect(fill = "black"))
+ggsave("Figures/Discovery and Replication Males Females DMB Genes DAVID All logp Heatmap Manual Order.png", plot = gg, dpi = 600, width = 8, 
+       height = 6.5, units = "in")
+
 # Terms, exclude expression
 plotDAVID <- plotDAVID[order(plotDAVID$Term),]
 pvals <- reshape::cast(plotDAVID[,c("Term", "Comparison", "log10Benjamini")], formula = Term ~ Comparison, 
