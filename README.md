@@ -2,6 +2,7 @@
 Analysis of DNA methylation data by whole-genome bisulfite sequencing in umbilical cord blood from ASD and TD subjects in the MARBLES and EARLI studies. (In Progress)
 
 ## Article: Cord blood methylome from newborns later diagnosed with autism spectrum disorder reflects early dysregulation of neurodevelopmental and X-linked genes
+#### Mordaunt CE *et al.* 2019. In Preparation.
 
 ***Background:*** Autism spectrum disorder (ASD) is a male-biased neurodevelopmental disorder with complex genetic etiology. Since the neonatal epigenome has the potential to reflect past interactions between diverse genetic and environmental factors during embryonic development, we performed whole-genome bisulfite sequencing in 152 umbilical cord blood samples from the MARBLES and EARLI high-risk prospective cohorts to identify an integrative epigenomic signature of ASD at birth. 
 
