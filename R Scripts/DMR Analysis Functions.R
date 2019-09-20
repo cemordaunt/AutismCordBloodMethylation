@@ -517,6 +517,21 @@ covHeatmap <- function(covStats, variableOrdering = c("unsorted", "manual", "hie
         ggsave(file, dpi = 600, width = width, height = height, units = "in")
 }
 
+getMRS <- function(meth, estimates){
+        # Calculates methylation risk score for each sample
+        # meth is a numeric matrix of percent methylation with DMRs in rows and samples in columns
+        # estimates is a data.frame with columns DMRid and Estimate
+        samples <- colnames(meth)
+        meth <- apply(meth, 1, scale)
+        rownames(meth) <- samples
+        meth <- meth[,estimates$DMRid]
+        meth[is.na(meth)] <- 0
+        MRS <- apply(meth, 1, function(x) sum(x * estimates$Estimate))
+        MRS_table <- data.frame(Sequencing_ID = samples, MRS = MRS)
+        rownames(MRS_table) <- 1:nrow(MRS_table)
+        return(MRS_table)
+}
+
 # Annotation Functions ----------------------------------------------------
 
 getDMRanno <- function(DMRstats, regDomains, file = NULL){
