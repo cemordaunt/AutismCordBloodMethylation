@@ -315,7 +315,18 @@ covHeatmap(covStats_adj, variableOrdering = "hierarchical", regionOrdering = "hi
 # DMR Annotation ####
 regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 DMRs_anno <- getDMRanno(DMRstats = DMRs, regDomains = regDomains, file = "Tables/Diagnosis and Sex DMRs Annotation.txt")
-rm(regDomains, DMRs_anno)
+
+# Combine Annotation and Covariate Association ####
+DMRs_annoCov <- DMRs_anno
+vars <- unique(covStats_adj$Variable) %>% as.character()
+for(i in 1:length(vars)){
+        temp <- subset(covStats_adj, Variable == vars[i], select = c("Region", "Estimate", "pvalue"))
+        DMRs_annoCov <- merge(x = DMRs_annoCov, y = temp, by.x = "DMRid", by.y = "Region", sort = FALSE)
+}
+colnames(DMRs_annoCov) <- c(colnames(DMRs_anno), paste(rep(vars, each = 2), c("Estimate", "pvalue"), sep = "_"))
+write.table(DMRs_annoCov, "Tables/Diagnosis and Sex DMRs Annotation and Covariate Association.txt", sep = "\t", quote = FALSE,
+            col.names = TRUE, row.names = FALSE)
+rm(regDomains, DMRs_anno, DMRs_annoCov, vars, temp)
 
 # GREAT Analysis ####
 # Make Files for GREAT (hg19, DMRs redefined to match background, background < 1M regions)
@@ -492,7 +503,18 @@ DMRs_males_geneList <- list("All" = getDMRgeneList(DMRstats = DMRs, regDomains =
                               "Hyper" = getDMRgeneList(DMRstats = DMRs, regDomains = regDomains, direction = "hyper", type = "gene_name"),
                               "Hypo" = getDMRgeneList(DMRstats = DMRs, regDomains = regDomains, direction = "hypo", type = "gene_name"),
                               "Background" = getDMRgeneList(DMRstats = background, regDomains = regDomains, direction = "all", type = "gene_name"))
-rm(regDomains, DMRs_anno)
+
+# Combine Annotation and Covariate Association ####
+DMRs_annoCov <- DMRs_anno
+vars <- unique(covStats$Variable) %>% as.character()
+for(i in 1:length(vars)){
+        temp <- subset(covStats, Variable == vars[i], select = c("Region", "Estimate", "pvalue"))
+        DMRs_annoCov <- merge(x = DMRs_annoCov, y = temp, by.x = "DMRid", by.y = "Region", sort = FALSE)
+}
+colnames(DMRs_annoCov) <- c(colnames(DMRs_anno), paste(rep(vars, each = 2), c("Estimate", "pvalue"), sep = "_"))
+write.table(DMRs_annoCov, "Tables/Males Diagnosis DMRs Annotation and Covariate Association.txt", sep = "\t", quote = FALSE,
+            col.names = TRUE, row.names = FALSE)
+rm(regDomains, DMRs_anno, DMRs_annoCov, vars, temp)
 
 # GREAT Analysis ####
 # Make Files for GREAT (hg19, DMRs redefined to match background, background < 1M regions)
@@ -661,7 +683,18 @@ DMRs_females_geneList <- list("All" = getDMRgeneList(DMRstats = DMRs, regDomains
                       "Hyper" = getDMRgeneList(DMRstats = DMRs, regDomains = regDomains, direction = "hyper", type = "gene_name"),
                       "Hypo" = getDMRgeneList(DMRstats = DMRs, regDomains = regDomains, direction = "hypo", type = "gene_name"),
                       "Background" = getDMRgeneList(DMRstats = background, regDomains = regDomains, direction = "all", type = "gene_name"))
-rm(regDomains, DMRs_anno)
+
+# Combine Annotation and Covariate Association ####
+DMRs_annoCov <- DMRs_anno
+vars <- unique(covStats$Variable) %>% as.character()
+for(i in 1:length(vars)){
+        temp <- subset(covStats, Variable == vars[i], select = c("Region", "Estimate", "pvalue"))
+        DMRs_annoCov <- merge(x = DMRs_annoCov, y = temp, by.x = "DMRid", by.y = "Region", sort = FALSE)
+}
+colnames(DMRs_annoCov) <- c(colnames(DMRs_anno), paste(rep(vars, each = 2), c("Estimate", "pvalue"), sep = "_"))
+write.table(DMRs_annoCov, "Tables/Females Diagnosis DMRs Annotation and Covariate Association.txt", sep = "\t", quote = FALSE,
+            col.names = TRUE, row.names = FALSE)
+rm(regDomains, DMRs_anno, DMRs_annoCov, vars, temp)
 
 # GREAT Analysis ####
 # Make Files for GREAT (hg19, DMRs redefined to match background, background < 1M regions)

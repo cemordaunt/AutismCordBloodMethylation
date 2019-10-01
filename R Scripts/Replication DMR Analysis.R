@@ -327,13 +327,24 @@ covHeatmap(covStats_adj, variableOrdering = "manual", regionOrdering = "variable
            file = "Figures/Replication Diagnosis and Sex DMRs Raw Meth Covariate with AdjSex Heatmap Sorted by Diagnosis.png")
 covHeatmap(covStats_adj, variableOrdering = "hierarchical", regionOrdering = "hierarchical", 
            file = "Figures/Replication Diagnosis and Sex DMRs Raw Meth Covariate with AdjSex Heatmap Clustered.png")
-rm(covStats, covStats_adj, covSum, covSum_adj, meth_adj, meth_cov, meth_heat, methdiff, mod, phenoData, raw, 
+rm(covStats, covSum, covSum_adj, meth_adj, meth_cov, meth_heat, methdiff, mod, phenoData, raw, 
    samples, samples_cov, catVars, contVars, factorCols, hm.lim, i, temp, variables)
 
 # DMR Annotation ####
 regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 DMRs_anno <- getDMRanno(DMRstats = DMRs, regDomains = regDomains, file = "Tables/Replication Diagnosis and Sex DMRs Annotation.txt")
-rm(regDomains, DMRs_anno)
+
+# Combine Annotation and Covariate Association ####
+DMRs_annoCov <- DMRs_anno
+vars <- unique(covStats_adj$Variable) %>% as.character()
+for(i in 1:length(vars)){
+        temp <- subset(covStats_adj, Variable == vars[i], select = c("Region", "Estimate", "pvalue"))
+        DMRs_annoCov <- merge(x = DMRs_annoCov, y = temp, by.x = "DMRid", by.y = "Region", sort = FALSE)
+}
+colnames(DMRs_annoCov) <- c(colnames(DMRs_anno), paste(rep(vars, each = 2), c("Estimate", "pvalue"), sep = "_"))
+write.table(DMRs_annoCov, "Tables/Replication Diagnosis and Sex DMRs Annotation and Covariate Association.txt", sep = "\t", quote = FALSE,
+            col.names = TRUE, row.names = FALSE)
+rm(regDomains, DMRs_anno, DMRs_annoCov, vars, temp)
 
 # GREAT Analysis ####
 # Make Files for GREAT (hg19, DMRs redefined to match background, background < 1M regions)
@@ -484,12 +495,23 @@ covHeatmap(covStats, variableOrdering = "manual", regionOrdering = "variable", v
            file = "Figures/Replication Males Diagnosis DMRs Raw Meth Covariate Heatmap Sorted by Diagnosis.png")
 covHeatmap(covStats, variableOrdering = "hierarchical", regionOrdering = "hierarchical", 
            file = "Figures/Replication Males Diagnosis DMRs Raw Meth Covariate Heatmap Clustered.png")
-rm(meth_cov, samples_cov, catVars, contVars, factorCols, variables, covStats, covSum)
+rm(meth_cov, samples_cov, catVars, contVars, factorCols, variables, covSum)
 
 # DMR Annotation ####
 regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 DMRs_anno <- getDMRanno(DMRstats = DMRs, regDomains = regDomains, file = "Tables/Replication Males Diagnosis DMRs Annotation.txt")
-rm(regDomains, DMRs_anno)
+
+# Combine Annotation and Covariate Association ####
+DMRs_annoCov <- DMRs_anno
+vars <- unique(covStats$Variable) %>% as.character()
+for(i in 1:length(vars)){
+        temp <- subset(covStats, Variable == vars[i], select = c("Region", "Estimate", "pvalue"))
+        DMRs_annoCov <- merge(x = DMRs_annoCov, y = temp, by.x = "DMRid", by.y = "Region", sort = FALSE)
+}
+colnames(DMRs_annoCov) <- c(colnames(DMRs_anno), paste(rep(vars, each = 2), c("Estimate", "pvalue"), sep = "_"))
+write.table(DMRs_annoCov, "Tables/Replication Males Diagnosis DMRs Annotation and Covariate Association.txt", sep = "\t", quote = FALSE,
+            col.names = TRUE, row.names = FALSE)
+rm(regDomains, DMRs_anno, DMRs_annoCov, vars, temp)
 
 # GREAT Analysis ####
 # Make Files for GREAT (hg19, DMRs redefined to match background, background < 1M regions)
@@ -679,12 +701,23 @@ covHeatmap(covStats, variableOrdering = "manual", regionOrdering = "variable", v
 covHeatmap(covStats, variableOrdering = "hierarchical", regionOrdering = "hierarchical", 
            file = "Figures/Replication Females Diagnosis 100 DMRs Raw Meth Covariate Heatmap Clustered.png")
 
-rm(meth_cov, samples_cov, catVars, contVars, factorCols, variables, covStats, covSum)
+rm(meth_cov, samples_cov, catVars, contVars, factorCols, variables, covSum)
 
 # DMR Annotation ####
 regDomains <- read.delim("Tables/Regulatory domains hg38.txt", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 DMRs_anno <- getDMRanno(DMRstats = DMRs, regDomains = regDomains, file = "Tables/Replication Females Diagnosis 100 DMRs Annotation.txt")
-rm(regDomains, DMRs_anno)
+
+# Combine Annotation and Covariate Association ####
+DMRs_annoCov <- DMRs_anno
+vars <- unique(covStats$Variable) %>% as.character()
+for(i in 1:length(vars)){
+        temp <- subset(covStats, Variable == vars[i], select = c("Region", "Estimate", "pvalue"))
+        DMRs_annoCov <- merge(x = DMRs_annoCov, y = temp, by.x = "DMRid", by.y = "Region", sort = FALSE)
+}
+colnames(DMRs_annoCov) <- c(colnames(DMRs_anno), paste(rep(vars, each = 2), c("Estimate", "pvalue"), sep = "_"))
+write.table(DMRs_annoCov, "Tables/Replication Females Diagnosis DMRs Annotation and Covariate Association.txt", sep = "\t", quote = FALSE,
+            col.names = TRUE, row.names = FALSE)
+rm(regDomains, DMRs_anno, DMRs_annoCov, vars, temp)
 
 # GREAT Analysis ####
 # Make Files for GREAT (hg19, DMRs redefined to match background, background < 1M regions)

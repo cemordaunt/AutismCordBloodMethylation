@@ -566,3 +566,30 @@ gomResults$qValue <- p.adjust(gomResults$pValue, method = "fdr")
 gomResults <- gomResults[,c("DMRs", "DMBs", "DMRlength", "DMBlength", "Intersection", "PerDMRs", "PerDMBs", "OddsRatio", 
                             "pValue", "qValue")]
 write.csv(gomResults, file = "Tables/DMR DMB Gene Overlap Stats.csv", quote = FALSE, row.names = FALSE)
+
+# Table of Replicated DMR, DMB, and Intersecting Genes
+genes <- list(MalesDMRs = intDMRsGenes$Males, FemalesDMRs = intDMRsGenes$Females,
+              MalesDMBs = intDMBsGenes$Males, FemalesDMBs = intDMBsGenes$Females)
+geneTable <- data.frame(Gene_Symbol = unlist(genes) %>% as.character() %>% unique() %>% sort())
+geneTable$Gene_Entrez_ID <- regDomains$gene_entrezID[match(geneTable$Gene_Symbol, regDomains$gene_name)]
+geneTable$Males_DMR_Gene <- geneTable$Gene_Symbol %in% genes$MalesDMRs
+geneTable$Females_DMR_Gene <- geneTable$Gene_Symbol %in% genes$FemalesDMRs
+geneTable$Males_DMB_Gene <- geneTable$Gene_Symbol %in% genes$MalesDMBs
+geneTable$Females_DMB_Gene <- geneTable$Gene_Symbol %in% genes$FemalesDMBs
+write.table(geneTable, "Tables/Replicated DMR, DMB, and Intersecting Genes.txt", sep = "\t", quote = FALSE, row.names = FALSE,
+            col.names = TRUE)
+
+genesDAVID <- read.delim("Tables/Replicated DMR, DMB, and Intersecting Genes DAVID Annotation.txt", sep = "\t",
+                         header = TRUE, stringsAsFactors = FALSE)
+
+geneTable <- merge(x = geneTable, y = genesDAVID, by.x = "Gene_Entrez_ID", by.y = "ID", all.x = TRUE, all.y = FALSE, sort = FALSE)
+geneTable <- geneTable[,c("Gene_Symbol", "Gene.Name", "Gene_Entrez_ID", "Males_DMR_Gene", "Females_DMR_Gene", "Males_DMB_Gene", 
+                          "Females_DMB_Gene", "CYTOBAND", "ENTREZ_GENE_SUMMARY", "GOTERM_BP_DIRECT", 
+                          "GOTERM_CC_DIRECT", "GOTERM_MF_DIRECT", "INTERPRO", "KEGG_PATHWAY", "OMIM_DISEASE", 
+                          "UNIGENE_EST_QUARTILE", "UP_TISSUE", "GNF_U133A_QUARTILE")]
+geneTable <- geneTable[order(geneTable$Gene_Symbol),]
+geneTable$Gene.Name <- str_split(string = geneTable$Gene.Name, pattern = "\\(") %>% sapply(function(x) x[1])
+geneTable[is.na(geneTable)] <- ""
+write.table(geneTable, "Tables/Replicated DMR, DMB, and Intersecting Genes with DAVID Annotation Supplemental Table.txt", sep = "\t", quote = FALSE, row.names = FALSE,
+            col.names = TRUE)
+
