@@ -383,6 +383,27 @@ mapply(write.table, x = DiscRepDAVID, file = c("Tables/Overlapping DAVID Terms i
                                            "Tables/Overlapping DAVID Terms in Females DMB Genes Discovery and Replication.txt"),
        MoreArgs = list(sep = "\t", quote = FALSE, row.names = FALSE))
 
+# Combine Males and Females DMB Genes DAVID
+DiscRepDAVIDmales <- read.delim("Tables/Overlapping DAVID Terms in Males DMB Genes Discovery and Replication.txt", sep = "\t",
+                                header = TRUE, stringsAsFactors = FALSE)
+DiscRepDAVIDfemales <- read.delim("Tables/Overlapping DAVID Terms in Females DMB Genes Discovery and Replication.txt", sep = "\t",
+                                  header = TRUE, stringsAsFactors = FALSE)
+DiscRepDAVIDmf <- rbind(DiscRepDAVIDmales, DiscRepDAVIDfemales)
+DiscRepDAVIDmf$Comparison <- c(rep("Males DMB Genes", nrow(DiscRepDAVIDmales)), rep("Females DMB Genes", nrow(DiscRepDAVIDfemales)))
+DiscRepDAVIDmf$GeneNames.x <- sapply(DiscRepDAVIDmf$GeneIDs.x, entrezIDs_to_genes, regDomains = regDomains)
+DiscRepDAVIDmf$GeneNames.y <- sapply(DiscRepDAVIDmf$GeneIDs.y, entrezIDs_to_genes, regDomains = regDomains)
+DiscRepDAVIDmf <- DiscRepDAVIDmf[,c("Comparison", "Category.x", "Term.x", "GeneListHits.x", "GeneNames.x", "GeneIDs.x", 
+                                    "Percent.x", "GeneListTotal.x", "BackgroundHits.x", "BackgroundTotal.x", "FoldEnrichment.x",
+                                    "Pvalue.x", "BenjaminiPvalue.x", "GeneListHits.y", "GeneNames.y",
+                                    "GeneIDs.y", "Percent.y", "GeneListTotal.y", "BackgroundHits.y", "BackgroundTotal.y", 
+                                    "FoldEnrichment.y", "Pvalue.y", "BenjaminiPvalue.y")]
+colnames(DiscRepDAVIDmf) <- str_replace_all(colnames(DiscRepDAVIDmf), 
+                                            pattern = fixed(c(".x" = "_Discovery", ".y" = "_Replication", 
+                                                              "Category_Discovery" = "Category", "Term_Discovery" = "Term",
+                                                              "GeneIDs" = "GeneEntrezIDs")))
+write.table(DiscRepDAVIDmf, "Tables/Overlapping DAVID Terms in Males, Females DMB Genes Discovery and Replication.txt",
+            sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+
 # Overlapping DAVID Terms Plots ####
 plotDAVID <- read.delim("Tables/Discovery and Replication Males Females DMB Genes DAVID Results for Plot.txt", sep = "\t",
                         header = TRUE, stringsAsFactors = FALSE)

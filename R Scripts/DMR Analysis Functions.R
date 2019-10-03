@@ -630,6 +630,12 @@ getDMRgeneList <- function(DMRstats, regDomains, direction = c("all", "hyper", "
         return(geneList)
 }
 
+entrezIDs_to_genes <- function(IDs, regDomains){
+        IDs <- str_split(IDs, pattern = ", ") %>% unlist()
+        genes <- regDomains$gene_name[regDomains$gene_entrezID %in% IDs] %>% unique() %>% sort() %>% paste(collapse = ", ")
+        return(genes)
+}
+
 # Enrichment Functions ----------------------------------------------------
 
 getDAVID <- function(genes, background, file, categories, benjamini = 0.05){

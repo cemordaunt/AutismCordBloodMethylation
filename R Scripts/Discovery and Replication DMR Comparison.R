@@ -883,6 +883,30 @@ gg <- gg +
 ggsave("Figures/Discovery and Replication Males Females DAVID Expression logp Heatmap Manual Order.png", plot = gg, dpi = 600, width = 8, 
        height = 7, units = "in")
 
+# Males Females DMR Genes DAVID Supplemental Table ####
+DiscRepDAVIDmales <- read.delim("Tables/Overlapping DAVID Terms in Males Discovery and Replication.txt", sep = "\t",
+                                header = TRUE, stringsAsFactors = FALSE)
+DiscRepDAVIDfemales <- read.delim("Tables/Overlapping DAVID Terms in Females Discovery and Replication.txt", sep = "\t",
+                                header = TRUE, stringsAsFactors = FALSE)
+DiscRepDAVIDplot <- read.delim("Tables/Discovery and Replication Males Females DAVID Results for Plot.txt", sep = "\t",
+                                header = TRUE, stringsAsFactors = FALSE)
+DiscRepDAVIDmf <- rbind(DiscRepDAVIDmales, DiscRepDAVIDfemales)
+DiscRepDAVIDmf$Comparison <- c(rep("Males DMR Genes", nrow(DiscRepDAVIDmales)), rep("Females DMR Genes", nrow(DiscRepDAVIDfemales)))
+DiscRepDAVIDmf <- subset(DiscRepDAVIDmf, Category.x %in% DiscRepDAVIDplot$Category)
+DiscRepDAVIDmf$GeneNames.x <- sapply(DiscRepDAVIDmf$GeneIDs.x, entrezIDs_to_genes, regDomains = regDomains)
+DiscRepDAVIDmf$GeneNames.y <- sapply(DiscRepDAVIDmf$GeneIDs.y, entrezIDs_to_genes, regDomains = regDomains)
+DiscRepDAVIDmf <- DiscRepDAVIDmf[,c("Comparison", "Category.x", "Term.x", "GeneListHits.x", "GeneNames.x", "GeneIDs.x", 
+                                    "Percent.x", "GeneListTotal.x", "BackgroundHits.x", "BackgroundTotal.x", "FoldEnrichment.x",
+                                    "Pvalue.x", "BenjaminiPvalue.x", "GeneListHits.y", "GeneNames.y",
+                                    "GeneIDs.y", "Percent.y", "GeneListTotal.y", "BackgroundHits.y", "BackgroundTotal.y", 
+                                    "FoldEnrichment.y", "Pvalue.y", "BenjaminiPvalue.y")]
+colnames(DiscRepDAVIDmf) <- str_replace_all(colnames(DiscRepDAVIDmf), 
+                                            pattern = fixed(c(".x" = "_Discovery", ".y" = "_Replication", 
+                                                              "Category_Discovery" = "Category", "Term_Discovery" = "Term",
+                                                              "GeneIDs" = "GeneEntrezIDs")))
+write.table(DiscRepDAVIDmf, "Tables/Overlapping DAVID Terms in Males, Females DMR Genes Discovery and Replication.txt",
+            sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+
 # ChrX DAVID Analysis --------------------------------------------------------
 # Get IDs ####
 # Get DMR Gene IDs
@@ -955,6 +979,19 @@ gg <- gg +
               legend.key.size = unit(1, "lines"), legend.title = element_text(size = 11), 
               legend.text = element_text(size = 11))
 ggsave("Figures/All Chromosome X Genes DAVID Barplot.png", dpi = 600, width = 8, height = 7, units = "in")
+
+# All Chromosome X Genes DAVID Table
+all_chrX_DAVID <- read.delim("Tables/All Chromosome X genes DAVID Results.txt", sep = "\t", header = TRUE, 
+                             stringsAsFactors = FALSE)
+all_chrX_DAVID <- subset(all_chrX_DAVID, Category %in% all_chrX_plot$Category)
+all_chrX_DAVID$Comparison <- "All X Chromosome Genes"
+all_chrX_DAVID$GeneNames <- sapply(all_chrX_DAVID$GeneIDs, entrezIDs_to_genes, regDomains = regDomains)
+all_chrX_DAVID <- all_chrX_DAVID[,c("Comparison", "Category", "Term", "GeneListHits", "GeneNames", "GeneIDs", 
+                                    "Percent", "GeneListTotal", "BackgroundHits", "BackgroundTotal", "FoldEnrichment",
+                                    "Pvalue", "BenjaminiPvalue")]
+colnames(all_chrX_DAVID)[colnames(all_chrX_DAVID) == "GeneIDs"] <- "GeneEntrezIDs"
+write.table(all_chrX_DAVID, "Tables/All Chromosome X Genes DAVID Results for Supplemental Table.txt",
+            sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 # DMR Percent of Background by Direction Stacked Barplots -----------------
 # DMR Percent of Background Hyper and Hypomethylated All Chroms ####

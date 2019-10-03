@@ -4,7 +4,7 @@
 # 7/28/19
 
 # Packages ####
-sapply(c("tidyverse", "LOLA", "simpleCache", "GenomicRanges", "qvalue", "RColorBrewer", "scales", "reshape2"), 
+sapply(c("tidyverse", "LOLA", "simpleCache", "GenomicRanges", "qvalue", "RColorBrewer", "scales", "reshape2", "rlist"), 
        require, character.only = TRUE)
 
 # Functions ####
@@ -875,4 +875,71 @@ gg +
 ggsave("Figures/LOLA Histone and ChromHMM Autosome vs ChrX Enrichment Heatmap.png", dpi = 600, width = 9, height = 8, 
        units = "in")
 
+# Compile Results for Supplemental Tables ---------------------------------
+# Discovery Males ####
+discMalesFiles <- paste("Tables/LOLA ", rep(c("Histone ", "chromHMM "), each = 6), "Dx Discovery 50 Males ", 
+                        rep(c("", "autosome ", "chrX "), each = 2), c("Hyper", "Hypo"), "DMRs.csv", sep = "")
+discMales <- lapply(discMalesFiles, read.csv, header = TRUE, stringsAsFactors = FALSE)
+comparisons <- rep(paste("Discovery Males", c("All Chromosomes", "Autosomes", "X Chromosome"), sep = " "), each = 2)
+discMales <- mapply(function(x, y){x$Comparison <- y; return(x)}, x = discMales, y = comparisons, SIMPLIFY = FALSE) 
+discMales <- lapply(discMales, function(x){colnames(x) <- colnames(discMales[[1]]); return(x)}) %>% list.rbind()
+discMales <- discMales[,c("Comparison", "userSet", "antibody", "cellType", "tissue", "filename", "support", "pct_DMRs",
+                          "b", "c", "d", "size", "oddsRatio", "pValue", "pValueLog", "qValue", "qValueLog")]
+colnames(discMales) <- str_replace_all(colnames(discMales), 
+                                       pattern = c("userSet" = "Direction", "antibody" = "RegionType", "cellType" = "CellType",
+                                                   "tissue" = "Tissue", "filename" = "Filename", "support" = "Support",
+                                                   "pct_DMRs" = "PercentDMRs", "size" = "Size", "oddsRatio" = "OddsRatio",
+                                                   "pValue" = "Pvalue", "qValue" = "Qvalue"))
+write.table(discMales, "Tables/Discovery Males DMRs LOLA Enrichment Combined Results.txt", sep = "\t", quote = FALSE,
+            row.names = FALSE)
 
+# Discovery Females ####
+discFemalesFiles <- paste("Tables/LOLA ", rep(c("Histone ", "chromHMM "), each = 6), "Dx Discovery 50 Females ", 
+                        rep(c("", "autosome ", "chrX "), each = 2), c("Hyper", "Hypo"), "DMRs.csv", sep = "")
+discFemales <- lapply(discFemalesFiles, read.csv, header = TRUE, stringsAsFactors = FALSE)
+comparisons <- rep(paste("Discovery Females", c("All Chromosomes", "Autosomes", "X Chromosome"), sep = " "), each = 2)
+discFemales <- mapply(function(x, y){x$Comparison <- y; return(x)}, x = discFemales, y = comparisons, SIMPLIFY = FALSE) 
+discFemales <- lapply(discFemales, function(x){colnames(x) <- colnames(discFemales[[1]]); return(x)}) %>% list.rbind()
+discFemales <- discFemales[,c("Comparison", "userSet", "antibody", "cellType", "tissue", "filename", "support", "pct_DMRs",
+                          "b", "c", "d", "size", "oddsRatio", "pValue", "pValueLog", "qValue", "qValueLog")]
+colnames(discFemales) <- str_replace_all(colnames(discFemales), 
+                                       pattern = c("userSet" = "Direction", "antibody" = "RegionType", "cellType" = "CellType",
+                                                   "tissue" = "Tissue", "filename" = "Filename", "support" = "Support",
+                                                   "pct_DMRs" = "PercentDMRs", "size" = "Size", "oddsRatio" = "OddsRatio",
+                                                   "pValue" = "Pvalue", "qValue" = "Qvalue"))
+write.table(discFemales, "Tables/Discovery Females DMRs LOLA Enrichment Combined Results.txt", sep = "\t", quote = FALSE,
+            row.names = FALSE)
+
+# Replication Males ####
+repMalesFiles <- paste("Tables/LOLA ", rep(c("Histone ", "chromHMM "), each = 6), "Dx Replication 50 Males ", 
+                        rep(c("", "autosome ", "chrX "), each = 2), c("Hyper", "Hypo"), "DMRs.csv", sep = "")
+repMales <- lapply(repMalesFiles, read.csv, header = TRUE, stringsAsFactors = FALSE)
+comparisons <- rep(paste("Replication Males", c("All Chromosomes", "Autosomes", "X Chromosome"), sep = " "), each = 2)
+repMales <- mapply(function(x, y){x$Comparison <- y; return(x)}, x = repMales, y = comparisons, SIMPLIFY = FALSE) 
+repMales <- lapply(repMales, function(x){colnames(x) <- colnames(repMales[[1]]); return(x)}) %>% list.rbind()
+repMales <- repMales[,c("Comparison", "userSet", "antibody", "cellType", "tissue", "filename", "support", "pct_DMRs",
+                          "b", "c", "d", "size", "oddsRatio", "pValue", "pValueLog", "qValue", "qValueLog")]
+colnames(repMales) <- str_replace_all(colnames(repMales), 
+                                       pattern = c("userSet" = "Direction", "antibody" = "RegionType", "cellType" = "CellType",
+                                                   "tissue" = "Tissue", "filename" = "Filename", "support" = "Support",
+                                                   "pct_DMRs" = "PercentDMRs", "size" = "Size", "oddsRatio" = "OddsRatio",
+                                                   "pValue" = "Pvalue", "qValue" = "Qvalue"))
+write.table(repMales, "Tables/Replication Males DMRs LOLA Enrichment Combined Results.txt", sep = "\t", quote = FALSE,
+            row.names = FALSE)
+
+# Replication Females ####
+repFemalesFiles <- paste("Tables/LOLA ", rep(c("Histone ", "chromHMM "), each = 6), "Dx Replication 100 Females ", 
+                          rep(c("", "autosome ", "chrX "), each = 2), c("Hyper", "Hypo"), "DMRs.csv", sep = "")
+repFemales <- lapply(repFemalesFiles, read.csv, header = TRUE, stringsAsFactors = FALSE)
+comparisons <- rep(paste("Replication Females", c("All Chromosomes", "Autosomes", "X Chromosome"), sep = " "), each = 2)
+repFemales <- mapply(function(x, y){x$Comparison <- y; return(x)}, x = repFemales, y = comparisons, SIMPLIFY = FALSE) 
+repFemales <- lapply(repFemales, function(x){colnames(x) <- colnames(repFemales[[1]]); return(x)}) %>% list.rbind()
+repFemales <- repFemales[,c("Comparison", "userSet", "antibody", "cellType", "tissue", "filename", "support", "pct_DMRs",
+                              "b", "c", "d", "size", "oddsRatio", "pValue", "pValueLog", "qValue", "qValueLog")]
+colnames(repFemales) <- str_replace_all(colnames(repFemales), 
+                                         pattern = c("userSet" = "Direction", "antibody" = "RegionType", "cellType" = "CellType",
+                                                     "tissue" = "Tissue", "filename" = "Filename", "support" = "Support",
+                                                     "pct_DMRs" = "PercentDMRs", "size" = "Size", "oddsRatio" = "OddsRatio",
+                                                     "pValue" = "Pvalue", "qValue" = "Qvalue"))
+write.table(repFemales, "Tables/Replication Females DMRs LOLA Enrichment Combined Results.txt", sep = "\t", quote = FALSE,
+            row.names = FALSE)
