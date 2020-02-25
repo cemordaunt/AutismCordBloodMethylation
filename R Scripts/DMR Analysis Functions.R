@@ -41,23 +41,23 @@ writeBED <- function(regions, file){
         }
         if("DMRid" %in% colnames(regions)){
                 bed <- data.frame("chr" = regions$chr, "start" = regions$start, "end" = regions$end, "name" = regions$DMRid, 
-                                  "score" = 0, "strand" = 0, "thickStart" = 0, "thickEnd" = 0, 
+                                  "score" = 0, "strand" = ".", "thickStart" = 0, "thickEnd" = 0, 
                                   "RGB" = ifelse(regions$percentDifference > 0, "255,0,0", "0,0,255"))
         } else {
                 if("DMBid" %in% colnames(regions)){
                         bed <- data.frame("chr" = regions$chr, "start" = regions$start, "end" = regions$end, "name" = regions$DMBid, 
-                                          "score" = 0, "strand" = 0, "thickStart" = 0, "thickEnd" = 0, 
+                                          "score" = 0, "strand" = ".", "thickStart" = 0, "thickEnd" = 0, 
                                           "RGB" = ifelse(regions$percentDifference > 0, "255,0,0", "0,0,255"))
                 } else {
                         if("percentDifference" %in% colnames(regions)){
                                 bed <- data.frame("chr" = regions$chr, "start" = regions$start, "end" = regions$end, 
                                                   "name" = paste("region", 1:nrow(regions), sep = "_"), 
-                                                  "score" = 0, "strand" = 0, "thickStart" = 0, "thickEnd" = 0, 
+                                                  "score" = 0, "strand" = ".", "thickStart" = 0, "thickEnd" = 0, 
                                                   "RGB" = ifelse(regions$percentDifference > 0, "255,0,0", "0,0,255"))
                         } else {
                                 bed <- data.frame("chr" = regions$chr, "start" = regions$start, "end" = regions$end, 
                                                   "name" = paste("region", 1:nrow(regions), sep = "_"), 
-                                                  "score" = 0, "strand" = 0, "thickStart" = 0, "thickEnd" = 0)
+                                                  "score" = 0, "strand" = ".", "thickStart" = 0, "thickEnd" = 0)
                         }
                 }
         }
