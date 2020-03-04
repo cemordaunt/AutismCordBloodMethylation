@@ -159,8 +159,8 @@ ggScatterPlot <- function(x, y, groupVar, fileName, xlab, ylab, xlim = NULL, yli
         # Plots 2 continuous variables colored by a grouping variable and writes the file
         g <- ggplot()
         g + 
-                geom_smooth(aes(x=x, y=y), method="lm") +
-                geom_point(aes(x=x, y=y, color=groupVar), size=3) +
+                geom_smooth(aes(x = x, y = y), method="lm") +
+                geom_point(aes(x = x, y = y, color = groupVar), size=3) +
                 theme_bw(base_size = 25) +
                 theme(legend.direction = 'horizontal', legend.position = legendPos, panel.grid.major = element_blank(), 
                       panel.border = element_rect(color = "black", size = 1.25), axis.ticks = element_line(size = 1.25), 
@@ -168,8 +168,8 @@ ggScatterPlot <- function(x, y, groupVar, fileName, xlab, ylab, xlim = NULL, yli
                       axis.text = element_text(color = "black"), legend.background = element_blank(), 
                       plot.margin = unit(c(2,1,1,1), "lines")) +
                 coord_cartesian(xlim = xlim, ylim = ylim) +
-                scale_x_continuous(breaks=pretty_breaks(n=5)) +
-                scale_y_continuous(breaks=pretty_breaks(n=5)) +
+                scale_x_continuous(breaks = pretty_breaks(n=5)) +
+                scale_y_continuous(breaks = pretty_breaks(n=5)) +
                 xlab(xlab) +
                 ylab(ylab) +
                 scale_color_manual(breaks = c(levels(groupVar)[1], levels(groupVar)[2]), values = c("#3366CC", "#FF3366"))

@@ -56,6 +56,8 @@ table(is.na(permeth)) # 0
 rownames(permeth) <- methCounts$Name[naCount < nrow(samples) / 10] # probe IDs
 colnames(permeth) <- gsub("_meth", "", colnames(permeth), fixed = TRUE) # Sample SeqIDs
 methCounts <- subset(methCounts, Name %in% rownames(permeth))
+write.table(methCounts[,c("Chromosome", "Start", "End", "Name")], file = "Tables/Cord Cell Type Probes for Minfi.txt",
+            sep = "\t", quote = FALSE, row.names = FALSE)
 colnames(probes_dup) <- c("Chromosome", "Start", "End")
 table(duplicated(rbind(methCounts[,1:3], probes_dup[,1:3]))) # probes used for cell estimation assigned to the same location
 table(methCounts$Chromosome) # No probes on chrX or chrY
@@ -84,6 +86,41 @@ cellCounts_scaled$Sum_scaled <- rowSums2(as.matrix(cellCounts_scaled))
 cellCounts <- cbind(cellCounts[,c("Sample", "Diagnosis_Alg", "Sex", "Platform", "Bcell", "CD4T", "CD8T", "Gran", "Mono", "NK", "nRBC", "Sum")], 
                     cellCounts_scaled)
 rm(cellCounts_scaled)
+
+# Get Estimated Cell Counts in Reference ####
+FlowSorted.CordBlood.450k <- updateObject(FlowSorted.CordBlood.450k)
+reference <- preprocessIllumina(FlowSorted.CordBlood.450k) %>% mapToGenome(mergeManifest = FALSE) # hg19
+refMeth <- reference[rownames(ModelPars),] %>% getBeta() 
+refCellCounts <- minfi:::projectCellType(refMeth, ModelPars)
+refCellCounts <- (refCellCounts / rowSums(refCellCounts)) %>% as.data.frame() # Scale to 100%
+refpData <- pData(reference) %>% as.data.frame()
+table(refpData$X == rownames(refCellCounts)) # TRUE
+refCellCounts <- cbind(refpData, refCellCounts)
+write.table(refCellCounts, file = "Tables/Cord Cell Type Reference Counts minfi.txt", sep = "\t", quote = FALSE, 
+            row.names = FALSE)
+
+cellTypes <- unique(refCellCounts$CellType) %>% as.character() %>% .[!. == "WholeBlood"]
+
+# Proportion
+sapply(cellTypes, function(x) mean(refCellCounts[refCellCounts$CellType == x,x]))
+#     Bcell     CD4T     CD8T     Gran     Mono       NK     nRBC 
+# 0.8981972 0.9004195 0.7309882 0.9505342 0.9398066 0.9170121 0.9257731 
+
+# Whole Blood Proportion
+sapply(cellTypes, function(x) mean(refCellCounts[refCellCounts$CellType == "WholeBlood",x]))
+#      Bcell       CD4T       CD8T       Gran       Mono         NK       nRBC 
+# 0.07624771 0.14065901 0.14484327 0.43910732 0.07744317 0.01164557 0.11005395
+
+# Error Detail
+expected <- c(0.08,0.15,0.1,0.45,0.1,0.02,0.1)
+mapply(function(x,y) mean(abs(refCellCounts[refCellCounts$CellType == "WholeBlood",x] - y)), x = cellTypes, y = expected)
+#      Bcell       CD4T       CD8T       Gran       Mono         NK       nRBC 
+# 0.02195389 0.03851564 0.04779539 0.07607101 0.02788162 0.02364557 0.06178837
+
+# Average Error Detail
+sapply(cellTypes, function(x) mean(refCellCounts[refCellCounts$CellType == "WholeBlood",x])) - expected
+#        Bcell         CD4T         CD8T         Gran         Mono           NK         nRBC 
+# -0.003752287 -0.009340993  0.044843267 -0.010892678 -0.022556827 -0.008354428  0.010053947 
 
 # Analyze Cell Composition ------------------------------------------------
 # Plots ####
