@@ -65,6 +65,7 @@ writeBED <- function(regions, file){
 }
 
 makeGRange <- function(DMRs, direction = c("all", "hyper", "hypo")){
+        direction <- match.arg(direction)
         if(direction == "hyper"){
                 DMRs <- subset(DMRs, percentDifference > 0)
         }
