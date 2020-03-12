@@ -620,13 +620,14 @@ getDMRanno <- function(DMRstats, regDomains, file = NULL){
 
 getDMRgeneList <- function(DMRstats, regDomains, direction = c("all", "hyper", "hypo"), 
                            type = c("gene_name", "gene_entrezID")){
-        if(is.null(direction)){direction <- "all"}
+        direction <- match.arg(direction)
+        type <- match.arg(type)
         if(direction == "hyper"){DMRstats <- subset(DMRstats, percentDifference > 0)}
         if(direction == "hypo"){DMRstats <- subset(DMRstats, percentDifference < 0)}
         GR_regDomains <- GRanges(seqnames = regDomains$gene_chr, ranges = IRanges(start = regDomains$distal_start, end = regDomains$distal_end))
         GR_DMRstats <- GRanges(seqnames = DMRstats$chr, ranges = IRanges(start = DMRstats$start, end = DMRstats$end))
         overlaps <- as.data.frame(findOverlaps(GR_DMRstats, GR_regDomains))
-        geneList <- regDomains[overlaps$subjectHits, type] %>% unique %>% sort
+        geneList <- regDomains[overlaps$subjectHits, type] %>% unique() %>% sort()
         message(nrow(DMRstats), " input regions correspond with ", length(geneList), " ", type, "s.")
         return(geneList)
 }
@@ -636,6 +637,13 @@ entrezIDs_to_genes <- function(IDs, regDomains){
         genes <- regDomains$gene_name[regDomains$gene_entrezID %in% IDs] %>% unique() %>% sort() %>% paste(collapse = ", ")
         return(genes)
 }
+
+genes_to_entrezIDs <- function(genes, regDomains){
+        genes <- str_split(genes, pattern = ", ") %>% unlist()
+        IDs <- regDomains$gene_entrezID[regDomains$gene_name %in% genes] %>% unique() %>% sort() %>% paste(collapse = ", ")
+        return(IDs)
+}
+
 
 # Enrichment Functions ----------------------------------------------------
 

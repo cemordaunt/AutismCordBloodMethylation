@@ -86,8 +86,67 @@ background <- loadRegions("Discovery/Dx_Males/bsseq_background_Discovery50_males
 meth <- getCoverage(BSmalesDisc, regions = background, type = "M", what = "perRegionTotal")
 cov <- getCoverage(BSmalesDisc, regions = background, type = "Cov", what = "perRegionTotal")
 
-# Power Analysis ####
-# Started 2020-03-08 18:15:47 PDT
+# Power Analysis (Running) ####
 DMRresult <- DMR.analysis(N0 = c(39,35), cov.matrix = cov, methyl.matrix = meth, R = c(1,3,5,6.93), pilot.R = 6.93)
-predictResult <- Estimate.EDR.from.pilot(DMRresult, N0 = c(39,35), target.N = seq(5,100,5))
-plot <- plotContour(predictResult)
+saveRDS(DMRresult, "Discovery Males Power Analysis DMR Results.rds")
+# Started 3/12/20
+predictResult <- Estimate.EDR.from.pilot(DMRresult, N0 = c(39,35), target.N = c(5,10,20,40,80,160))
+saveRDS(predictResult, "Discovery Males Power Analysis Prediction Results.rds")
+Sys.time()
+
+# Power Analysis for Discovery Females -----------------------------------
+# Get Data ####
+BSfemalesDisc <- readRDS("Discovery/Dx_Females/Filtered_BSseq_Discovery50_females.rds")
+pData(BSfemalesDisc) # TD first
+chroms <- c(paste("chr", 1:22, sep = ""), "chrX", "chrM")
+background <- loadRegions("Discovery/Dx_Females/bsseq_background_Discovery50_females.csv", chroms = chroms) %>%
+        makeGRange()
+meth <- getCoverage(BSfemalesDisc, regions = background, type = "M", what = "perRegionTotal")
+cov <- getCoverage(BSfemalesDisc, regions = background, type = "Cov", what = "perRegionTotal")
+
+# Power Analysis (Running) ####
+Sys.time()
+DMRresult <- DMR.analysis(N0 = c(17,15), cov.matrix = cov, methyl.matrix = meth, R = c(1,3,5,6.28), pilot.R = 6.28)
+saveRDS(DMRresult, "Discovery Females Power Analysis DMR Results.rds")
+# Started 3/12/20
+predictResult <- Estimate.EDR.from.pilot(DMRresult, N0 = c(17,15), target.N = c(5,10,20,40,80,160))
+saveRDS(predictResult, "Discovery Females Power Analysis Prediction Results.rds")
+Sys.time()
+
+# Power Analysis for Replication Males -----------------------------------
+# Get Data ####
+BSmalesDisc <- readRDS("Replication/Dx_Males/Filtered_BSseq_Replication50_males.rds")
+pData(BSmalesDisc) # TD first
+chroms <- c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")
+background <- loadRegions("Replication/Dx_Males/bsseq_background_Replication50_males.csv", chroms = chroms) %>%
+        makeGRange()
+meth <- getCoverage(BSmalesDisc, regions = background, type = "M", what = "perRegionTotal")
+cov <- getCoverage(BSmalesDisc, regions = background, type = "Cov", what = "perRegionTotal")
+
+# Power Analysis ####
+Sys.time()
+DMRresult <- DMR.analysis(N0 = c(17,21), cov.matrix = cov, methyl.matrix = meth, R = c(0.5,1,1.5,2,2.43), pilot.R = 2.43)
+saveRDS(DMRresult, "Replication Males Power Analysis DMR Results.rds")
+
+predictResult <- Estimate.EDR.from.pilot(DMRresult, N0 = c(17,21), target.N = c(5,10,20,40,80,160))
+saveRDS(predictResult, "Replication Males Power Analysis Prediction Results.rds")
+Sys.time()
+
+# Power Analysis for Replication Females -----------------------------------
+# Get Data ####
+BSfemalesDisc <- readRDS("Replication/Dx_Females_100/Filtered_BSseq_Replication100_females.rds")
+pData(BSfemalesDisc) # TD first
+chroms <- c(paste("chr", 1:22, sep = ""), "chrX", "chrM")
+background <- loadRegions("Replication/Dx_Females_100/bsseq_background_Replication100_females.csv", chroms = chroms) %>%
+        makeGRange()
+meth <- getCoverage(BSfemalesDisc, regions = background, type = "M", what = "perRegionTotal")
+cov <- getCoverage(BSfemalesDisc, regions = background, type = "Cov", what = "perRegionTotal")
+
+# Power Analysis ####
+Sys.time()
+DMRresult <- DMR.analysis(N0 = c(3,5), cov.matrix = cov, methyl.matrix = meth, R = c(0.5,1,1.5,2,2.35), pilot.R = 2.35)
+saveRDS(DMRresult, "Replication Females Power Analysis DMR Results.rds")
+
+predictResult <- Estimate.EDR.from.pilot(DMRresult, N0 = c(3,5), target.N = c(5,10,20,40,80,160))
+saveRDS(predictResult, "Replication Females Power Analysis Prediction Results.rds")
+Sys.time()
