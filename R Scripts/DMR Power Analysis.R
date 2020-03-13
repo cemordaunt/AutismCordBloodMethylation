@@ -115,13 +115,13 @@ Sys.time()
 
 # Power Analysis for Replication Males -----------------------------------
 # Get Data ####
-BSmalesDisc <- readRDS("Replication/Dx_Males/Filtered_BSseq_Replication50_males.rds")
-pData(BSmalesDisc) # TD first
+BSmalesRep <- readRDS("Replication/Dx_Males/Filtered_BSseq_Replication50_males.rds")
+pData(BSmalesRep) # TD first
 chroms <- c(paste("chr", 1:22, sep = ""), "chrX", "chrY", "chrM")
 background <- loadRegions("Replication/Dx_Males/bsseq_background_Replication50_males.csv", chroms = chroms) %>%
         makeGRange()
-meth <- getCoverage(BSmalesDisc, regions = background, type = "M", what = "perRegionTotal")
-cov <- getCoverage(BSmalesDisc, regions = background, type = "Cov", what = "perRegionTotal")
+meth <- getCoverage(BSmalesRep, regions = background, type = "M", what = "perRegionTotal")
+cov <- getCoverage(BSmalesRep, regions = background, type = "Cov", what = "perRegionTotal")
 
 # Power Analysis ####
 Sys.time()
@@ -134,13 +134,13 @@ Sys.time()
 
 # Power Analysis for Replication Females -----------------------------------
 # Get Data ####
-BSfemalesDisc <- readRDS("Replication/Dx_Females_100/Filtered_BSseq_Replication100_females.rds")
-pData(BSfemalesDisc) # TD first
+BSfemalesRep <- readRDS("Replication/Dx_Females_100/Filtered_BSseq_Replication100_females.rds")
+pData(BSfemalesRep) # TD first
 chroms <- c(paste("chr", 1:22, sep = ""), "chrX", "chrM")
 background <- loadRegions("Replication/Dx_Females_100/bsseq_background_Replication100_females.csv", chroms = chroms) %>%
         makeGRange()
-meth <- getCoverage(BSfemalesDisc, regions = background, type = "M", what = "perRegionTotal")
-cov <- getCoverage(BSfemalesDisc, regions = background, type = "Cov", what = "perRegionTotal")
+meth <- getCoverage(BSfemalesRep, regions = background, type = "M", what = "perRegionTotal")
+cov <- getCoverage(BSfemalesRep, regions = background, type = "Cov", what = "perRegionTotal")
 
 # Power Analysis ####
 Sys.time()
