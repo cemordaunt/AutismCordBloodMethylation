@@ -8,7 +8,8 @@
 
 # Packages ####
 sapply(c("tidyverse", "ggdendro", "scales", "ggplot2", "ggbiplot", "reshape", "grid", "RColorBrewer", "CMplot", "rlist",
-         "annotatr", "GenomicRanges", "LOLA", "rtracklayer", "R.utils", "rGREAT", "limma", "DMRichR"), require, character.only = TRUE)
+         "annotatr", "GenomicRanges", "LOLA", "rtracklayer", "R.utils", "rGREAT", "limma", "DMRichR", "missMDA"), require, 
+       character.only = TRUE)
 
 # Functions ####
 source("R Scripts/DMR Analysis Functions.R")
@@ -257,17 +258,21 @@ buildHeatmap(x = methdiff, phenoData = phenoData[c("Sample", "Diagnosis", "Sex")
         printHeatmap(pheno.legend.position = c(0.897, 0.915))
 dev.off()
 
-# Raw Meth PCA (Adjusted for Sex) ####
-# Raw Methylation Adjusted for Sex
+# Raw Meth PCA (Adjusted for Sex, Imputed) ####
 table(colnames(meth_adj) == phenoData$Sample) # All TRUE
-table(is.na(meth_adj))
-for(i in 1:nrow(meth_adj)){
-        temp <- as.numeric(meth_adj[i,])
-        temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with mean meth of that DMR
-        meth_adj[i,] <- temp
-}
-table(is.na(meth_adj))
-data.pca <- prcomp(meth_adj %>% t, center = TRUE, scale. = TRUE)
+table(is.na(meth_adj)) # 1369
+summary(as.numeric(meth_adj))
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+# -0.2034  0.7201  0.8700  0.8104  0.9654  1.1509    1369 
+
+ncp <- estim_ncpPCA(meth_adj)$ncp # 2
+meth_imp <- imputePCA(meth_adj, ncp = ncp)$completeObs
+table(is.na(meth_imp)) # 0
+summary(as.numeric(meth_imp))
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# -0.2034  0.7204  0.8698  0.8104  0.9651  1.1509 
+
+data.pca <- prcomp(t(meth_imp), center = TRUE, scale. = TRUE)
 ggbiplotPCA(data.pca = data.pca, groups = phenoData$Diagnosis, pc = c(1,2), 
             file = "Figures/Replication Diagnosis and Sex DMRs Raw Meth AdjSex PCA by Diagnosis.png", 
             xlim = c(-80, 80), ylim = c(-80, 80))
@@ -276,7 +281,7 @@ ggbiplotPCA(data.pca = data.pca, groups = phenoData$Sex, pc = c(1,2),
             xlim = c(-80, 80), ylim = c(-80, 80),
             breaks = c("M", "F"), values = c("M" = "#3366CC", "F" = "#FF3366"),
             legend.position = c(0.9, 1.03))
-rm(data.pca)
+rm(data.pca, ncp, meth_imp)
 
 # Raw Meth Covariate Association ####
 # Prep Data
@@ -434,21 +439,26 @@ buildHeatmap(x = methdiff, phenoData = phenoData[,c("Sample", "Diagnosis", "Sex"
 dev.off()
 rm(hm.lim, methdiff)
 
-# Raw Meth PCA ####
-meth_heat <- raw[,grepl("JLCM", colnames(raw), fixed = TRUE)] %>% as.matrix
+# Raw Meth PCA (Imputed) ####
+meth_heat <- raw[,grepl("JLCM", colnames(raw), fixed = TRUE)] %>% as.matrix()
 table(colnames(meth_heat) == phenoData$Sample) # All TRUE
-table(is.na(meth_heat))
-for(i in 1:nrow(meth_heat)){
-        temp <- as.numeric(meth_heat[i,])
-        temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with mean meth of that DMR
-        meth_heat[i,] <- temp
-}
-table(is.na(meth_heat))
-data.pca <- prcomp(t(meth_heat), center = TRUE, scale. = TRUE)
+table(is.na(meth_heat)) # 1255
+summary(as.numeric(meth_heat))
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+#  0.0000  0.7222  0.8721  0.8113  0.9762  1.0000    1255 
+
+ncp <- estim_ncpPCA(meth_heat)$ncp # 2
+meth_imp <- imputePCA(meth_heat, ncp = ncp)$completeObs
+table(is.na(meth_imp)) # 0
+summary(as.numeric(meth_imp))
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.0000  0.7222  0.8714  0.8113  0.9750  1.0169  
+
+data.pca <- prcomp(t(meth_imp), center = TRUE, scale. = TRUE)
 ggbiplotPCA(data.pca = data.pca, groups = phenoData$Diagnosis, pc = c(1,2), 
             file = "Figures/Replication Males Diagnosis DMRs Raw Meth PCA by Diagnosis.png", xlim = c(-80, 80), 
             ylim = c(-80, 80))
-rm(data.pca, i, temp, phenoData, meth_heat)
+rm(data.pca, i, temp, phenoData, meth_heat, ncp, meth_imp)
 
 # Raw Meth Covariate Association ####
 # Prep Data
@@ -641,15 +651,14 @@ dev.off()
 rm(hm.lim, methdiff)
 
 # Raw Meth PCA ####
-meth_heat <- raw[,grepl("JLCM", colnames(raw), fixed = TRUE)] %>% as.matrix
+meth_heat <- raw[,grepl("JLCM", colnames(raw), fixed = TRUE)] %>% as.matrix()
 table(colnames(meth_heat) == phenoData$Sample) # All TRUE
-table(is.na(meth_heat))
-for(i in 1:nrow(meth_heat)){
-        temp <- as.numeric(meth_heat[i,])
-        temp[is.na(temp)] <- mean(temp, na.rm = TRUE) # Replace missing values with mean meth of that DMR
-        meth_heat[i,] <- temp
-}
-table(is.na(meth_heat))
+table(is.na(meth_heat)) # 0 (Higher coverage requirement)
+summary(as.numeric(meth_heat))
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.0000  0.6833  0.8450  0.7809  0.9500  1.0000  
+# No imputation needed
+
 data.pca <- prcomp(t(meth_heat), center = TRUE, scale. = TRUE)
 ggbiplotPCA(data.pca = data.pca, groups = phenoData$Diagnosis, pc = c(1,2), 
             file = "Figures/Replication Females Diagnosis 100 DMRs Raw Meth PCA by Diagnosis.png", xlim = c(-100, 100), 
