@@ -328,6 +328,17 @@ intersectRegions_topGenes <- getDMRgeneList(intersectRegions_top, regDomains = r
 # [9] "MIR6775"      "PRSS37"       "PYGB"         "RBMS2"        "TAS2R5"      
 
 # DMR Gene Autism Gene Overlap Analysis -----------------------------------
+# Get Gene List for Negative Control Epigenetic Study ####
+# Load Regions
+DMRs_hg19 <- read.csv("Tables/Lunnon Cortex DMPs AD hg19.csv", stringsAsFactors = FALSE)
+
+# LiftOver to hg38
+DMRs_hg38 <- liftOverDMRs(DMRs_hg19, chainFile = "Tables/hg19ToHg38.over.chain")
+
+# Get EntrezIDs
+entrezIDs <- getDMRgeneList(DMRs_hg38, regDomains = regDomains, direction = "all", type = "gene_entrezID")
+rm(DMRs_hg19, DMRs_hg38)
+
 # Load Gene Lists ####
 # Autism Gene Lists
 files <- list.files(c("Entrez ID Lists/Genetic Studies", "Entrez ID Lists/Gene Expression Studies",
@@ -335,6 +346,7 @@ files <- list.files(c("Entrez ID Lists/Genetic Studies", "Entrez ID Lists/Gene E
 ASDgenes <- sapply(files, read.delim, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
 names(ASDgenes) <- gsub(pattern = ".*EntrezIDs_", replacement = "", x = names(ASDgenes)) %>%
         gsub(pattern = ".txt.V1", replacement = "", fixed = TRUE)
+ASDgenes$Cortex_Lunnon_AD_mCpG <- entrezIDs
 ASDgenes <- ASDgenes[sort(names(ASDgenes))]
 
 # DMR Gene Lists
@@ -377,13 +389,14 @@ gomResults$Intersection_GeneEntrezIDs <- sapply(gom, getNestedList, name = "inte
 gomResults$Intersection_GeneNames <- sapply(gomResults$Intersection_GeneEntrezIDs, entrezIDs_to_genes, regDomains = regDomains)
 gomResults <- gomResults[,c("DMR_GeneList", "ASD_GeneList", "DMR_GeneCount", "ASD_GeneCount", "Intersection", 
                             "Intersection_GeneNames", "Intersection_GeneEntrezIDs", "Per_DMRgenes", "Per_ASDgenes", 
-                            "OddsRatio", "pValue", "qValue")]
+                            "OddsRatio", "pValue", "qValue", "Significant")]
 Genetic <- list.files("Entrez ID Lists/Genetic Studies/") %>% str_replace_all(pattern = c("EntrezIDs_" = "", ".txt" = ""))
 Epigenetic <- list.files("Entrez ID Lists/Epigenetic Studies/") %>% str_replace_all(pattern = c("EntrezIDs_" = "", ".txt" = ""))
 Expression <- list.files("Entrez ID Lists/Gene Expression Studies//") %>% str_replace_all(pattern = c("EntrezIDs_" = "", ".txt" = ""))
 gomResults$Category <- NA
 gomResults$Category[gomResults$ASD_GeneList %in% Genetic] <- "Genetic"
 gomResults$Category[gomResults$ASD_GeneList %in% Epigenetic] <- "Epigenetic"
+gomResults$Category[gomResults$ASD_GeneList == "Cortex_Lunnon_AD_mCpG"] <- "Epigenetic"
 gomResults$Category[gomResults$ASD_GeneList %in% Expression] <- "Expression"
 gomResults$Category <- factor(gomResults$Category, levels = c("Genetic", "Epigenetic", "Expression"))
 pattern <- c("Blood_Gilissen_de_novo_CNV_ID" = "ID de novo CNV Gilissen", 
@@ -424,7 +437,7 @@ pattern <- c("Blood_Gilissen_de_novo_CNV_ID" = "ID de novo CNV Gilissen",
              "FrontalAndTemporalCortex_Parikshak_Dup15qVs.Ctrl_Genes" = "Dup15 Cortex Parikshak",       
              "ImprintedGenes_MaternalExpression" = "Imprinted, Maternally Expressed",                            
              "ImprintedGenes_PaternalExpression" = "Imprinted, Paternally Expressed",                            
-             "LCL_Tylee_RNAseq_DEG" = "ASD LCL Tylee", "_" = " ")
+             "LCL_Tylee_RNAseq_DEG" = "ASD LCL Tylee", "Cortex_Lunnon_AD_mCpG" = "Alzheimer's mCpG Cortex Lunnon", "_" = " ")
 gomResults$ASD_GeneList <- as.character(gomResults$ASD_GeneList) %>% str_replace_all(pattern = pattern) %>%
         factor(., levels = sort(unique(. ), decreasing = TRUE))
 write.table(gomResults, file = "Tables/DMR Gene Autism Gene Overlap Analysis Results with Genes.txt", sep = "\t", quote = FALSE, 
